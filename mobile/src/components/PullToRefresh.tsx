@@ -32,7 +32,7 @@
  *    (360deg / 0.7s linear infinite), reproduced with
  *    `withRepeat(withTiming(360, { duration: 700, easing: Easing.linear }), -1)`.
  */
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -93,11 +93,19 @@ export function PullToRefresh({ onRefresh, children, contentStyle }: PullToRefre
   const refreshing = useSharedValue(false);
   // True while a finger is actively dragging — content translate has no
   // transition while this is set (web: `transition: startY.current ? 'none' : ...`).
-  const isDragging = useSharedValue(false);
-
   // Guards against a stale 900ms refresh timer resolving after a fast
   // pull-release-pull-release sequence re-enters the refreshing state.
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending refresh timer if the wrapper unmounts mid-refresh
+  // (e.g. navigating away during the 900ms window) so onRefresh and the
+  // shared-value writes don't fire after unmount.
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current != null) clearTimeout(refreshTimerRef.current);
+    },
+    [],
+  );
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -136,7 +144,7 @@ export function PullToRefresh({ onRefresh, children, contentStyle }: PullToRefre
     // guard below, is what lets the pan "coexist" with the ScrollView
     // without a simultaneous-gesture ref dance: most touches (taps, normal
     // scrolling, upward drags) never activate the pan at all.
-    .activeOffsetY([10, 1000])
+    .activeOffsetY(10)
     .failOffsetY(-10)
     .onChange((e) => {
       // Only let the gesture push content while the scroller is pinned to
@@ -149,11 +157,9 @@ export function PullToRefresh({ onRefresh, children, contentStyle }: PullToRefre
         pull.value = 0;
         return;
       }
-      isDragging.value = true;
       pull.value = Math.min(next, PULL_CAP);
     })
     .onEnd(() => {
-      isDragging.value = false;
       if (refreshing.value) return;
       if (pull.value > REFRESH_THRESHOLD) {
         runOnJS(startRefresh)();
