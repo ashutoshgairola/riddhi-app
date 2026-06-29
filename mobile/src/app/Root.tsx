@@ -7,8 +7,11 @@ import {
   useFonts,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { NavigationContainer } from '@react-navigation/native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
+import { weight } from '../theme/tokens';
 
 export default function Root() {
   const [fontsLoaded] = useFonts({
@@ -25,13 +28,28 @@ export default function Root() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        {/* TODO(Task 1.2/3.1): wrap in ThemeProvider, render AppShell */}
-        <View style={styles.placeholder}>
-          <Text style={styles.title}>Riddhi</Text>
-        </View>
-      </NavigationContainer>
+      <ThemeProvider>
+        <NavigationContainer>
+          {/* TODO(Task 3.1): replace placeholder with AppShell */}
+          <Placeholder />
+        </NavigationContainer>
+      </ThemeProvider>
     </SafeAreaProvider>
+  );
+}
+
+function Placeholder() {
+  const { t, toggle } = useTheme();
+
+  return (
+    <View style={[styles.placeholder, { backgroundColor: t.bg }]}>
+      <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]}>Riddhi</Text>
+      <Pressable style={[styles.toggleBtn, { backgroundColor: t.em }]} onPress={toggle}>
+        <Text style={[styles.toggleLabel, { color: t.bg, fontFamily: weight(600) }]}>
+          Toggle theme
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -40,11 +58,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0e0b15',
+    gap: 16,
   },
   title: {
-    color: '#ffffff',
-    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 28,
+  },
+  toggleBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 16,
+  },
+  toggleLabel: {
+    fontSize: 14,
   },
 });
