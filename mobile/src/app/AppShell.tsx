@@ -146,8 +146,11 @@ function TempTabBar() {
 // NavBar (Android, Material 3) components, switched on `platform`.
 
 export function AppShell() {
-  const { top } = useNav();
-  const transitionKey = `${top.kind}-${JSON.stringify(top.data ?? null)}`;
+  const { top, stack } = useNav();
+  // Include stack depth so two sequential pushes of the same kind+data still
+  // re-trigger the enter animation, matching the prototype's
+  // key={stack.length + '-' + top.kind} (MobileApp.jsx:321).
+  const transitionKey = `${stack.length}-${top.kind}-${JSON.stringify(top.data ?? null)}`;
 
   return (
     <View style={styles.shell}>
