@@ -10,6 +10,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { GlassCard } from '../components/Glass';
+import { PageBackground } from '../components/PageBackground';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 
@@ -42,13 +44,16 @@ function Placeholder() {
   const { t, toggle } = useTheme();
 
   return (
-    <View style={[styles.placeholder, { backgroundColor: t.bg }]}>
-      <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]}>Riddhi</Text>
-      <Pressable style={[styles.toggleBtn, { backgroundColor: t.em }]} onPress={toggle}>
-        <Text style={[styles.toggleLabel, { color: t.bg, fontFamily: weight(600) }]}>
-          Toggle theme
-        </Text>
-      </Pressable>
+    <View style={styles.placeholder}>
+      <PageBackground />
+      <GlassCard style={styles.demoCard}>
+        <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]}>Riddhi</Text>
+        <Pressable style={[styles.toggleBtn, { backgroundColor: t.em }]} onPress={toggle}>
+          <Text style={[styles.toggleLabel, { color: t.bg, fontFamily: weight(600) }]}>
+            Toggle theme
+          </Text>
+        </Pressable>
+      </GlassCard>
     </View>
   );
 }
@@ -58,7 +63,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  demoCard: {
+    alignItems: 'center',
     gap: 16,
+    width: '80%',
   },
   title: {
     fontSize: 28,
