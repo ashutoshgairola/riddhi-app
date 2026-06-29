@@ -77,6 +77,9 @@ export function Topbar({ title, left, right, scrolled = false }: TopbarProps) {
 }
 
 // ── IconButton ──────────────────────────────────────────────────────
+// .m-iconbtn uses a literal `border-radius: 14px` (mobile.css:215), which is
+// not on the `--r-*` token scale, so it's a named local constant.
+const ICONBTN_RADIUS = 14;
 // .m-iconbtn (mobile.css:212–231) + .m-iconbtn-dot (233–241)
 export interface IconButtonProps {
   children: React.ReactNode;
@@ -99,7 +102,7 @@ export function IconButton({ children, onPress, dot = false, size = 40 }: IconBu
             { width: size, height: size, transform: [{ scale: pressed ? 0.92 : 1 }] },
           ]}
           intensity={mode === 'light' ? 40 : 30}
-          radius={radius.sm}
+          radius={ICONBTN_RADIUS}
           padding={0}
         >
           <View
@@ -215,7 +218,7 @@ export function Btn({ children, variant = 'em', onPress, disabled = false, style
   }
 
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={style}>
+    <Pressable onPress={onPress} disabled={disabled}>
       {({ pressed }) => (
         <View
           style={[
@@ -227,6 +230,7 @@ export function Btn({ children, variant = 'em', onPress, disabled = false, style
               opacity: disabled ? 0.5 : 1,
               transform: [{ scale: pressed ? 0.97 : 1 }],
             },
+            style,
           ]}
         >
           {typeof children === 'string' ? (
@@ -421,7 +425,7 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.sm,
+    borderRadius: ICONBTN_RADIUS,
   },
   iconBtnDot: {
     position: 'absolute',
