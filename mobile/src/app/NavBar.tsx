@@ -1,0 +1,180 @@
+/**
+ * NavBar — Android Material 3 bottom navigation bar + floating FAB.
+ *
+ * RN port of `.m-navbar` / `.m-navdest` / `.m-mfab`
+ * (project/riddhi/platform.css:95–157) and the Android-branch render in
+ * `project/riddhi/MobileApp.jsx:363–375`.
+ *
+ * Unlike the iOS tab bar, Android has no centre FAB slot in the bar
+ * itself: the 4 destinations (Home, Activity, Budget, More) sit in
+ * `.m-navbar`, each with a pill-shaped active indicator
+ * (`.m-navpill`, 64x32) that fills with `emDim`/`em` when active. The
+ * FAB (`.m-mfab`, 56x56, rounded-square) floats independently,
+ * absolutely positioned bottom-right above the bar — rendered as a
+ * sibling here too, not inside `.m-navbar`.
+ *
+ * `navLabels` mirrors the `navLabels` prop on the web `MobileApp`
+ * (default `true`) — `.m-navbar.no-labels` hides the `<span>` labels
+ * and removes the row gap (platform.css:133–134).
+ */
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { MI, type IconName } from '../components/icons';
+import { useTheme } from '../theme/ThemeProvider';
+import { weight } from '../theme/tokens';
+import { useNav, type ScreenKind } from './navContext';
+
+// MTabs filtered to non-FAB entries (MobileApp.jsx:3–9, android branch
+// filters out `isFab` — platform.css has no centre FAB slot).
+interface DestSpec {
+  id: ScreenKind | 'more';
+  label: string;
+  icon: IconName;
+}
+
+const DESTS: DestSpec[] = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'txns', label: 'Activity', icon: 'txns' },
+  { id: 'budgets', label: 'Budget', icon: 'budget' },
+  { id: 'more', label: 'More', icon: 'more' },
+];
+
+export interface NavBarProps {
+  /** Show destination labels. Defaults to `true` — `.m-navbar.no-labels`
+   * (platform.css:133–134) when `false`. */
+  navLabels?: boolean;
+}
+
+export function NavBar({ navLabels = true }: NavBarProps) {
+  const { t } = useTheme();
+  const { activeTab, goTab } = useNav();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        styles.navbar,
+        { backgroundColor: t.bg1, borderTopColor: t.border, paddingBottom: 12 + insets.bottom },
+      ]}
+    >
+      {DESTS.map((dest) => {
+        const isActive = activeTab === dest.id || (dest.id === 'more' && activeTab === null);
+        const Icon = MI[dest.icon];
+        return (
+          <Pressable
+            key={dest.id}
+            style={[styles.navdest, !navLabels && styles.navdestNoLabels]}
+            onPress={() => goTab(dest.id)}
+          >
+            <View
+              style={[
+                styles.navpill,
+                isActive && { backgroundColor: t.emDim },
+              ]}
+            >
+              <Icon size={22} color={isActive ? t.em : t.text2} strokeWidth={isActive ? 2.4 : 1.9} />
+            </View>
+            {navLabels && (
+              <Text
+                style={[
+                  styles.label,
+                  { color: isActive ? t.em : t.text2, fontFamily: weight(500) },
+                ]}
+              >
+                {dest.label}
+              </Text>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export interface MFabProps {
+  open: boolean;
+  onPress: () => void;
+}
+
+/** `.m-mfab` (platform.css:138–157) — Material 3 floating action button,
+ * absolutely positioned bottom-right above the nav bar. Rendered as a
+ * sibling of `<NavBar/>` by `AppShell`, not nested inside it (matching
+ * the web DOM, where `.m-mfab` and `.m-navbar` are sibling children of
+ * `.m-shell`). */
+export function MFab({ open, onPress }: MFabProps) {
+  const { t } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Add"
+      style={[
+        styles.mfab,
+        { backgroundColor: t.em, bottom: 96 + insets.bottom },
+        open && styles.mfabOpen,
+      ]}
+      onPress={onPress}
+    >
+      <MI.plus size={26} color="#060810" strokeWidth={2.4} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  // .m-navbar (platform.css:95–106)
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-around',
+    height: 80,
+    paddingTop: 12,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+  },
+  // .m-navdest (platform.css:107–118)
+  navdest: {
+    flex: 1,
+    maxWidth: 96,
+    alignItems: 'center',
+    gap: 4,
+  },
+  // .m-navdest .m-navpill (platform.css:120–131)
+  navpill: {
+    width: 64,
+    height: 32,
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  // .m-navbar.no-labels .m-navdest (platform.css:134) — gap: 0
+  navdestNoLabels: {
+    gap: 0,
+  },
+  // .m-navdest span (platform.css:133)
+  label: {
+    fontSize: 11,
+    letterSpacing: 0.02 * 11,
+  },
+  // .m-mfab (platform.css:138–157)
+  mfab: {
+    position: 'absolute',
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: 'rgba(0,0,0,0.4)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  // .m-mfab.open: rotate(45deg) (platform.css:157)
+  mfabOpen: {
+    transform: [{ rotate: '45deg' }],
+  },
+});

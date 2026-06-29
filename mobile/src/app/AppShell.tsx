@@ -4,9 +4,11 @@
  *
  * Renders the top of the nav stack (`useNav().top`) inside a custom
  * Reanimated transition that reproduces the prototype's CSS keyframes
- * exactly, plus a temporary bottom tab bar (the real `TabBar`/`NavBar` is
- * Task 3.2). FAB (Task 3.3) and sheets — Add/More/Profile (Task 3.4) — are
- * left as marked integration points; this shell does not render them.
+ * exactly, plus the platform-specific chrome: the iOS `<TabBar/>` (with
+ * its centre FAB tab) or the Android `<NavBar/>` + floating `<MFab/>`
+ * (Task 3.2). The FAB radial speed-dial actions (Task 3.3) and sheets —
+ * Add/More/Profile (Task 3.4) — are left as marked integration points;
+ * this shell does not render them yet.
  *
  * Transition source of truth:
  *  - iOS: `.m-page-enter` (project/riddhi/mobile.css:173,176–179) —
@@ -28,7 +30,7 @@
  * every stack-top change (push, pop, or tab reset alike).
  */
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -36,11 +38,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { MI } from '../components/icons';
-import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { MFab, NavBar } from './NavBar';
+import { TabBar } from './TabBar';
 import { renderScreen } from './screens';
-import { useNav, type ScreenKind } from './navContext';
+import { useNav } from './navContext';
 
 // .m-page-enter: 0.32s var(--ease)
 const IOS_ENTER_MS = 320;
@@ -88,65 +89,9 @@ function StackTransition({ transitionKey, children }: { transitionKey: string; c
   return <Animated.View style={[styles.pageLayer, style]}>{children}</Animated.View>;
 }
 
-// ── Temporary bottom tab bar ──────────────────────────────────────────
-// Stand-in for the real iOS `.m-tabbar` / Android `.m-navbar` chrome
-// (MobileApp.jsx:343–380). Real styled TabBar/NavBar lands in Task 3.2,
-// FAB polish in Task 3.3. This just needs to expose 5 slots wired to
-// `goTab` so the nav model is exercisable end-to-end.
-type TempTabSpec =
-  | { id: ScreenKind | 'more'; label: string; icon?: keyof typeof MI; isFab?: false }
-  | { id: 'fab'; label: ''; isFab: true };
-
-const TEMP_TABS: TempTabSpec[] = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'txns', label: 'Activity', icon: 'txns' },
-  { id: 'fab', label: '', isFab: true },
-  { id: 'budgets', label: 'Budget', icon: 'budget' },
-  { id: 'more', label: 'More', icon: 'more' },
-];
-
-function TempTabBar() {
-  const { t } = useTheme();
-  const { activeTab, goTab, openAdd } = useNav();
-
-  return (
-    <View style={[styles.tabbar, { backgroundColor: t.tabbarBg, borderTopColor: t.tabbarBorder }]}>
-      {TEMP_TABS.map((tab) => {
-        if (tab.isFab) {
-          // TODO(Task 3.3): replace with the real animated FAB + radial
-          // speed-dial actions (MobileApp.jsx:326–341, 343–358/360–380).
-          return (
-            <Pressable key="fab" style={styles.fabSlot} onPress={openAdd}>
-              <View style={[styles.fabCircle, { backgroundColor: t.em }]}>
-                <MI.plus size={24} color="#1a1228" />
-              </View>
-            </Pressable>
-          );
-        }
-        const isActive = activeTab === tab.id || (tab.id === 'more' && activeTab === null);
-        const Icon = tab.icon ? MI[tab.icon] : null;
-        return (
-          <Pressable key={tab.id} style={styles.tabSlot} onPress={() => goTab(tab.id)}>
-            {Icon ? <Icon size={22} color={isActive ? t.text1 : t.text3} /> : null}
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: isActive ? t.text1 : t.text3, fontFamily: weight(600) },
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-// TODO(Task 3.2): replace <TempTabBar/> with the real TabBar (iOS) /
-// NavBar (Android, Material 3) components, switched on `platform`.
-
 export function AppShell() {
-  const { top, stack } = useNav();
+  const { top, stack, platform, fabOpen, setFabOpen } = useNav();
+  const isAndroid = platform === 'android';
   // Include stack depth so two sequential pushes of the same kind+data still
   // re-trigger the enter animation, matching the prototype's
   // key={stack.length + '-' + top.kind} (MobileApp.jsx:321).
@@ -163,7 +108,14 @@ export function AppShell() {
       {/* TODO(Task 3.4): AddTxSheet / MoreSheet / ProfileSheet mount here,
           as siblings of the tab bar (MobileApp.jsx:382–384). */}
 
-      <TempTabBar />
+      {isAndroid ? (
+        <>
+          <MFab open={fabOpen} onPress={() => setFabOpen(!fabOpen)} />
+          <NavBar />
+        </>
+      ) : (
+        <TabBar />
+      )}
     </View>
   );
 }
@@ -179,36 +131,5 @@ const styles = StyleSheet.create({
   },
   pageLayer: {
     flex: 1,
-  },
-  tabbar: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    height: 78,
-    paddingTop: 8,
-    paddingBottom: 14,
-    paddingHorizontal: 12,
-    gap: 4,
-    borderTopWidth: 1,
-  },
-  tabSlot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  tabLabel: {
-    fontSize: 10,
-  },
-  fabSlot: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  fabCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    marginTop: -24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
