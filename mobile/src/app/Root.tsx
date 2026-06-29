@@ -12,6 +12,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { GlassCard } from '../components/Glass';
 import { PageBackground } from '../components/PageBackground';
+import { FeedbackProvider, useFeedback } from '../feedback/FeedbackProvider';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 
@@ -31,10 +32,12 @@ export default function Root() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <NavigationContainer>
-          {/* TODO(Task 3.1): replace placeholder with AppShell */}
-          <Placeholder />
-        </NavigationContainer>
+        <FeedbackProvider>
+          <NavigationContainer>
+            {/* TODO(Task 3.1): replace placeholder with AppShell */}
+            <Placeholder />
+          </NavigationContainer>
+        </FeedbackProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
@@ -42,6 +45,10 @@ export default function Root() {
 
 function Placeholder() {
   const { t, toggle } = useTheme();
+  // THROWAWAY: proves FeedbackProvider works end to end (Task 2.3). Remove
+  // once AppShell (Task 3.1) lands and screens exercise toast()/sheet()
+  // themselves.
+  const { toast, sheet } = useFeedback();
 
   return (
     <View style={styles.placeholder}>
@@ -51,6 +58,30 @@ function Placeholder() {
         <Pressable style={[styles.toggleBtn, { backgroundColor: t.em }]} onPress={toggle}>
           <Text style={[styles.toggleLabel, { color: t.bg, fontFamily: weight(600) }]}>
             Toggle theme
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleBtn, { backgroundColor: t.glassBg2 }]}
+          onPress={() => toast('Saved', '✓')}
+        >
+          <Text style={[styles.toggleLabel, { color: t.text1, fontFamily: weight(600) }]}>
+            Demo: toast
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleBtn, { backgroundColor: t.glassBg2 }]}
+          onPress={() =>
+            sheet({
+              title: 'Demo options',
+              options: [
+                { label: 'Edit', icon: '✏️', onPress: () => toast('Edited', '✓') },
+                { label: 'Delete', icon: '🗑️', danger: true, onPress: () => toast('Deleted', '🗑️') },
+              ],
+            })
+          }
+        >
+          <Text style={[styles.toggleLabel, { color: t.text1, fontFamily: weight(600) }]}>
+            Demo: sheet
           </Text>
         </Pressable>
       </GlassCard>
