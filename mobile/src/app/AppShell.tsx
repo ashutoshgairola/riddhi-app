@@ -38,6 +38,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { FabActions } from './FabActions';
 import { MFab, NavBar } from './NavBar';
 import { TabBar } from './TabBar';
 import { renderScreen } from './screens';
@@ -103,8 +104,14 @@ export function AppShell() {
         <StackTransition transitionKey={transitionKey}>{renderScreen(top)}</StackTransition>
       </View>
 
-      {/* TODO(Task 3.3): FAB radial backdrop + speed-dial actions render
-          here, above the tab bar (MobileApp.jsx:325–341). */}
+      {/* FAB radial backdrop + speed-dial actions (MobileApp.jsx:325–341).
+          Rendered before the tab bar / FAB button below so the backdrop
+          covers the screen but the FAB itself (in TabBar/NavBar+MFab)
+          stacks on top and stays tappable to close the menu — same DOM
+          order as the web (`.m-fab-backdrop`/`.m-fab-action` precede
+          `.m-tabbar`/`.m-navbar`/`.m-mfab` in MobileApp.jsx:325–389). */}
+      <FabActions />
+
       {/* TODO(Task 3.4): AddTxSheet / MoreSheet / ProfileSheet mount here,
           as siblings of the tab bar (MobileApp.jsx:382–384). */}
 
