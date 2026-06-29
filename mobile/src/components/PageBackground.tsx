@@ -61,7 +61,7 @@ const GLOWS: GlowSpec[] = [
  * `StyleSheet.absoluteFill`).
  */
 export function PageBackground({ children }: PropsWithChildren = {}) {
-  const { t } = useTheme();
+  const { t, mode } = useTheme();
   const [stop0, stop46, stop100] = t.pageGradient;
   const [glowTL, glowTR, glowBC] = t.pageGlow;
   const glowColors = [glowTL, glowTR, glowBC];
@@ -70,7 +70,7 @@ export function PageBackground({ children }: PropsWithChildren = {}) {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <LinearGradient
         colors={[stop0, stop46, stop100]}
-        locations={[0, 0.46, 1]}
+        locations={[0, mode === 'light' ? 0.48 : 0.46, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
