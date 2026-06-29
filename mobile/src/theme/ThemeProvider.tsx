@@ -72,9 +72,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setModeState((prev) => (prev === 'light' ? 'dark' : 'light'));
   }, []);
 
-  // Persist every change once the initial AsyncStorage read has settled, so
-  // a user toggle that races the hydration read isn't immediately
-  // overwritten and every committed `mode` value is written exactly once.
+  // Persist every change once the initial AsyncStorage read has settled. The
+  // hydration gate's purpose is to prevent a user toggle that races the read
+  // from being clobbered by the late stored value. Note: when hydration itself
+  // applies a stored mode, this effect will write that same value straight back
+  // — a redundant but harmless idempotent write of the value just read.
   useEffect(() => {
     if (!hydratedRef.current) return;
     AsyncStorage.setItem(STORAGE_KEY, mode).catch(() => {
