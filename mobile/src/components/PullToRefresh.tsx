@@ -130,6 +130,14 @@ export function PullToRefresh({ onRefresh, children, contentStyle }: PullToRefre
   }, [pull]);
 
   const pan = Gesture.Pan()
+    // Only claim the gesture once the finger has moved >=10px downward; any
+    // upward movement first fails the pan immediately so native ScrollView
+    // bounce/scroll handles it instead. This, combined with the `scrollY`
+    // guard below, is what lets the pan "coexist" with the ScrollView
+    // without a simultaneous-gesture ref dance: most touches (taps, normal
+    // scrolling, upward drags) never activate the pan at all.
+    .activeOffsetY([10, 1000])
+    .failOffsetY(-10)
     .onChange((e) => {
       // Only let the gesture push content while the scroller is pinned to
       // the top and the drag is downward — matches the web's combined
