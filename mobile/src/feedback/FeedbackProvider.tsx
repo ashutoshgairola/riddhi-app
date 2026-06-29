@@ -21,7 +21,7 @@
  *    so the sheet's close animation isn't interrupted by whatever the
  *    callback does. Web's `onClick` is renamed `onPress` per RN convention.
  */
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -29,6 +29,23 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { BottomSheet } from '../components/BottomSheet';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spring, weight } from '../theme/tokens';
+
+/**
+ * `toastShadow` is authored the same way as `BottomSheet`'s `sheetShadow` —
+ * an `inset 0 1px 0 rgba(...)` highlight clause followed by an ambient
+ * `0 10px 30px rgba(...)` drop-shadow clause. Reuses that same parsing
+ * approach (see `BottomSheet.tsx`'s `topHighlightColor`/`ambientShadowColor`)
+ * so the toast pill's shadow is theme-correct instead of a hardcoded black.
+ */
+function topHighlightColor(toastShadow: string): string {
+  const match = toastShadow.match(/rgba\([^)]*\)/g);
+  return match?.[0] ?? 'rgba(255,255,255,0.12)';
+}
+
+function ambientShadowColor(toastShadow: string): string {
+  const match = toastShadow.match(/rgba\([^)]*\)/g);
+  return match?.[1] ?? '#000000';
+}
 
 /** `.m-toast` auto-dismiss delay — mobile.css:687–700 has no explicit timer,
  * the 2200ms lives in the web's `MToastHost` (MobileCore.jsx:217). */
@@ -74,13 +91,25 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   // version's id scheme) — avoids any (extremely unlikely) collision and is
   // simpler to reason about under React's strict mode double-invoke.
   const nextId = useRef(0);
+  // Outstanding `setTimeout` ids (toast auto-dismiss + sheet-option action
+  // delay) — tracked so they can all be cleared on unmount, avoiding any
+  // setState-after-unmount if the provider is ever remounted.
+  const timeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timeoutIds.current.forEach(clearTimeout);
+      timeoutIds.current = [];
+    };
+  }, []);
 
   const toast = useCallback((msg: string, icon?: string) => {
     const id = nextId.current++;
     setToasts((prev) => [...prev, { id, msg, icon }]);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, TOAST_DURATION_MS);
+    timeoutIds.current.push(timeoutId);
   }, []);
 
   const sheet = useCallback((cfg: SheetConfig) => {
@@ -94,9 +123,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
 
   const selectOption = useCallback((option: SheetOption) => {
     setSheetOpen(false);
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       option.onPress?.();
     }, SHEET_ACTION_DELAY_MS);
+    timeoutIds.current.push(timeoutId);
   }, []);
 
   const value = useMemo<FeedbackContextValue>(() => ({ toast, sheet }), [toast, sheet]);
@@ -140,11 +170,15 @@ function Toast({ msg, icon }: { msg: string; icon?: string }) {
   // animate progress 0 -> 1 once on mount and derive both transform
   // components from it.
   const progress = useSharedValue(0);
-  // `useSharedValue`'s initializer runs once per mount; since this component
-  // is only ever mounted fresh (one `Toast` per stacked item, never reused),
-  // kicking the animation off directly during render is equivalent to a
-  // mount effect without needing `useEffect` + `runOnJS` ceremony.
-  progress.value = withTiming(1, { duration: TOAST_ENTRANCE_MS, easing: spring });
+  // Mount-only effect (empty deps) — `Toast` consumes `useTheme()`, so kicking
+  // the animation off directly in the render body would restart the
+  // slide/scale/fade every time the theme context changes (e.g. a dark/light
+  // toggle while the toast is visible re-renders this component). An effect
+  // with `[]` deps fires exactly once per mount regardless of re-renders.
+  useEffect(() => {
+    progress.value = withTiming(1, { duration: TOAST_ENTRANCE_MS, easing: spring });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -162,10 +196,17 @@ function Toast({ msg, icon }: { msg: string; icon?: string }) {
         {
           backgroundColor: t.toastBg,
           borderColor: t.toastBorder,
-          shadowColor: '#000',
+          shadowColor: ambientShadowColor(t.toastShadow),
         },
       ]}
     >
+      {/* CSS inset top-highlight half of `toastShadow`, approximated the same
+       * way `BottomSheet` approximates `sheetShadow`'s inset clause — a 1px
+       * highlight view along the pill's top inner edge. */}
+      <View
+        style={[styles.toastHiLight, { backgroundColor: topHighlightColor(t.toastShadow) }]}
+        pointerEvents="none"
+      />
       {icon ? <Text style={styles.toastIcon}>{icon}</Text> : null}
       <Text style={[styles.toastMsg, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={2}>
         {msg}
@@ -231,9 +272,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     maxWidth: '78%',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
+    // Opacity is 1 because `shadowColor` (set inline, per-theme) is itself an
+    // rgba string carrying its own alpha — see `ambientShadowColor` (matches
+    // the same pattern in `BottomSheet.tsx`'s `sheet` style).
+    shadowOpacity: 1,
     shadowRadius: 30,
     elevation: 10,
+  },
+  toastHiLight: {
+    position: 'absolute',
+    top: 0,
+    left: 14,
+    right: 14,
+    height: 1,
+    borderRadius: 99,
   },
   toastIcon: {
     fontSize: 15,
