@@ -44,7 +44,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
-        if (cancelled) return;
+        // Bail if unmounted, or if the user already toggled/set the mode
+        // before this read resolved — don't clobber their choice.
+        if (cancelled || hydratedRef.current) return;
         if (isThemeMode(stored)) {
           setModeState(stored);
         }
@@ -63,19 +65,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setMode = useCallback((m: ThemeMode) => {
     hydratedRef.current = true;
     setModeState(m);
-    AsyncStorage.setItem(STORAGE_KEY, m).catch(() => {
-      // Ignore write failures; in-memory state is still updated.
-    });
   }, []);
 
   const toggle = useCallback(() => {
-    setModeState((prev) => {
-      const next: ThemeMode = prev === 'light' ? 'dark' : 'light';
-      hydratedRef.current = true;
-      AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
-      return next;
-    });
+    hydratedRef.current = true;
+    setModeState((prev) => (prev === 'light' ? 'dark' : 'light'));
   }, []);
+
+  // Persist every change once the initial AsyncStorage read has settled, so
+  // a user toggle that races the hydration read isn't immediately
+  // overwritten and every committed `mode` value is written exactly once.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    AsyncStorage.setItem(STORAGE_KEY, mode).catch(() => {
+      // Ignore write failures; in-memory state is still updated.
+    });
+  }, [mode]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
