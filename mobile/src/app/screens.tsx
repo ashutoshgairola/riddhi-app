@@ -23,7 +23,11 @@ import { Budgets } from '../screens/Budgets';
 import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
 import { Invest } from '../screens/Invest';
+import { Notifications } from '../screens/Notifications';
 import { Reports } from '../screens/Reports';
+import { Search } from '../screens/Search';
+import { TxCategories } from '../screens/TxCategories';
+import { TxDetail } from '../screens/TxDetail';
 import { Txns } from '../screens/Txns';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -76,11 +80,11 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   chat: PlaceholderScreen,
   accounts: Accounts,
   'account-detail': AccountDetail,
-  'tx-cats': PlaceholderScreen,
+  'tx-cats': TxCategories,
   settings: PlaceholderScreen,
-  notifs: PlaceholderScreen,
-  search: PlaceholderScreen,
-  'tx-detail': PlaceholderScreen,
+  notifs: Notifications,
+  search: Search,
+  'tx-detail': TxDetail,
 };
 
 /** Renders the screen for a given stack entry — RN counterpart of
