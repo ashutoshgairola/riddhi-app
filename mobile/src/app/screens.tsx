@@ -21,6 +21,7 @@ import { Budgets } from '../screens/Budgets';
 import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
 import { Invest } from '../screens/Invest';
+import { Reports } from '../screens/Reports';
 import { Txns } from '../screens/Txns';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -68,7 +69,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   budgets: Budgets,
   goals: Goals,
   invest: Invest,
-  reports: PlaceholderScreen,
+  reports: Reports,
   sync: PlaceholderScreen,
   chat: PlaceholderScreen,
   accounts: PlaceholderScreen,
