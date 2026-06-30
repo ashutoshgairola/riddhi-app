@@ -17,6 +17,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Btn } from '../components/ui';
 import { PageBackground } from '../components/PageBackground';
 import { Topbar } from '../components/ui';
+import { AccountDetail } from '../screens/AccountDetail';
+import { Accounts } from '../screens/Accounts';
 import { Budgets } from '../screens/Budgets';
 import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
@@ -72,8 +74,8 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   reports: Reports,
   sync: PlaceholderScreen,
   chat: PlaceholderScreen,
-  accounts: PlaceholderScreen,
-  'account-detail': PlaceholderScreen,
+  accounts: Accounts,
+  'account-detail': AccountDetail,
   'tx-cats': PlaceholderScreen,
   settings: PlaceholderScreen,
   notifs: PlaceholderScreen,
