@@ -179,6 +179,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 60,
+    // Android paints by elevation independent of zIndex: keep the backdrop
+    // below the action cards (5) and the FAB (MFab 6 / TabBar fab 8) so the
+    // FAB stays visible/tappable over the dimmed backdrop deterministically.
+    elevation: 4,
   },
   backdropFill: {
     flex: 1,
@@ -194,6 +198,8 @@ const styles = StyleSheet.create({
   action: {
     position: 'absolute',
     zIndex: 61,
+    // Above the backdrop (4), below the FAB (6/8) on Android's elevation plane.
+    elevation: 5,
   },
   actionIos: {
     left: 0,
