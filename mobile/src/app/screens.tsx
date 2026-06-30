@@ -26,6 +26,7 @@ import { Invest } from '../screens/Invest';
 import { Notifications } from '../screens/Notifications';
 import { Reports } from '../screens/Reports';
 import { Search } from '../screens/Search';
+import { Settings } from '../screens/Settings';
 import { TxCategories } from '../screens/TxCategories';
 import { TxDetail } from '../screens/TxDetail';
 import { Txns } from '../screens/Txns';
@@ -81,7 +82,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   accounts: Accounts,
   'account-detail': AccountDetail,
   'tx-cats': TxCategories,
-  settings: PlaceholderScreen,
+  settings: Settings,
   notifs: Notifications,
   search: Search,
   'tx-detail': TxDetail,
