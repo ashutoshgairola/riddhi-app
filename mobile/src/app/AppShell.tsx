@@ -38,8 +38,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { AddTxSheet } from './AddTxSheet';
 import { FabActions } from './FabActions';
 import { MFab, NavBar } from './NavBar';
+import { MoreSheet } from './MoreSheet';
+import { ProfileSheet } from './ProfileSheet';
 import { TabBar } from './TabBar';
 import { renderScreen } from './screens';
 import { useNav } from './navContext';
@@ -112,8 +115,11 @@ export function AppShell() {
           `.m-tabbar`/`.m-navbar`/`.m-mfab` in MobileApp.jsx:325–389). */}
       <FabActions />
 
-      {/* TODO(Task 3.4): AddTxSheet / MoreSheet / ProfileSheet mount here,
-          as siblings of the tab bar (MobileApp.jsx:382–384). */}
+      {/* Add/More/Profile sheets — siblings of the tab bar, each reading
+          its own open flag + setter from useNav() (MobileApp.jsx:382–384). */}
+      <AddTxSheet />
+      <MoreSheet />
+      <ProfileSheet />
 
       {isAndroid ? (
         <>
