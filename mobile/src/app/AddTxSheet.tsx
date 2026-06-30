@@ -229,7 +229,7 @@ export function AddTxSheet() {
               Receipt attached
             </Text>
             <Text style={[styles.receiptSubtitle, { color: t.em, fontFamily: weight(500) }]}>
-              Riddhi will read the amount &amp; merchant
+              Riddhi will read the amount & merchant
             </Text>
           </View>
           <Pressable
