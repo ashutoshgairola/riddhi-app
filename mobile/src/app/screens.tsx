@@ -27,6 +27,7 @@ import { Notifications } from '../screens/Notifications';
 import { Reports } from '../screens/Reports';
 import { Search } from '../screens/Search';
 import { Settings } from '../screens/Settings';
+import { Sync } from '../screens/Sync';
 import { TxCategories } from '../screens/TxCategories';
 import { TxDetail } from '../screens/TxDetail';
 import { Txns } from '../screens/Txns';
@@ -77,7 +78,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   goals: Goals,
   invest: Invest,
   reports: Reports,
-  sync: PlaceholderScreen,
+  sync: Sync,
   chat: PlaceholderScreen,
   accounts: Accounts,
   'account-detail': AccountDetail,
