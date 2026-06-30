@@ -17,7 +17,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Btn } from '../components/ui';
 import { PageBackground } from '../components/PageBackground';
 import { Topbar } from '../components/ui';
+import { Budgets } from '../screens/Budgets';
+import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
+import { Invest } from '../screens/Invest';
 import { Txns } from '../screens/Txns';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -62,9 +65,9 @@ type ScreenComponent = React.ComponentType<{ entry: ScreenEntry }>;
 export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   home: Home,
   txns: Txns,
-  budgets: PlaceholderScreen,
-  goals: PlaceholderScreen,
-  invest: PlaceholderScreen,
+  budgets: Budgets,
+  goals: Goals,
+  invest: Invest,
   reports: PlaceholderScreen,
   sync: PlaceholderScreen,
   chat: PlaceholderScreen,
