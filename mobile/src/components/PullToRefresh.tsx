@@ -74,9 +74,14 @@ export interface PullToRefreshProps {
   onRefresh?: () => void;
   children: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
+  /** Forwarded scroll listener on the inner `ScrollView` — composes with the
+   * gesture's own scroll tracking. Lets callers mirror the web's
+   * `onScroll={e => setScrolled(e.target.scrollTop > 8)}` pattern (e.g.
+   * MobileHome.jsx:95) for a topbar "scrolled" state. */
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
 
-export function PullToRefresh({ onRefresh, children, contentStyle }: PullToRefreshProps) {
+export function PullToRefresh({ onRefresh, children, contentStyle, onScroll }: PullToRefreshProps) {
   const { t } = useTheme();
 
   // Latest vertical scroll offset of the inner ScrollView — the pan gesture
@@ -110,8 +115,9 @@ export function PullToRefresh({ onRefresh, children, contentStyle }: PullToRefre
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       scrollY.value = e.nativeEvent.contentOffset.y;
+      onScroll?.(e);
     },
-    [scrollY],
+    [scrollY, onScroll],
   );
 
   const startRefresh = useCallback(() => {

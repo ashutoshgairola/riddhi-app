@@ -17,6 +17,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Btn } from '../components/ui';
 import { PageBackground } from '../components/PageBackground';
 import { Topbar } from '../components/ui';
+import { Home } from '../screens/Home';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav, type ScreenEntry, type ScreenKind } from './navContext';
@@ -58,7 +59,7 @@ type ScreenComponent = React.ComponentType<{ entry: ScreenEntry }>;
 /** Kind -> component. Every kind currently maps to `PlaceholderScreen`;
  * Phase 4 tasks swap individual entries for the real screen as each lands. */
 export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
-  home: PlaceholderScreen,
+  home: Home,
   txns: PlaceholderScreen,
   budgets: PlaceholderScreen,
   goals: PlaceholderScreen,
