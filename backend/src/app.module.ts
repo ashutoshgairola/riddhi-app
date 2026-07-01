@@ -5,6 +5,10 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { HealthController } from './health.controller';
 import { StubResolver } from './stub.resolver';
+import { UsersModule } from './users/users.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { CategoriesModule } from './categories/categories.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -25,6 +29,11 @@ import { StubResolver } from './stub.resolver';
       driver: ApolloDriver,
       autoSchemaFile: true,
     }),
+
+    UsersModule,
+    AccountsModule,
+    CategoriesModule,
+    TransactionsModule,
   ],
   controllers: [HealthController],
   providers: [StubResolver],
