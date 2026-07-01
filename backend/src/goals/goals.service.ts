@@ -16,9 +16,10 @@ function computeGoalFields(goal: Goal) {
   const targetAmount = Number(goal.targetAmount);
   const currentAmount = Number(goal.currentAmount);
 
-  const progressPct = Math.round(
-    Math.min(Math.max((currentAmount / targetAmount) * 100, 0), 100),
-  );
+  const progressPct =
+    targetAmount > 0
+      ? Math.round(Math.min(Math.max((currentAmount / targetAmount) * 100, 0), 100))
+      : 0;
   const remaining = Math.max(targetAmount - currentAmount, 0);
 
   let projectedCompletionDate: string | null = null;

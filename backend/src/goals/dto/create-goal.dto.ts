@@ -7,6 +7,7 @@ import {
   IsInt,
   IsUUID,
   IsDateString,
+  Min,
 } from 'class-validator';
 import { GoalType, GoalStatus, ContributionFrequency } from '../../common/enums';
 
@@ -22,6 +23,7 @@ export class CreateGoalDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   currentAmount?: number;
 
   @IsDateString()
