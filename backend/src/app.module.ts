@@ -9,6 +9,10 @@ import { UsersModule } from './users/users.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { BudgetsModule } from './budgets/budgets.module';
+import { GoalsModule } from './goals/goals.module';
+import { InvestmentsModule } from './investments/investments.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -34,6 +38,10 @@ import { TransactionsModule } from './transactions/transactions.module';
     AccountsModule,
     CategoriesModule,
     TransactionsModule,
+    BudgetsModule,
+    GoalsModule,
+    InvestmentsModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [StubResolver],
