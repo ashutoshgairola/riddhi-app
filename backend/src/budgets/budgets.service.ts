@@ -98,9 +98,10 @@ export class BudgetsService {
   async computeBudget(budget: Budget, userId: string): Promise<ComputedBudget> {
     const categories = budget.categories ?? [];
 
-    // Collect the union of all categoryIds across all budget categories
+    // Collect the union of all categoryIds across all budget categories.
+    // Filter empty strings: simple-array round-trips [] as [''] from the DB.
     const allCategoryIds = Array.from(
-      new Set(categories.flatMap((c) => c.categoryIds ?? [])),
+      new Set(categories.flatMap((c) => (c.categoryIds ?? []).filter(Boolean))),
     );
 
     // One query to get all relevant expenses
@@ -111,13 +112,14 @@ export class BudgetsService {
       allCategoryIds,
     );
 
-    // Sum per budget category
+    // Sum per budget category; filter empty strings for the same reason.
     const categoriesWithSpent: BudgetCategoryWithSpent[] = categories.map((cat) => {
-      const spent = (cat.categoryIds ?? []).reduce(
+      const cleanIds = (cat.categoryIds ?? []).filter(Boolean);
+      const spent = cleanIds.reduce(
         (sum, cid) => sum + (spentMap.get(cid) ?? 0),
         0,
       );
-      return { ...cat, spent: Math.round(spent * 100) / 100 };
+      return { ...cat, categoryIds: cleanIds, spent: Math.round(spent * 100) / 100 };
     });
 
     const totalAllocated = categoriesWithSpent.reduce(

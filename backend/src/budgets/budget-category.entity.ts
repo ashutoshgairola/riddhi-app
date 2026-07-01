@@ -50,6 +50,7 @@ export class BudgetCategory {
 
   @ManyToOne(() => Budget, (budget) => budget.categories, {
     onDelete: 'CASCADE',
+    orphanedRowAction: 'delete',
   })
   @JoinColumn({ name: 'budgetId' })
   budget: Budget;
