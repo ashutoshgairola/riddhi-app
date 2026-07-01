@@ -122,15 +122,23 @@ async function tryAnthropic(history: ChatMessage[]): Promise<AskRiddhiResult | n
  * always produces a usable response, even fully offline / unconfigured.
  */
 export async function askRiddhi(history: ChatMessage[]): Promise<AskRiddhiResult> {
+  // Each step is guarded independently so that a *failing* earlier step (e.g.
+  // a backend 5xx) degrades to the next step in the chain rather than
+  // short-circuiting straight to localParse. Order: (1) backend → (2)
+  // Anthropic direct → (3) local regex parser.
   try {
     const fromBackend = await tryBackend(history);
     if (fromBackend) return fromBackend;
+  } catch {
+    // backend unavailable/errored — fall through to Anthropic
+  }
 
+  try {
     const fromAnthropic = await tryAnthropic(history);
     if (fromAnthropic) return fromAnthropic;
-
-    return localParse(history[history.length - 1].text);
-  } catch (err) {
-    return localParse(history[history.length - 1].text);
+  } catch {
+    // Anthropic unavailable/errored — fall through to local parse
   }
+
+  return localParse(history[history.length - 1].text);
 }
