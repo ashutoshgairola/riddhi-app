@@ -6,6 +6,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { HealthController } from './health.controller';
 import { StubResolver } from './stub.resolver';
 import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
@@ -35,6 +36,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     }),
 
     UsersModule,
+    AuthModule,
     AccountsModule,
     CategoriesModule,
     TransactionsModule,
