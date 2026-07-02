@@ -16,6 +16,7 @@ import { InvestmentsModule } from './investments/investments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
 import { SmsSyncModule } from './sms-sync/sms-sync.module';
+import { AiChatModule } from './ai-chat/ai-chat.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SmsSyncModule } from './sms-sync/sms-sync.module';
     NotificationsModule,
     ReportsModule,
     SmsSyncModule,
+    AiChatModule,
   ],
   controllers: [HealthController],
   providers: [StubResolver],
