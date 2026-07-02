@@ -1,10 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { GraphQLModule } from '@nestjs/graphql';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { HealthController } from './health.controller';
-import { StubResolver } from './stub.resolver';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AccountsModule } from './accounts/accounts.module';
@@ -33,11 +30,6 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
       }),
     }),
 
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: true,
-    }),
-
     UsersModule,
     AuthModule,
     AccountsModule,
@@ -52,6 +44,5 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
     AiChatModule,
   ],
   controllers: [HealthController],
-  providers: [StubResolver],
 })
 export class AppModule {}
