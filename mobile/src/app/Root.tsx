@@ -14,6 +14,7 @@ import { PageBackground } from '../components/PageBackground';
 import { FeedbackProvider } from '../feedback/FeedbackProvider';
 import { AuthFlow } from '../screens/auth/AuthFlow';
 import { OnboardingWizard } from '../screens/onboarding/Wizard';
+import { SessionProvider } from '../session/SessionProvider';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import { AppShell } from './AppShell';
 import { NavProvider } from './navContext';
@@ -34,9 +35,11 @@ function AuthGate() {
       return <OnboardingWizard />;
     case 'signedIn':
       return (
-        <NavProvider>
-          <AppShell />
-        </NavProvider>
+        <SessionProvider>
+          <NavProvider>
+            <AppShell />
+          </NavProvider>
+        </SessionProvider>
       );
   }
 }

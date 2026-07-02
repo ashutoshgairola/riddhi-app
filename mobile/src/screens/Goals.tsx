@@ -43,6 +43,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import type { ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 
 // ── Data (MobileSecondary.jsx:101–106) ───────────────────────────────
 interface Goal {
@@ -75,6 +77,8 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { toast, sheet } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
+
+  const { data: goals } = useApiData(() => api.goals.list(), MG_GOALS);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
@@ -114,7 +118,7 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
         <Text style={[styles.subtitle, { color: t.text2 }]}>4 active goals · ₹4.05L saved</Text>
 
         <View style={styles.goalList}>
-          {MG_GOALS.map((g) => {
+          {goals.map((g) => {
             const pct = Math.round((g.current / g.target) * 100);
             return (
               <GlassCard key={g.name} style={styles.goalCard}>

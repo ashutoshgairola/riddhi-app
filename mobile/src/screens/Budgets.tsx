@@ -58,6 +58,8 @@ import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { useCountUp } from '../hooks/useCountUp';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 
 // ── Data (MobileSecondary.jsx:3–11) ──────────────────────────────────
 interface Budget {
@@ -91,9 +93,11 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
   const { toast, sheet } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
+  const { data: budgets } = useApiData(() => api.budgets.list(), MB_BUDGETS);
+
   // Overall totals (MobileSecondary.jsx:15–17)
-  const totalAlloc = MB_BUDGETS.reduce((s, b) => s + b.allocated, 0);
-  const totalSpent = MB_BUDGETS.reduce((s, b) => s + b.spent, 0);
+  const totalAlloc = budgets.reduce((s, b) => s + b.allocated, 0);
+  const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
   const overallPct = Math.round((totalSpent / totalAlloc) * 100);
   const animPct = useCountUp(overallPct, 1100);
 
@@ -188,10 +192,10 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
 
         {/* Categories (MobileSecondary.jsx:55–94) */}
         <View style={styles.sectionWrap}>
-          <SectionHead title="Categories" link={String(MB_BUDGETS.length)} />
+          <SectionHead title="Categories" link={String(budgets.length)} />
         </View>
         <View style={styles.categoryList}>
-          {MB_BUDGETS.map((b) => {
+          {budgets.map((b) => {
             const pct = Math.round((b.spent / b.allocated) * 100);
             const over = pct >= 100;
             const warn = pct >= 75 && !over;

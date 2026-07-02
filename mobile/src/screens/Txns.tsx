@@ -43,6 +43,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 import { SwipeRow, type SwipeTx } from './SwipeRow';
 
 // ── Data (MobileTxns.jsx:3–15) ───────────────────────────────────────
@@ -96,7 +98,9 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
   const [filter, setFilter] = useState<FilterValue>('all');
   const [scrolled, setScrolled] = useState(false);
 
-  const filtered = MT_DATA.filter((tx) => filter === 'all' || tx.type === filter);
+  const { data: txData } = useApiData(() => api.transactions.list(), MT_DATA);
+
+  const filtered = txData.filter((tx) => filter === 'all' || tx.type === filter);
   const totalInc = filtered.filter((t2) => t2.type === 'inc').reduce((s, t2) => s + t2.amount, 0);
   const totalExp = filtered.filter((t2) => t2.type === 'exp').reduce((s, t2) => s + Math.abs(t2.amount), 0);
   const groups = groupTxByDate(filtered);

@@ -43,11 +43,13 @@ import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { useCountUp } from '../hooks/useCountUp';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
 
 // ── Data (MobileScreens.jsx:342–349) ─────────────────────────────────
 export interface Account {
-  id: number;
+  id: number | string;
   name: string;
   type: string;
   sub: string;
@@ -82,10 +84,12 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
   const { pop, push } = useNav();
   const { toast, sheet } = useFeedback();
 
-  const total = M_ACCOUNTS_FULL.reduce((s, a) => s + a.bal, 0);
+  const { data: accounts } = useApiData(() => api.accounts.list(), M_ACCOUNTS_FULL);
+
+  const total = accounts.reduce((s, a) => s + a.bal, 0);
   const totalCount = useCountUp(total, 1100);
-  const totalAssets = M_ACCOUNTS_FULL.filter((a) => a.bal > 0).reduce((s, a) => s + a.bal, 0);
-  const totalLiab = Math.abs(M_ACCOUNTS_FULL.filter((a) => a.bal < 0).reduce((s, a) => s + a.bal, 0));
+  const totalAssets = accounts.filter((a) => a.bal > 0).reduce((s, a) => s + a.bal, 0);
+  const totalLiab = Math.abs(accounts.filter((a) => a.bal < 0).reduce((s, a) => s + a.bal, 0));
 
   const openAddAccountSheet = () => {
     sheet({
@@ -135,10 +139,10 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
         </LinearGradient>
       </View>
 
-      <SectionHead title="All Accounts" link={String(M_ACCOUNTS_FULL.length)} />
+      <SectionHead title="All Accounts" link={String(accounts.length)} />
 
       <View style={styles.accountList}>
-        {M_ACCOUNTS_FULL.map((a) => (
+        {accounts.map((a) => (
           <Pressable key={a.id} onPress={() => push({ kind: 'account-detail', data: a })}>
             {({ pressed }) => (
               <LinearGradient

@@ -31,7 +31,7 @@ import { weight } from '../theme/tokens';
 import { useNav } from '../app/navContext';
 
 export interface SwipeTx {
-  id: number;
+  id: number | string;
   icon: string;
   desc: string;
   cat: string;

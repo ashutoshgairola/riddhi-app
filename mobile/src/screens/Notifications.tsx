@@ -32,6 +32,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
 
 // ── Data (MobileScreens.jsx:672–680) ─────────────────────────────────
@@ -75,9 +77,11 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
   const { toast, sheet } = useFeedback();
   const [filter, setFilter] = useState<FilterValue>('all');
 
+  const { data: notifs } = useApiData(() => api.notifications.list(), ALL_NOTIFS);
+
   // Filter logic (MobileScreens.jsx:681) — verbatim.
   const filtered =
-    filter === 'all' ? ALL_NOTIFS : filter === 'unread' ? ALL_NOTIFS.filter((n) => n.unread) : ALL_NOTIFS.filter((n) => n.type === filter);
+    filter === 'all' ? notifs : filter === 'unread' ? notifs.filter((n) => n.unread) : notifs.filter((n) => n.type === filter);
 
   const openMoreSheet = () => {
     sheet({

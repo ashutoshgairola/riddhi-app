@@ -54,6 +54,9 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
+import type { ReportOverviewView } from '../api/types';
 
 // ── Data (MobileScreens.jsx:26–29) ───────────────────────────────────
 const REP_OVERVIEW = [82, 85, 84, 88, 91, 89, 93, 98, 95, 102, 108, 112];
@@ -118,6 +121,20 @@ const ASSET_ALLOCATION = [
   { n: 'Gold', v: '₹0.5L', pct: 4, c: '#c9a86a' },
 ];
 
+// Overview KPI strip (MobileScreens.jsx:137–156) — matches the hardcoded
+// display values (₹27K / 23% / ₹1.18L / ₹91K) verbatim as the api.reports
+// fallback so mock-mode rendering is unchanged.
+const REP_KPI_FALLBACK: ReportOverviewView = {
+  netIncome: 27000,
+  savingsRate: 23,
+  totalIncome: 118000,
+  totalExpenses: 91000,
+};
+
+function fmtKpi(n: number): string {
+  return n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : `₹${Math.round(n / 1000)}K`;
+}
+
 export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
@@ -125,6 +142,8 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const [tab, setTab] = useState<TabId>('overview');
   const [scrolled, setScrolled] = useState(false);
   const [period, setPeriod] = useState<PeriodValue>('6m');
+
+  const { data: overview } = useApiData(() => api.reports.overview(period), REP_KPI_FALLBACK);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
@@ -200,21 +219,29 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
             <View style={styles.kpiGrid}>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Net Income</Text>
-                <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>₹27K</Text>
+                <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
+                  {fmtKpi(overview.netIncome)}
+                </Text>
                 <Text style={[styles.kpiDelta, { color: t.em }]}>↑ 12.4%</Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Savings Rate</Text>
-                <Text style={[styles.kpiValue, { color: t.text1, fontFamily: weight(700) }]}>23%</Text>
+                <Text style={[styles.kpiValue, { color: t.text1, fontFamily: weight(700) }]}>
+                  {Math.round(overview.savingsRate)}%
+                </Text>
                 <Text style={[styles.kpiDelta, { color: t.em }]}>↑ 2pp</Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Income</Text>
-                <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>₹1.18L</Text>
+                <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
+                  {fmtKpi(overview.totalIncome)}
+                </Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Expenses</Text>
-                <Text style={[styles.kpiValue, { color: t.red, fontFamily: weight(700) }]}>₹91K</Text>
+                <Text style={[styles.kpiValue, { color: t.red, fontFamily: weight(700) }]}>
+                  {fmtKpi(overview.totalExpenses)}
+                </Text>
               </GlassCard>
             </View>
 

@@ -45,6 +45,8 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 
 // ── Data (MobileHome.jsx:3–13) ───────────────────────────────────────
 const MH_WEEK = [
@@ -122,6 +124,8 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
   const { t, mode } = useTheme();
   const { nav, setProfileOpen } = useNav();
   const [scrolled, setScrolled] = useState(false);
+
+  const { data: recentTx } = useApiData(() => api.transactions.recent(), MH_RECENT);
 
   const dailyCount = useCountUp(DAILY, 1100);
 
@@ -245,7 +249,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
           Recent
         </Label>
         <View style={styles.recentList}>
-          {MH_RECENT.map((tx, i) => (
+          {recentTx.map((tx, i) => (
             <RecentRow key={i} tx={tx} onPress={() => nav('txns')} />
           ))}
         </View>

@@ -51,6 +51,8 @@ import { radius, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import type { ScreenEntry } from '../app/navContext';
 import { useCountUp } from '../hooks/useCountUp';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 
 // ── Data (MobileSecondary.jsx:163–169) ───────────────────────────────
 interface Holding {
@@ -77,7 +79,9 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
   const { toast, sheet } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
-  const total = MV_HOLDINGS.reduce((s, h) => s + h.val, 0);
+  const { data: holdings } = useApiData(() => api.investments.list(), MV_HOLDINGS);
+
+  const total = holdings.reduce((s, h) => s + h.val, 0);
   const totalCount = useCountUp(total, 1200);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -138,11 +142,11 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
 
         {/* Holdings (MobileSecondary.jsx:207–230) */}
         <View style={styles.sectionWrap}>
-          <SectionHead title="Holdings" link={String(MV_HOLDINGS.length)} />
+          <SectionHead title="Holdings" link={String(holdings.length)} />
         </View>
         <ListCard>
-          {MV_HOLDINGS.map((h, i) => (
-            <ListRow key={h.sym} last={i === MV_HOLDINGS.length - 1}>
+          {holdings.map((h, i) => (
+            <ListRow key={h.sym} last={i === holdings.length - 1}>
               <View style={[styles.symBox, { backgroundColor: h.color + '22' }]}>
                 <Text style={[styles.symBoxText, { color: h.color, fontFamily: weight(700) }]}>
                   {h.sym.slice(0, 2)}
