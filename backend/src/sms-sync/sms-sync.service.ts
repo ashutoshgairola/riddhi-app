@@ -21,11 +21,24 @@ export class SmsSyncService {
 
   // ── Amount ────────────────────────────────────────────────────────────────
   private extractAmount(text: string): number | null {
-    const rx = /(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)/i;
-    const m = text.match(rx);
-    if (!m) return null;
-    const num = parseFloat(m[1].replace(/,/g, ''));
-    return isNaN(num) ? null : num; // always positive
+    // Collect every currency-prefixed amount, tagging those immediately
+    // preceded by a balance label (Avl Bal / Available Balance / Bal) so the
+    // real transaction amount is preferred over an "Avl Bal Rs.X" figure — the
+    // balance label is captured adjacent to its amount (group 1) to avoid a
+    // positional window bleeding a prior clause's "Bal" onto a later amount.
+    const rx =
+      /((?:avl|available|avbl)\.?\s*bal(?:ance)?\.?\s*:?\s*|\bbal(?:ance)?\.?\s*:?\s*)?(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)/gi;
+    const matches: { value: number; isBalance: boolean }[] = [];
+    for (const m of text.matchAll(rx)) {
+      const value = parseFloat(m[2].replace(/,/g, ''));
+      if (isNaN(value)) continue;
+      matches.push({ value, isBalance: Boolean(m[1]) });
+    }
+    if (matches.length === 0) return null;
+    // Prefer the first non-balance amount (the actual transaction); fall back
+    // to the first amount if every match looks like a balance.
+    const txn = matches.find((x) => !x.isBalance) ?? matches[0];
+    return txn.value; // always positive
   }
 
   // ── Type ──────────────────────────────────────────────────────────────────
