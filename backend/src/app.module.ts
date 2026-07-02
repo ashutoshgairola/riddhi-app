@@ -15,6 +15,7 @@ import { GoalsModule } from './goals/goals.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
+import { SmsSyncModule } from './sms-sync/sms-sync.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ReportsModule } from './reports/reports.module';
     InvestmentsModule,
     NotificationsModule,
     ReportsModule,
+    SmsSyncModule,
   ],
   controllers: [HealthController],
   providers: [StubResolver],
