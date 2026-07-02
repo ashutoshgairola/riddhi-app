@@ -1,16 +1,48 @@
-import { Text, View } from 'react-native';
-import { PageBackground } from '../../components/PageBackground';
-import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+/**
+ * AuthFlow — RN port of the AuthApp orchestrator (MobileAuth.jsx:279-304).
+ * `.m-page-enter` transition (mobile.css:173-179) re-fires on each screen
+ * change: translateX 100%->0, opacity .4->1, 0.32s ease.
+ */
+import { useEffect, useState } from 'react';
+import { Dimensions, StyleSheet } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+
+import { ease } from '../../theme/tokens';
+import { Welcome } from './Welcome';
+
+type AuthScreen = 'welcome' | 'login' | 'signup';
+const ENTER_MS = 320;
 
 export function AuthFlow() {
-  const { t } = useTheme();
-  return (
-    <View style={{ flex: 1 }}>
-      <PageBackground />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: t.text1, fontFamily: weight(700) }}>Auth flow — Tasks 6–8</Text>
-      </View>
-    </View>
-  );
+  const [screen, setScreen] = useState<AuthScreen>('welcome');
+  const progress = useSharedValue(1);
+
+  useEffect(() => {
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: ENTER_MS, easing: ease });
+  }, [screen, progress]);
+
+  const enterStyle = useAnimatedStyle(() => ({
+    opacity: 0.4 + 0.6 * progress.value,
+    transform: [{ translateX: (1 - progress.value) * Dimensions.get('window').width }],
+  }));
+
+  const render = () => {
+    switch (screen) {
+      case 'welcome':
+        return <Welcome onSignup={() => setScreen('signup')} onLogin={() => setScreen('login')} />;
+      case 'login':
+        // Task 7 replaces this with <Login .../>
+        return <Welcome onSignup={() => setScreen('signup')} onLogin={() => setScreen('login')} />;
+      case 'signup':
+        // Task 8 replaces this with <Signup .../>
+        return <Welcome onSignup={() => setScreen('signup')} onLogin={() => setScreen('login')} />;
+    }
+  };
+
+  return <Animated.View style={[styles.page, enterStyle]}>{render()}</Animated.View>;
 }
+
+const styles = StyleSheet.create({
+  page: { flex: 1 },
+});
