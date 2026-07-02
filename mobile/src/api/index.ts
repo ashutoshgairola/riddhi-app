@@ -58,6 +58,9 @@ export const USE_BACKEND = false;
 /** Re-export so screens can call api.setAuthToken(token). */
 export const setAuthToken = _setAuthToken;
 
+export { authApi } from './auth';
+export type { ApiUser, AuthResponse, AuthTokens, OnboardingPayload } from './auth';
+
 // ── Canonical mock data ───────────────────────────────────────────────
 // These mirror the inline consts in the screen files verbatim so that the
 // api layer and screens are in sync even before screens are updated (Task 5.3).
