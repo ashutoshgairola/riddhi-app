@@ -97,11 +97,9 @@ export class Investment {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(
-    () => InvestmentTransaction,
-    (txn) => txn.investment,
-    { cascade: true },
-  )
+  @OneToMany(() => InvestmentTransaction, (txn) => txn.investment, {
+    cascade: true,
+  })
   transactions: InvestmentTransaction[];
 
   @CreateDateColumn({ type: 'timestamptz' })

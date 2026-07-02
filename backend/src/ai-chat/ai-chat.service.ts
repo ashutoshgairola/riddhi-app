@@ -190,9 +190,7 @@ export class AiChatService {
     return (match ?? categories[0]).id;
   }
 
-  private async buildPromptContext(
-    userId: string,
-  ): Promise<ChatPromptContext> {
+  private async buildPromptContext(userId: string): Promise<ChatPromptContext> {
     const [budgets, goals] = await Promise.all([
       this.budgetsService
         .findAll(userId)

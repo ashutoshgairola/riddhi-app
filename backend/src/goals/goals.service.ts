@@ -18,7 +18,9 @@ function computeGoalFields(goal: Goal) {
 
   const progressPct =
     targetAmount > 0
-      ? Math.round(Math.min(Math.max((currentAmount / targetAmount) * 100, 0), 100))
+      ? Math.round(
+          Math.min(Math.max((currentAmount / targetAmount) * 100, 0), 100),
+        )
       : 0;
   const remaining = Math.max(targetAmount - currentAmount, 0);
 
@@ -63,8 +65,8 @@ export class GoalsService {
     const goal = this.goalsRepository.create({
       ...dto,
       userId,
-      startDate: new Date(dto.startDate as string),
-      targetDate: new Date(dto.targetDate as string),
+      startDate: new Date(dto.startDate),
+      targetDate: new Date(dto.targetDate),
     });
     const saved = await this.goalsRepository.save(goal);
     return computeGoalFields(saved);

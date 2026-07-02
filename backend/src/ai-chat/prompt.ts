@@ -25,8 +25,7 @@ export interface ChatPromptContext {
   goals: PromptGoalContext[];
 }
 
-const inr = (n: number): string =>
-  `₹${Math.round(n).toLocaleString('en-IN')}`;
+const inr = (n: number): string => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 function formatBudgetSection(budget: PromptBudgetContext | null): string {
   if (!budget) {

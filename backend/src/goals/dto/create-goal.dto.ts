@@ -9,7 +9,11 @@ import {
   IsDateString,
   Min,
 } from 'class-validator';
-import { GoalType, GoalStatus, ContributionFrequency } from '../../common/enums';
+import {
+  GoalType,
+  GoalStatus,
+  ContributionFrequency,
+} from '../../common/enums';
 
 export class CreateGoalDto {
   @IsString()

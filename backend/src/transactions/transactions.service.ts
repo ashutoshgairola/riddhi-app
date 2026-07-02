@@ -4,7 +4,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { TransactionsRepository, PaginatedTransactions } from './transactions.repository';
+import {
+  TransactionsRepository,
+  PaginatedTransactions,
+} from './transactions.repository';
 import { AccountsService } from '../accounts/accounts.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
@@ -21,7 +24,10 @@ export class TransactionsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  findAll(userId: string, query: QueryTransactionsDto): Promise<PaginatedTransactions> {
+  findAll(
+    userId: string,
+    query: QueryTransactionsDto,
+  ): Promise<PaginatedTransactions> {
     return this.transactionsRepository.findAllByUser(userId, query);
   }
 
@@ -31,12 +37,17 @@ export class TransactionsService {
     return tx;
   }
 
-  async create(userId: string, dto: CreateTransactionDto): Promise<Transaction> {
+  async create(
+    userId: string,
+    dto: CreateTransactionDto,
+  ): Promise<Transaction> {
     // Validate account ownership before starting DB transaction
     if (dto.accountId) {
       const account = await this.accountsService.findOne(dto.accountId, userId);
       if (!account) {
-        throw new BadRequestException('Account not found or does not belong to user');
+        throw new BadRequestException(
+          'Account not found or does not belong to user',
+        );
       }
     }
 
@@ -67,9 +78,15 @@ export class TransactionsService {
           where: { id: dto.accountId, userId },
         });
         if (!account) {
-          throw new BadRequestException('Account not found or not owned by user');
+          throw new BadRequestException(
+            'Account not found or not owned by user',
+          );
         }
-        account.balance = this.applyBalanceDelta(account.balance, dto.amount, dto.type);
+        account.balance = this.applyBalanceDelta(
+          account.balance,
+          dto.amount,
+          dto.type,
+        );
         account.lastUpdated = new Date();
         await queryRunner.manager.save(account);
       }
@@ -84,7 +101,11 @@ export class TransactionsService {
     }
   }
 
-  async update(id: string, userId: string, dto: UpdateTransactionDto): Promise<Transaction> {
+  async update(
+    id: string,
+    userId: string,
+    dto: UpdateTransactionDto,
+  ): Promise<Transaction> {
     const tx = await this.findOne(id, userId);
 
     const oldAccountId = tx.accountId;
@@ -95,7 +116,9 @@ export class TransactionsService {
     if (dto.accountId !== undefined && dto.accountId !== null) {
       const account = await this.accountsService.findOne(dto.accountId, userId);
       if (!account) {
-        throw new BadRequestException('Account not found or does not belong to user');
+        throw new BadRequestException(
+          'Account not found or does not belong to user',
+        );
       }
     }
 
@@ -105,7 +128,8 @@ export class TransactionsService {
 
     try {
       // Determine new effective values
-      const newAccountId = dto.accountId !== undefined ? (dto.accountId ?? null) : oldAccountId;
+      const newAccountId =
+        dto.accountId !== undefined ? (dto.accountId ?? null) : oldAccountId;
       const newAmount = dto.amount !== undefined ? dto.amount : oldAmount;
       const newType = dto.type !== undefined ? dto.type : oldType;
 
@@ -115,9 +139,15 @@ export class TransactionsService {
           where: { id: oldAccountId, userId },
         });
         if (!oldAccount) {
-          throw new BadRequestException('Account not found or not owned by user');
+          throw new BadRequestException(
+            'Account not found or not owned by user',
+          );
         }
-        oldAccount.balance = this.reverseBalanceDelta(oldAccount.balance, oldAmount, oldType);
+        oldAccount.balance = this.reverseBalanceDelta(
+          oldAccount.balance,
+          oldAmount,
+          oldType,
+        );
         oldAccount.lastUpdated = new Date();
         await queryRunner.manager.save(oldAccount);
       }
@@ -136,9 +166,15 @@ export class TransactionsService {
           where: { id: newAccountId, userId },
         });
         if (!newAccount) {
-          throw new BadRequestException('Account not found or not owned by user');
+          throw new BadRequestException(
+            'Account not found or not owned by user',
+          );
         }
-        newAccount.balance = this.applyBalanceDelta(newAccount.balance, newAmount, newType);
+        newAccount.balance = this.applyBalanceDelta(
+          newAccount.balance,
+          newAmount,
+          newType,
+        );
         newAccount.lastUpdated = new Date();
         await queryRunner.manager.save(newAccount);
       }
@@ -167,9 +203,15 @@ export class TransactionsService {
           where: { id: tx.accountId, userId },
         });
         if (!account) {
-          throw new BadRequestException('Account not found or not owned by user');
+          throw new BadRequestException(
+            'Account not found or not owned by user',
+          );
         }
-        account.balance = this.reverseBalanceDelta(account.balance, tx.amount, tx.type);
+        account.balance = this.reverseBalanceDelta(
+          account.balance,
+          tx.amount,
+          tx.type,
+        );
         account.lastUpdated = new Date();
         await queryRunner.manager.save(account);
       }

@@ -50,7 +50,10 @@ export class BudgetsService {
     });
     const saved = await this.budgetsRepository.save(budget);
     // Reload with relations
-    const reloaded = await this.budgetsRepository.findOneByUser(saved.id, userId);
+    const reloaded = await this.budgetsRepository.findOneByUser(
+      saved.id,
+      userId,
+    );
     return this.computeBudget(reloaded!, userId);
   }
 
@@ -81,7 +84,10 @@ export class BudgetsService {
     }
 
     const saved = await this.budgetsRepository.save(budget);
-    const reloaded = await this.budgetsRepository.findOneByUser(saved.id, userId);
+    const reloaded = await this.budgetsRepository.findOneByUser(
+      saved.id,
+      userId,
+    );
     return this.computeBudget(reloaded!, userId);
   }
 
@@ -113,14 +119,20 @@ export class BudgetsService {
     );
 
     // Sum per budget category; filter empty strings for the same reason.
-    const categoriesWithSpent: BudgetCategoryWithSpent[] = categories.map((cat) => {
-      const cleanIds = (cat.categoryIds ?? []).filter(Boolean);
-      const spent = cleanIds.reduce(
-        (sum, cid) => sum + (spentMap.get(cid) ?? 0),
-        0,
-      );
-      return { ...cat, categoryIds: cleanIds, spent: Math.round(spent * 100) / 100 };
-    });
+    const categoriesWithSpent: BudgetCategoryWithSpent[] = categories.map(
+      (cat) => {
+        const cleanIds = (cat.categoryIds ?? []).filter(Boolean);
+        const spent = cleanIds.reduce(
+          (sum, cid) => sum + (spentMap.get(cid) ?? 0),
+          0,
+        );
+        return {
+          ...cat,
+          categoryIds: cleanIds,
+          spent: Math.round(spent * 100) / 100,
+        };
+      },
+    );
 
     const totalAllocated = categoriesWithSpent.reduce(
       (sum, c) => sum + c.allocated,

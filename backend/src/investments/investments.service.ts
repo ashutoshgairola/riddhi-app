@@ -46,7 +46,7 @@ export class InvestmentsService {
     const inv = this.investmentsRepository.create({
       ...dto,
       userId,
-      purchaseDate: new Date(dto.purchaseDate as string),
+      purchaseDate: new Date(dto.purchaseDate),
     });
     const saved = await this.investmentsRepository.save(inv);
     return computeInvestmentFields(saved);
@@ -72,7 +72,9 @@ export class InvestmentsService {
       userId,
     );
     if (!inv) throw new NotFoundException('Investment not found');
-    return this.investmentsRepository.findTransactionsByInvestment(investmentId);
+    return this.investmentsRepository.findTransactionsByInvestment(
+      investmentId,
+    );
   }
 
   async addTransaction(
@@ -88,7 +90,7 @@ export class InvestmentsService {
     const txn = this.investmentsRepository.createTransaction({
       ...dto,
       investmentId,
-      date: new Date(dto.date as string),
+      date: new Date(dto.date),
     });
     return this.investmentsRepository.saveTransaction(txn);
   }

@@ -14,9 +14,24 @@ export class SmsSyncService {
     const merchant = this.extractMerchant(text, type);
     const category = this.extractCategory(text, merchant, type);
     const account = bank && last4 ? `${bankShort} •${last4}` : null;
-    const confidence = this.calcConfidence(amount, bank, last4, merchant, category);
+    const confidence = this.calcConfidence(
+      amount,
+      bank,
+      last4,
+      merchant,
+      category,
+    );
 
-    return { merchant, amount, type, category, account, bank, last4, confidence };
+    return {
+      merchant,
+      amount,
+      type,
+      category,
+      account,
+      bank,
+      last4,
+      confidence,
+    };
   }
 
   // ── Amount ────────────────────────────────────────────────────────────────
@@ -46,16 +61,23 @@ export class SmsSyncService {
     const lower = text.toLowerCase();
     // Debit verbs. "credit card" must NOT be read as an income signal — a
     // spend on a credit card is an expense (e.g. "ICICI Credit Card ... used").
-    const isDebit = /\b(debited|debit|sent|used|spent|paid|withdrawn)\b|purchase/i.test(lower);
+    const isDebit =
+      /\b(debited|debit|sent|used|spent|paid|withdrawn)\b|purchase/i.test(
+        lower,
+      );
     const isCredit =
-      /\b(credited|received|deposited)\b/i.test(lower) && !/credit\s*card/i.test(lower);
+      /\b(credited|received|deposited)\b/i.test(lower) &&
+      !/credit\s*card/i.test(lower);
     if (isDebit) return 'expense';
     if (isCredit) return 'income';
     return 'expense'; // default
   }
 
   // ── Bank ──────────────────────────────────────────────────────────────────
-  private extractBank(text: string): { bank: string | null; bankShort: string } {
+  private extractBank(text: string): {
+    bank: string | null;
+    bankShort: string;
+  } {
     for (const b of BANK_MAP) {
       if (b.pattern.test(text)) {
         return { bank: b.name, bankShort: b.short };
@@ -80,9 +102,13 @@ export class SmsSyncService {
   }
 
   // ── Merchant ──────────────────────────────────────────────────────────────
-  private extractMerchant(text: string, type: 'income' | 'expense'): string | null {
+  private extractMerchant(
+    text: string,
+    type: 'income' | 'expense',
+  ): string | null {
     // "to SWIGGY" / "at AMAZON" / "for BESCOM BILL PAYMENT" / "by SALARY ACME CORP"
-    const merchantRx = /\b(?:to|at|for|by)\s+([A-Z][A-Z0-9 &\-]+?)(?:\s+(?:on|via|ref|avl|using|\.|\d{2}[-\/])|$)/;
+    const merchantRx =
+      /\b(?:to|at|for|by)\s+([A-Z][A-Z0-9 &\-]+?)(?:\s+(?:on|via|ref|avl|using|\.|\d{2}[-\/])|$)/;
     const m = text.match(merchantRx);
     if (m) {
       const raw = m[1].trim();
@@ -114,7 +140,11 @@ export class SmsSyncService {
   }
 
   // ── Category ──────────────────────────────────────────────────────────────
-  private extractCategory(text: string, merchant: string | null, type: 'income' | 'expense'): Category | null {
+  private extractCategory(
+    text: string,
+    merchant: string | null,
+    type: 'income' | 'expense',
+  ): Category | null {
     if (type === 'income') return 'Income';
 
     const haystack = (text + ' ' + (merchant ?? '')).toLowerCase();

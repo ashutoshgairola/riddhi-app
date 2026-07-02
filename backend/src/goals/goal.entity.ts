@@ -7,11 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import {
-  GoalType,
-  GoalStatus,
-  ContributionFrequency,
-} from '../common/enums';
+import { GoalType, GoalStatus, ContributionFrequency } from '../common/enums';
 import { User } from '../users/user.entity';
 import { Account } from '../accounts/account.entity';
 

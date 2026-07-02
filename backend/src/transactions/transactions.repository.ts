@@ -22,7 +22,15 @@ export class TransactionsRepository {
     userId: string,
     query: QueryTransactionsDto,
   ): Promise<PaginatedTransactions> {
-    const { type, categoryId, accountId, from, to, page = 1, limit = 20 } = query;
+    const {
+      type,
+      categoryId,
+      accountId,
+      from,
+      to,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const qb = this.repo
       .createQueryBuilder('tx')

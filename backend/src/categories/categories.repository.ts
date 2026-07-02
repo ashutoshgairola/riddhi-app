@@ -14,7 +14,10 @@ export class CategoriesRepository {
     return this.repo.find({ where: { userId }, order: { createdAt: 'ASC' } });
   }
 
-  findOneByUser(id: string, userId: string): Promise<TransactionCategory | null> {
+  findOneByUser(
+    id: string,
+    userId: string,
+  ): Promise<TransactionCategory | null> {
     return this.repo.findOne({ where: { id, userId } });
   }
 

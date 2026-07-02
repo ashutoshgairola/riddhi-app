@@ -189,15 +189,45 @@ async function main() {
     };
 
     const parentCatsData: CatRecord[] = [
-      { name: 'Housing',       icon: '🏠', color: '#8197c4', subs: ['Rent', 'Maintenance'] },
-      { name: 'Food & Dining', icon: '🍽', color: '#c9a86a', subs: ['Groceries', 'Restaurants', 'Delivery'] },
-      { name: 'Transport',     icon: '🚇', color: '#9d8bd6', subs: ['Metro', 'Cab', 'Fuel'] },
-      { name: 'Utilities',     icon: '⚡', color: '#6fb3ad', subs: ['Electricity', 'Internet'] },
-      { name: 'Entertainment', icon: '🎬', color: '#c97d8c', subs: ['Subscriptions', 'Events'] },
-      { name: 'Healthcare',    icon: '💊', color: '#ef4444', subs: [] },
-      { name: 'Shopping',      icon: '🛍', color: '#c97d8c', subs: [] },
-      { name: 'Education',     icon: '🎓', color: '#6fb3ad', subs: [] },
-      { name: 'Income',        icon: '💼', color: '#7faf93', subs: ['Salary', 'Freelance'] },
+      {
+        name: 'Housing',
+        icon: '🏠',
+        color: '#8197c4',
+        subs: ['Rent', 'Maintenance'],
+      },
+      {
+        name: 'Food & Dining',
+        icon: '🍽',
+        color: '#c9a86a',
+        subs: ['Groceries', 'Restaurants', 'Delivery'],
+      },
+      {
+        name: 'Transport',
+        icon: '🚇',
+        color: '#9d8bd6',
+        subs: ['Metro', 'Cab', 'Fuel'],
+      },
+      {
+        name: 'Utilities',
+        icon: '⚡',
+        color: '#6fb3ad',
+        subs: ['Electricity', 'Internet'],
+      },
+      {
+        name: 'Entertainment',
+        icon: '🎬',
+        color: '#c97d8c',
+        subs: ['Subscriptions', 'Events'],
+      },
+      { name: 'Healthcare', icon: '💊', color: '#ef4444', subs: [] },
+      { name: 'Shopping', icon: '🛍', color: '#c97d8c', subs: [] },
+      { name: 'Education', icon: '🎓', color: '#6fb3ad', subs: [] },
+      {
+        name: 'Income',
+        icon: '💼',
+        color: '#7faf93',
+        subs: ['Salary', 'Freelance'],
+      },
     ];
 
     const parentCats: Record<string, TransactionCategory> = {};
@@ -227,24 +257,94 @@ async function main() {
         allCats[subName] = sub;
       }
     }
-    console.log('Created', Object.keys(allCats).length, 'categories (parent + sub)');
+    console.log(
+      'Created',
+      Object.keys(allCats).length,
+      'categories (parent + sub)',
+    );
 
     // ── Transactions (April 2026) ──────────────────────────────────────
     const txRepo = AppDataSource.getRepository(Transaction);
 
     // SIP uses Income category (no Investments category defined)
     const txData = [
-      { date: '2026-04-25', desc: 'Salary — April 2026',  amount: 118000, type: TransactionType.INCOME,  catName: 'Income' },
-      { date: '2026-04-25', desc: 'Swiggy Order',          amount:    649, type: TransactionType.EXPENSE, catName: 'Food & Dining' },
-      { date: '2026-04-24', desc: 'Rent — April',          amount:  28000, type: TransactionType.EXPENSE, catName: 'Housing' },
-      { date: '2026-04-24', desc: 'BESCOM Electricity',    amount:   1840, type: TransactionType.EXPENSE, catName: 'Utilities' },
-      { date: '2026-04-23', desc: 'Metro Smart Card',      amount:    500, type: TransactionType.EXPENSE, catName: 'Transport' },
-      { date: '2026-04-22', desc: 'Netflix',               amount:    649, type: TransactionType.EXPENSE, catName: 'Entertainment' },
-      { date: '2026-04-21', desc: 'Myntra Shopping',       amount:   3200, type: TransactionType.EXPENSE, catName: 'Shopping' },
-      { date: '2026-04-19', desc: 'Apollo Pharmacy',       amount:    820, type: TransactionType.EXPENSE, catName: 'Healthcare' },
-      { date: '2026-04-15', desc: 'SIP — Nifty 50 ETF',   amount:  10000, type: TransactionType.EXPENSE, catName: 'Income' },
-      { date: '2026-04-08', desc: 'Freelance Project',     amount:  35000, type: TransactionType.INCOME,  catName: 'Income' },
-      { date: '2026-04-07', desc: 'BPCL Fuel',             amount:   2400, type: TransactionType.EXPENSE, catName: 'Transport' },
+      {
+        date: '2026-04-25',
+        desc: 'Salary — April 2026',
+        amount: 118000,
+        type: TransactionType.INCOME,
+        catName: 'Income',
+      },
+      {
+        date: '2026-04-25',
+        desc: 'Swiggy Order',
+        amount: 649,
+        type: TransactionType.EXPENSE,
+        catName: 'Food & Dining',
+      },
+      {
+        date: '2026-04-24',
+        desc: 'Rent — April',
+        amount: 28000,
+        type: TransactionType.EXPENSE,
+        catName: 'Housing',
+      },
+      {
+        date: '2026-04-24',
+        desc: 'BESCOM Electricity',
+        amount: 1840,
+        type: TransactionType.EXPENSE,
+        catName: 'Utilities',
+      },
+      {
+        date: '2026-04-23',
+        desc: 'Metro Smart Card',
+        amount: 500,
+        type: TransactionType.EXPENSE,
+        catName: 'Transport',
+      },
+      {
+        date: '2026-04-22',
+        desc: 'Netflix',
+        amount: 649,
+        type: TransactionType.EXPENSE,
+        catName: 'Entertainment',
+      },
+      {
+        date: '2026-04-21',
+        desc: 'Myntra Shopping',
+        amount: 3200,
+        type: TransactionType.EXPENSE,
+        catName: 'Shopping',
+      },
+      {
+        date: '2026-04-19',
+        desc: 'Apollo Pharmacy',
+        amount: 820,
+        type: TransactionType.EXPENSE,
+        catName: 'Healthcare',
+      },
+      {
+        date: '2026-04-15',
+        desc: 'SIP — Nifty 50 ETF',
+        amount: 10000,
+        type: TransactionType.EXPENSE,
+        catName: 'Income',
+      },
+      {
+        date: '2026-04-08',
+        desc: 'Freelance Project',
+        amount: 35000,
+        type: TransactionType.INCOME,
+        catName: 'Income',
+      },
+      {
+        date: '2026-04-07',
+        desc: 'BPCL Fuel',
+        amount: 2400,
+        type: TransactionType.EXPENSE,
+        catName: 'Transport',
+      },
     ];
 
     for (const td of txData) {
@@ -282,18 +382,61 @@ async function main() {
 
     const budgetCatRepo = AppDataSource.getRepository(BudgetCategory);
     const budgetCatsData = [
-      { name: 'Housing',       allocated: 30000, icon: '🏠', color: '#8197c4', catName: 'Housing' },
-      { name: 'Food & Dining', allocated: 15000, icon: '🍽', color: '#c9a86a', catName: 'Food & Dining' },
-      { name: 'Transport',     allocated:  8000, icon: '🚇', color: '#9d8bd6', catName: 'Transport' },
-      { name: 'Shopping',      allocated: 10000, icon: '🛍', color: '#c97d8c', catName: 'Shopping' },
-      { name: 'Utilities',     allocated:  5000, icon: '⚡', color: '#6fb3ad', catName: 'Utilities' },
-      { name: 'Healthcare',    allocated:  4000, icon: '💊', color: '#ef4444', catName: 'Healthcare' },
-      { name: 'Entertainment', allocated:  3000, icon: '🎬', color: '#c97d8c', catName: 'Entertainment' },
+      {
+        name: 'Housing',
+        allocated: 30000,
+        icon: '🏠',
+        color: '#8197c4',
+        catName: 'Housing',
+      },
+      {
+        name: 'Food & Dining',
+        allocated: 15000,
+        icon: '🍽',
+        color: '#c9a86a',
+        catName: 'Food & Dining',
+      },
+      {
+        name: 'Transport',
+        allocated: 8000,
+        icon: '🚇',
+        color: '#9d8bd6',
+        catName: 'Transport',
+      },
+      {
+        name: 'Shopping',
+        allocated: 10000,
+        icon: '🛍',
+        color: '#c97d8c',
+        catName: 'Shopping',
+      },
+      {
+        name: 'Utilities',
+        allocated: 5000,
+        icon: '⚡',
+        color: '#6fb3ad',
+        catName: 'Utilities',
+      },
+      {
+        name: 'Healthcare',
+        allocated: 4000,
+        icon: '💊',
+        color: '#ef4444',
+        catName: 'Healthcare',
+      },
+      {
+        name: 'Entertainment',
+        allocated: 3000,
+        icon: '🎬',
+        color: '#c97d8c',
+        catName: 'Entertainment',
+      },
     ];
 
     for (const bcd of budgetCatsData) {
       const linkedCat = parentCats[bcd.catName];
-      if (!linkedCat) throw new Error(`Parent category not found for budget: ${bcd.catName}`);
+      if (!linkedCat)
+        throw new Error(`Parent category not found for budget: ${bcd.catName}`);
       const bc = budgetCatRepo.create({
         name: bcd.name,
         allocated: bcd.allocated,
@@ -306,7 +449,11 @@ async function main() {
       });
       await queryRunner.manager.save(bc);
     }
-    console.log('Created budget "April 2026" with', budgetCatsData.length, 'categories');
+    console.log(
+      'Created budget "April 2026" with',
+      budgetCatsData.length,
+      'categories',
+    );
 
     // ── Goals ─────────────────────────────────────────────────────────
     const goalRepo = AppDataSource.getRepository(Goal);
