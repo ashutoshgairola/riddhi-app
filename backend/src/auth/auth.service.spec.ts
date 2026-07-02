@@ -83,4 +83,17 @@ describe('AuthService.googleLogin', () => {
       UnauthorizedException,
     );
   });
+
+  it('throws UnauthorizedException when GOOGLE_CLIENT_ID is not configured', async () => {
+    config.get.mockReturnValueOnce('');
+    // Mock googleClient to verify it is not called
+    const verifyIdTokenMock = jest.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (service as any).googleClient = { verifyIdToken: verifyIdTokenMock };
+    await expect(service.googleLogin('id-token')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    // Verify verifyIdToken was never called
+    expect(verifyIdTokenMock).not.toHaveBeenCalled();
+  });
 });

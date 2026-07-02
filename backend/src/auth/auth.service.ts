@@ -99,11 +99,16 @@ export class AuthService {
   }
 
   async googleLogin(idToken: string) {
+    const audience = this.config.get<string>('GOOGLE_CLIENT_ID');
+    if (!audience) {
+      throw new UnauthorizedException('Google sign-in is not configured');
+    }
+
     let payload: { email?: string; name?: string } | undefined;
     try {
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
-        audience: this.config.get<string>('GOOGLE_CLIENT_ID'),
+        audience,
       });
       payload = ticket.getPayload();
     } catch {
