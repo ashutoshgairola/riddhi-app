@@ -1,15 +1,10 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -40,5 +35,13 @@ export class UsersController {
     @Body() dto: UpdatePreferencesDto,
   ) {
     return this.usersService.updatePreferences(user.userId, dto);
+  }
+
+  @Post('me/onboarding')
+  completeOnboarding(
+    @CurrentUser() user: { userId: string; email: string },
+    @Body() dto: CompleteOnboardingDto,
+  ) {
+    return this.usersService.completeOnboarding(user.userId, dto);
   }
 }
