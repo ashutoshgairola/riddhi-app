@@ -10,6 +10,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { ease } from '../../theme/tokens';
 import { Welcome } from './Welcome';
 import { Login } from './Login';
+import { Signup } from './Signup';
 
 type AuthScreen = 'welcome' | 'login' | 'signup';
 const ENTER_MS = 320;
@@ -35,8 +36,7 @@ export function AuthFlow() {
       case 'login':
         return <Login onBack={() => setScreen('welcome')} onSignup={() => setScreen('signup')} />;
       case 'signup':
-        // Task 8 replaces this with <Signup .../>
-        return <Welcome onSignup={() => setScreen('signup')} onLogin={() => setScreen('login')} />;
+        return <Signup onBack={() => setScreen('welcome')} onLogin={() => setScreen('login')} />;
     }
   };
 
