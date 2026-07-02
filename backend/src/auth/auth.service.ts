@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
+import { randomBytes } from 'crypto';
 import { User } from '../users/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +22,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  private googleClient = new OAuth2Client();
 
   private signTokens(user: User) {
     const payload = { sub: user.id, email: user.email };
@@ -41,7 +45,9 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
-    const existing = await this.userRepo.findOne({ where: { email: dto.email } });
+    const existing = await this.userRepo.findOne({
+      where: { email: dto.email },
+    });
     if (existing) {
       throw new ConflictException('Email already in use');
     }
@@ -90,5 +96,36 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  async googleLogin(idToken: string) {
+    let payload: { email?: string; name?: string } | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: this.config.get<string>('GOOGLE_CLIENT_ID'),
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+    if (!payload?.email) {
+      throw new UnauthorizedException('Google account has no email');
+    }
+
+    let user = await this.userRepo.findOne({ where: { email: payload.email } });
+    if (!user) {
+      const randomPassword = randomBytes(32).toString('hex');
+      const hashed = await bcrypt.hash(randomPassword, 10);
+      user = await this.userRepo.save(
+        this.userRepo.create({
+          name: payload.name ?? payload.email.split('@')[0],
+          email: payload.email,
+          password: hashed,
+        }),
+      );
+    }
+    const tokens = this.signTokens(user);
+    return { ...tokens, user: this.safeUser(user) };
   }
 }
