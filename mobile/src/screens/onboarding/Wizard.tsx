@@ -80,7 +80,7 @@ export function OnboardingWizard() {
         smsSyncEnabled: sync,
         biometricEnabled: biometric,
         firstGoal:
-          goalName && goalTarget ? { name: goalName, targetAmount: Number(goalTarget) } : undefined,
+          goalName && Number(goalTarget) >= 1 ? { name: goalName, targetAmount: Number(goalTarget) } : undefined,
       });
       // Success: AuthProvider flips status to signedIn and unmounts us.
     } catch {
@@ -137,9 +137,9 @@ export function OnboardingWizard() {
           footer={
             <OBFooter
               canNext
-              label={goalName && goalTarget ? 'Create goal' : 'Continue'}
+              label={goalName && Number(goalTarget) >= 1 ? 'Create goal' : 'Continue'}
               onNext={next}
-              onSkip={!(goalName && goalTarget) ? next : undefined}
+              onSkip={!(goalName && Number(goalTarget) >= 1) ? next : undefined}
             />
           }>
           <OBGoal name={goalName} onName={setGoalName} target={goalTarget} onTarget={setGoalTarget} />
