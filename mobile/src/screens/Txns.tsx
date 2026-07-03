@@ -39,6 +39,7 @@ import { IconButton, ListCard, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -148,7 +149,7 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Summary row — MobileTxns.jsx:112–121 */}
-        <View style={styles.summaryRow}>
+        <SpringIn style={styles.summaryRow}>
           <GlassCard style={styles.summaryCard}>
             <Text style={[styles.summaryLabel, { color: t.text3 }]}>Income</Text>
             <Text style={[styles.summaryValue, { color: t.em, fontFamily: weight(700) }]}>
@@ -161,10 +162,10 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
               -{fmt(totalExp)}
             </Text>
           </GlassCard>
-        </View>
+        </SpringIn>
 
-        {/* Filter seg — MobileTxns.jsx:124–128 */}
-        <View style={styles.segWrap}>
+        {/* Filter seg — MobileTxns.jsx:124–128, animationDelay: .05s */}
+        <SpringIn delay={50} style={styles.segWrap}>
           <MSeg<FilterValue>
             options={[
               { value: 'all', label: 'All' },
@@ -174,11 +175,11 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
             value={filter}
             onChange={setFilter}
           />
-        </View>
+        </SpringIn>
 
-        {/* Groups — MobileTxns.jsx:131–143 */}
-        {groups.map((group) => (
-          <View key={group.label} style={styles.groupWrap}>
+        {/* Groups — MobileTxns.jsx:131–143, animationDelay: `${0.08 + gi*0.04}s` */}
+        {groups.map((group, gi) => (
+          <SpringIn key={group.label} delay={80 + gi * 40} style={styles.groupWrap}>
             <View style={styles.groupHeader}>
               <Text style={[styles.groupLabel, { color: t.text2, fontFamily: weight(700) }]}>
                 {group.label}
@@ -192,7 +193,7 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
                 <SwipeRow key={tx.id} tx={tx} fmt={fmt} />
               ))}
             </ListCard>
-          </View>
+          </SpringIn>
         ))}
 
         {/* Footer hint — MobileTxns.jsx:145–147 */}

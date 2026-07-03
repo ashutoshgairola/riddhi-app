@@ -39,6 +39,7 @@ import { GlassCard } from '../components/Glass';
 import { IconButton, ProgressBar, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -115,38 +116,43 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.subtitle, { color: t.text2 }]}>4 active goals · ₹4.05L saved</Text>
+        <SpringIn>
+          <Text style={[styles.subtitle, { color: t.text2 }]}>4 active goals · ₹4.05L saved</Text>
+        </SpringIn>
 
         <View style={styles.goalList}>
-          {goals.map((g) => {
+          {goals.map((g, i) => {
             const pct = Math.round((g.current / g.target) * 100);
             return (
-              <GlassCard key={g.name} style={styles.goalCard}>
-                <View style={[styles.accentBar, { backgroundColor: g.color }]} />
-                <View style={styles.goalHeaderRow}>
-                  <View style={[styles.goalIconBox, { backgroundColor: g.color + '22' }]}>
-                    <Text style={styles.goalIconGlyph}>{g.emoji}</Text>
-                  </View>
-                  <View style={styles.goalTextBlock}>
-                    <Text style={[styles.goalName, { color: t.text1, fontFamily: weight(700) }]}>
-                      {g.name}
+              // animationDelay: `${0.05 + i*0.05}s` (MobileSecondary.jsx:130)
+              <SpringIn key={g.name} delay={50 + i * 50}>
+                <GlassCard style={styles.goalCard}>
+                  <View style={[styles.accentBar, { backgroundColor: g.color }]} />
+                  <View style={styles.goalHeaderRow}>
+                    <View style={[styles.goalIconBox, { backgroundColor: g.color + '22' }]}>
+                      <Text style={styles.goalIconGlyph}>{g.emoji}</Text>
+                    </View>
+                    <View style={styles.goalTextBlock}>
+                      <Text style={[styles.goalName, { color: t.text1, fontFamily: weight(700) }]}>
+                        {g.name}
+                      </Text>
+                      <Text style={[styles.goalTarget, { color: t.text3 }]}>🗓 Target {g.date}</Text>
+                    </View>
+                    <Text style={[styles.goalPct, { color: g.color, fontFamily: weight(700) }]}>
+                      {pct}%
                     </Text>
-                    <Text style={[styles.goalTarget, { color: t.text3 }]}>🗓 Target {g.date}</Text>
                   </View>
-                  <Text style={[styles.goalPct, { color: g.color, fontFamily: weight(700) }]}>
-                    {pct}%
-                  </Text>
-                </View>
-                <ProgressBar pct={pct} color={g.color} height={8} />
-                <View style={styles.goalAmountRow}>
-                  <Text style={[styles.goalCurrent, { color: t.text1, fontFamily: weight(700) }]}>
-                    ₹{fmtCurrent(g.current)}
-                  </Text>
-                  <Text style={[styles.goalTargetAmount, { color: t.text3 }]}>
-                    of ₹{fmtTarget(g.target)}
-                  </Text>
-                </View>
-              </GlassCard>
+                  <ProgressBar pct={pct} color={g.color} height={8} />
+                  <View style={styles.goalAmountRow}>
+                    <Text style={[styles.goalCurrent, { color: t.text1, fontFamily: weight(700) }]}>
+                      ₹{fmtCurrent(g.current)}
+                    </Text>
+                    <Text style={[styles.goalTargetAmount, { color: t.text3 }]}>
+                      of ₹{fmtTarget(g.target)}
+                    </Text>
+                  </View>
+                </GlassCard>
+              </SpringIn>
             );
           })}
         </View>

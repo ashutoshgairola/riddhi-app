@@ -40,6 +40,7 @@ import { IconButton } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { PullToRefresh } from '../components/PullToRefresh';
+import { SpringIn } from '../components/SpringIn';
 import { WeekChart } from '../components/charts';
 import { useCountUp } from '../hooks/useCountUp';
 import { useTheme } from '../theme/ThemeProvider';
@@ -154,7 +155,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
 
       <PullToRefresh onRefresh={() => {}} onScroll={handleScroll} contentStyle={styles.scrollContent}>
         {/* ── Signature hero card (MobileHome.jsx:98–125) ── */}
-        <View style={[styles.hero, { borderColor: t.glassBrd2 }]}>
+        <SpringIn style={[styles.hero, { borderColor: t.glassBrd2 }]}>
           <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
           <LinearGradient
             colors={['rgba(155,130,238,0.26)', 'rgba(98,80,168,0.17)', 'rgba(60,50,95,0.13)']}
@@ -219,40 +220,44 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
               </Text>
             </View>
           </View>
-        </View>
+        </SpringIn>
 
-        {/* ── SMS auto-sync banner (MobileHome.jsx:128–141) ── */}
-        <GlassView style={styles.syncBanner} padding={0} radius={radius.lg}>
-          <SyncBannerInner onPress={() => nav('sync')} />
-        </GlassView>
+        {/* ── SMS auto-sync banner (MobileHome.jsx:128–141, animationDelay: .03s) ── */}
+        <SpringIn delay={30}>
+          <GlassView style={styles.syncBanner} padding={0} radius={radius.lg}>
+            <SyncBannerInner onPress={() => nav('sync')} />
+          </GlassView>
+        </SpringIn>
 
-        {/* ── This week spending (MobileHome.jsx:144–151) ── */}
+        {/* ── This week spending (MobileHome.jsx:144–151, animationDelay: .06s) ── */}
         <Label action="Stats →" onAction={() => nav('reports')}>
           This week
         </Label>
-        <GlassView style={styles.weekCard} padding={0} radius={radius.xl}>
-          <View style={styles.weekCardInner}>
-            <View style={styles.weekHeaderRow}>
-              <Text style={[styles.weekHeaderLabel, { color: t.text3, fontFamily: weight(500) }]}>
-                Spent this week
-              </Text>
-              <Text style={[styles.weekHeaderValue, { color: t.text1, fontFamily: weight(800) }]}>
-                {fmt(WEEK_TOTAL)}
-              </Text>
+        <SpringIn delay={60}>
+          <GlassView style={styles.weekCard} padding={0} radius={radius.xl}>
+            <View style={styles.weekCardInner}>
+              <View style={styles.weekHeaderRow}>
+                <Text style={[styles.weekHeaderLabel, { color: t.text3, fontFamily: weight(500) }]}>
+                  Spent this week
+                </Text>
+                <Text style={[styles.weekHeaderValue, { color: t.text1, fontFamily: weight(800) }]}>
+                  {fmt(WEEK_TOTAL)}
+                </Text>
+              </View>
+              <WeekChart data={MH_WEEK} peakIdx={PEAK_IDX} />
             </View>
-            <WeekChart data={MH_WEEK} peakIdx={PEAK_IDX} />
-          </View>
-        </GlassView>
+          </GlassView>
+        </SpringIn>
 
-        {/* ── Recent (MobileHome.jsx:154–168) ── */}
+        {/* ── Recent (MobileHome.jsx:154–168, animationDelay: .1s) ── */}
         <Label action="See all →" onAction={() => nav('txns')}>
           Recent
         </Label>
-        <View style={styles.recentList}>
+        <SpringIn delay={100} style={styles.recentList}>
           {recentTx.map((tx, i) => (
             <RecentRow key={i} tx={tx} onPress={() => nav('txns')} />
           ))}
-        </View>
+        </SpringIn>
 
         <View style={{ height: 24 }} />
       </PullToRefresh>

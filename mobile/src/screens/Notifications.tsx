@@ -28,6 +28,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Chip, HScroll, IconButton } from '../components/ui';
 import { MI } from '../components/icons';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -115,28 +116,30 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
 
       <View style={styles.list}>
         {filtered.map((n, i) => (
-          <View
-            key={i}
-            style={[
-              styles.card,
-              { backgroundColor: n.unread ? t.bg2 : t.bg1, borderColor: t.border },
-            ]}
-          >
-            {n.unread && <View style={[styles.unreadDot, { backgroundColor: t.em }]} />}
-            <View style={[styles.iconBox, { backgroundColor: n.color + '22' }]}>
-              <Text style={styles.iconGlyph}>{n.icon}</Text>
+          // animationDelay: `${i*0.03}s` (MobileScreens.jsx:699)
+          <SpringIn key={i} delay={i * 30}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: n.unread ? t.bg2 : t.bg1, borderColor: t.border },
+              ]}
+            >
+              {n.unread && <View style={[styles.unreadDot, { backgroundColor: t.em }]} />}
+              <View style={[styles.iconBox, { backgroundColor: n.color + '22' }]}>
+                <Text style={styles.iconGlyph}>{n.icon}</Text>
+              </View>
+              <View style={styles.textBlock}>
+                <Text
+                  style={[styles.title, { color: t.text1, fontFamily: weight(n.unread ? 700 : 600) }]}
+                  numberOfLines={2}
+                >
+                  {n.title}
+                </Text>
+                <Text style={[styles.body, { color: t.text2 }]}>{n.body}</Text>
+                <Text style={[styles.time, { color: t.text3 }]}>{n.time}</Text>
+              </View>
             </View>
-            <View style={styles.textBlock}>
-              <Text
-                style={[styles.title, { color: t.text1, fontFamily: weight(n.unread ? 700 : 600) }]}
-                numberOfLines={2}
-              >
-                {n.title}
-              </Text>
-              <Text style={[styles.body, { color: t.text2 }]}>{n.body}</Text>
-              <Text style={[styles.time, { color: t.text3 }]}>{n.time}</Text>
-            </View>
-          </View>
+          </SpringIn>
         ))}
       </View>
     </MPageShell>

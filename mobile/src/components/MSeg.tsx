@@ -178,6 +178,8 @@ const styles = StyleSheet.create({
     // `Glass.tsx`'s `hiLight` pattern. Skipped here since the indicator is
     // a small pill and the 1px `glassBrd2` border already reads as a subtle
     // raised edge; revisit if visual parity needs the highlight strip too.
-    elevation: 2,
+    // No Android `elevation` here — the source has no drop shadow on
+    // `.m-seg-indicator`, only the `glassHi` inset highlight (not
+    // reproducible as elevation).
   },
 });

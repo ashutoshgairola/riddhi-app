@@ -227,7 +227,7 @@ export function Btn({ children, variant = 'em', onPress, disabled = false, style
               backgroundColor: bg,
               borderColor,
               borderWidth: borderColor ? 1 : 0,
-              opacity: disabled ? 0.5 : 1,
+              opacity: disabled ? 0.45 : 1,
               transform: [{ scale: pressed ? 0.97 : 1 }],
             },
             style,

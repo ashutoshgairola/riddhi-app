@@ -46,6 +46,7 @@ import { MSparkline } from '../components/charts';
 import { IconButton, ListCard, ListRow, SectionHead, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -121,7 +122,7 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Portfolio hero (MobileSecondary.jsx:189–205) */}
-        <View style={styles.heroCard}>
+        <SpringIn style={styles.heroCard}>
           <LinearGradient
             colors={['#241a4a', '#18122e', '#0e0b15']}
             locations={[0, 0.6, 1]}
@@ -138,7 +139,7 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
               <MSparkline data={DUMMY_CHART} color="#7faf93" height={56} />
             </View>
           </LinearGradient>
-        </View>
+        </SpringIn>
 
         {/* Holdings (MobileSecondary.jsx:207–230) */}
         <View style={styles.sectionWrap}>
@@ -146,32 +147,35 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
         </View>
         <ListCard>
           {holdings.map((h, i) => (
-            <ListRow key={h.sym} last={i === holdings.length - 1}>
-              <View style={[styles.symBox, { backgroundColor: h.color + '22' }]}>
-                <Text style={[styles.symBoxText, { color: h.color, fontFamily: weight(700) }]}>
-                  {h.sym.slice(0, 2)}
-                </Text>
-              </View>
-              <View style={styles.holdingTextBlock}>
-                <Text style={[styles.holdingName, { color: t.text1, fontFamily: weight(600) }]}>
-                  {h.name}
-                </Text>
-                <Text style={[styles.holdingSym, { color: t.text3 }]}>{h.sym}</Text>
-              </View>
-              <View style={styles.holdingRight}>
-                <Text style={[styles.holdingVal, { color: t.text1, fontFamily: weight(700) }]}>
-                  ₹{h.val.toLocaleString('en-IN')}
-                </Text>
-                <Text
-                  style={[
-                    styles.holdingRet,
-                    { color: h.ret >= 0 ? t.em : t.red, fontFamily: weight(600) },
-                  ]}
-                >
-                  {h.ret >= 0 ? '↑' : '↓'} {Math.abs(h.ret)}%
-                </Text>
-              </View>
-            </ListRow>
+            // animationDelay: `${0.05 + i*0.04}s` (MobileSecondary.jsx:214)
+            <SpringIn key={h.sym} delay={50 + i * 40}>
+              <ListRow last={i === holdings.length - 1}>
+                <View style={[styles.symBox, { backgroundColor: h.color + '22' }]}>
+                  <Text style={[styles.symBoxText, { color: h.color, fontFamily: weight(700) }]}>
+                    {h.sym.slice(0, 2)}
+                  </Text>
+                </View>
+                <View style={styles.holdingTextBlock}>
+                  <Text style={[styles.holdingName, { color: t.text1, fontFamily: weight(600) }]}>
+                    {h.name}
+                  </Text>
+                  <Text style={[styles.holdingSym, { color: t.text3 }]}>{h.sym}</Text>
+                </View>
+                <View style={styles.holdingRight}>
+                  <Text style={[styles.holdingVal, { color: t.text1, fontFamily: weight(700) }]}>
+                    ₹{h.val.toLocaleString('en-IN')}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.holdingRet,
+                      { color: h.ret >= 0 ? t.em : t.red, fontFamily: weight(600) },
+                    ]}
+                  >
+                    {h.ret >= 0 ? '↑' : '↓'} {Math.abs(h.ret)}%
+                  </Text>
+                </View>
+              </ListRow>
+            </SpringIn>
           ))}
         </ListCard>
       </ScrollView>

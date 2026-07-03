@@ -44,6 +44,7 @@ import { useState } from 'react';
 import { GlassCard } from '../components/Glass';
 import { IconButton, ListCard, ListRow, Toggle } from '../components/ui';
 import { MI } from '../components/icons';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -168,42 +169,44 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       }
     >
       {/* status card (MobileSync.jsx:126–150) */}
-      <GlassCard style={styles.statusCard}>
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.statusIconBox,
-              { backgroundColor: autoSync ? t.emDim : t.bg3 },
-            ]}
-          >
-            <MI.refresh size={20} color={autoSync ? t.em : t.text3} />
-            {autoSync ? (
-              <View style={[styles.statusDot, { backgroundColor: t.em, borderColor: t.bg1 }]} />
-            ) : null}
-          </View>
-          <View style={styles.statusText}>
-            <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>SMS auto-sync</Text>
-            <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
-              {autoSync ? 'Listening · last synced 2 min ago' : 'Paused'}
-            </Text>
-          </View>
-          <Toggle on={autoSync} onChange={setAutoSync} />
-        </View>
-
-        {/* connected banks (MobileSync.jsx:142–149) */}
-        <View style={[styles.banksRow, { borderTopColor: t.border }]}>
-          {SYNC_BANKS.map((b) => (
-            <View key={b.name} style={[styles.bankCol, { opacity: b.off ? 0.4 : 1 }]}>
-              <View style={[styles.bankLogoBox, { backgroundColor: b.col }]}>
-                <Text style={[styles.bankLogoText, { fontFamily: weight(700) }]}>{b.logo}</Text>
-              </View>
-              <Text style={[styles.bankLabel, { color: t.text3, fontFamily: weight(600) }]}>
-                {b.off ? 'Add' : b.name.split(' ')[0]}
+      <SpringIn>
+        <GlassCard style={styles.statusCard}>
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusIconBox,
+                { backgroundColor: autoSync ? t.emDim : t.bg3 },
+              ]}
+            >
+              <MI.refresh size={20} color={autoSync ? t.em : t.text3} />
+              {autoSync ? (
+                <View style={[styles.statusDot, { backgroundColor: t.em, borderColor: t.bg1 }]} />
+              ) : null}
+            </View>
+            <View style={styles.statusText}>
+              <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>SMS auto-sync</Text>
+              <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
+                {autoSync ? 'Listening · last synced 2 min ago' : 'Paused'}
               </Text>
             </View>
-          ))}
-        </View>
-      </GlassCard>
+            <Toggle on={autoSync} onChange={setAutoSync} />
+          </View>
+
+          {/* connected banks (MobileSync.jsx:142–149) */}
+          <View style={[styles.banksRow, { borderTopColor: t.border }]}>
+            {SYNC_BANKS.map((b) => (
+              <View key={b.name} style={[styles.bankCol, { opacity: b.off ? 0.4 : 1 }]}>
+                <View style={[styles.bankLogoBox, { backgroundColor: b.col }]}>
+                  <Text style={[styles.bankLogoText, { fontFamily: weight(700) }]}>{b.logo}</Text>
+                </View>
+                <Text style={[styles.bankLabel, { color: t.text3, fontFamily: weight(600) }]}>
+                  {b.off ? 'Add' : b.name.split(' ')[0]}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </GlassCard>
+      </SpringIn>
 
       {/* needs review (MobileSync.jsx:152–156) */}
       <View style={styles.sectionHeadRow}>
@@ -221,23 +224,26 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       </View>
 
       {pending.length > 0 ? (
-        <View>
+        // animationDelay: .05s (MobileSync.jsx:159)
+        <SpringIn delay={50}>
           {pending.map((tx) => (
             <DetectedCard key={tx.id} tx={tx} onConfirm={confirm} onDismiss={dismiss} />
           ))}
-        </View>
+        </SpringIn>
       ) : (
-        <GlassCard style={styles.emptyCard}>
-          <View style={[styles.emptyIconBox, { backgroundColor: t.emDim }]}>
-            <MI.check size={24} color={t.em} strokeWidth={2.4} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(700) }]}>All caught up</Text>
-          <Text style={[styles.emptyBody, { color: t.text3 }]}>
-            {justAdded > 0
-              ? `${justAdded} transaction${justAdded > 1 ? 's' : ''} added today.`
-              : 'New bank messages appear here for a quick tap to confirm.'}
-          </Text>
-        </GlassCard>
+        <SpringIn>
+          <GlassCard style={styles.emptyCard}>
+            <View style={[styles.emptyIconBox, { backgroundColor: t.emDim }]}>
+              <MI.check size={24} color={t.em} strokeWidth={2.4} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(700) }]}>All caught up</Text>
+            <Text style={[styles.emptyBody, { color: t.text3 }]}>
+              {justAdded > 0
+                ? `${justAdded} transaction${justAdded > 1 ? 's' : ''} added today.`
+                : 'New bank messages appear here for a quick tap to confirm.'}
+            </Text>
+          </GlassCard>
+        </SpringIn>
       )}
 
       {/* recently synced (MobileSync.jsx:176–194) */}
@@ -245,32 +251,35 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         <Text style={[styles.sectionTitle, { color: t.text1, fontFamily: weight(700) }]}>Auto-added</Text>
         <Text style={[styles.sectionMeta, { color: t.text3 }]}>High confidence</Text>
       </View>
-      <ListCard>
-        {SYNC_RECENT.map((tx, i) => (
-          <ListRow key={i} last={i === SYNC_RECENT.length - 1}>
-            <View style={[styles.recentIconBox, { backgroundColor: tx.catCol + '22' }]}>
-              <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
-            </View>
-            <View style={styles.recentText}>
-              <Text style={[styles.recentMerchant, { color: t.text1, fontFamily: weight(600) }]}>{tx.merchant}</Text>
-              <View style={styles.recentMetaRow}>
-                <Text style={[styles.recentCat, { color: tx.catCol, fontFamily: weight(600) }]}>{tx.cat}</Text>
-                <Text style={[styles.recentDot, { color: t.text3 }]}>•</Text>
-                <Text style={[styles.recentTime, { color: t.text3 }]}>{tx.time}</Text>
+      {/* animationDelay: .1s (MobileSync.jsx:181) */}
+      <SpringIn delay={100}>
+        <ListCard>
+          {SYNC_RECENT.map((tx, i) => (
+            <ListRow key={i} last={i === SYNC_RECENT.length - 1}>
+              <View style={[styles.recentIconBox, { backgroundColor: tx.catCol + '22' }]}>
+                <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
               </View>
-            </View>
-            <Text
-              style={[
-                styles.recentAmount,
-                { color: tx.amount > 0 ? t.em : t.text1, fontFamily: weight(700) },
-              ]}
-            >
-              {tx.amount > 0 ? '+' : ''}
-              {fmtR(tx.amount)}
-            </Text>
-          </ListRow>
-        ))}
-      </ListCard>
+              <View style={styles.recentText}>
+                <Text style={[styles.recentMerchant, { color: t.text1, fontFamily: weight(600) }]}>{tx.merchant}</Text>
+                <View style={styles.recentMetaRow}>
+                  <Text style={[styles.recentCat, { color: tx.catCol, fontFamily: weight(600) }]}>{tx.cat}</Text>
+                  <Text style={[styles.recentDot, { color: t.text3 }]}>•</Text>
+                  <Text style={[styles.recentTime, { color: t.text3 }]}>{tx.time}</Text>
+                </View>
+              </View>
+              <Text
+                style={[
+                  styles.recentAmount,
+                  { color: tx.amount > 0 ? t.em : t.text1, fontFamily: weight(700) },
+                ]}
+              >
+                {tx.amount > 0 ? '+' : ''}
+                {fmtR(tx.amount)}
+              </Text>
+            </ListRow>
+          ))}
+        </ListCard>
+      </SpringIn>
 
       {/* how it works (MobileSync.jsx:197–204) */}
       <View style={styles.infoRow}>

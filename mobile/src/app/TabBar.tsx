@@ -69,14 +69,21 @@ export function TabBar() {
               style={styles.fabTab}
               onPress={() => setFabOpen(!fabOpen)}
             >
-              <LinearGradient
-                colors={FAB_GRADIENT}
-                start={{ x: 0.15, y: 0 }}
-                end={{ x: 0.85, y: 1 }}
-                style={[styles.fab, fabOpen && styles.fabOpen]}
-              >
-                <MI.plus size={26} color="#241a40" strokeWidth={2.4} />
-              </LinearGradient>
+              {({ pressed }) => (
+                <LinearGradient
+                  colors={FAB_GRADIENT}
+                  start={{ x: 0.15, y: 0 }}
+                  end={{ x: 0.85, y: 1 }}
+                  style={[
+                    styles.fab,
+                    // .m-fab:active { transform: scale(0.92) rotate(45deg) }
+                    // (mobile.css:325) — pressed keeps the open rotation too.
+                    { transform: [{ scale: pressed ? 0.92 : 1 }, { rotate: fabOpen || pressed ? '45deg' : '0deg' }] },
+                  ]}
+                >
+                  <MI.plus size={26} color="#241a40" strokeWidth={2.4} />
+                </LinearGradient>
+              )}
             </Pressable>
           );
         }
@@ -85,27 +92,32 @@ export function TabBar() {
         const Icon = MI[tab.icon];
 
         return (
-          <Pressable key={tab.id} style={styles.tab} onPress={() => goTab(tab.id)}>
-            {isActive && (
-              <View
-                style={[
-                  styles.activePill,
-                  { backgroundColor: t.glassBg2, borderColor: t.glassBrd },
-                ]}
-                pointerEvents="none"
-              />
+          <Pressable key={tab.id} style={styles.tabPressable} onPress={() => goTab(tab.id)}>
+            {({ pressed }) => (
+              // .m-tab:active { transform: scale(0.92) } (mobile.css:287)
+              <View style={[styles.tab, { transform: [{ scale: pressed ? 0.92 : 1 }] }]}>
+                {isActive && (
+                  <View
+                    style={[
+                      styles.activePill,
+                      { backgroundColor: t.glassBg2, borderColor: t.glassBrd },
+                    ]}
+                    pointerEvents="none"
+                  />
+                )}
+                <View style={isActive && styles.iconActive}>
+                  <Icon size={22} color={isActive ? t.text1 : t.text3} strokeWidth={1.8} />
+                </View>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: isActive ? t.text1 : t.text3, fontFamily: weight(600) },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </View>
             )}
-            <View style={isActive && styles.iconActive}>
-              <Icon size={22} color={isActive ? t.text1 : t.text3} strokeWidth={1.8} />
-            </View>
-            <Text
-              style={[
-                styles.label,
-                { color: isActive ? t.text1 : t.text3, fontFamily: weight(600) },
-              ]}
-            >
-              {tab.label}
-            </Text>
           </Pressable>
         );
       })}
@@ -123,6 +135,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 4,
     borderTopWidth: 1,
+  },
+  // Wraps `.m-tab` — the flex slot itself; press-scale is applied to the
+  // inner `tab` View instead (Pressable's own layout must stay unscaled so
+  // the 5-slot row doesn't reflow on press).
+  tabPressable: {
+    flex: 1,
   },
   // .m-tab (mobile.css:270–285)
   tab: {
@@ -169,9 +187,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 26,
     elevation: 8,
-  },
-  // .m-fab.open: rotate(45deg) (mobile.css:323)
-  fabOpen: {
-    transform: [{ rotate: '45deg' }],
   },
 });

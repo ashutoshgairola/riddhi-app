@@ -30,6 +30,7 @@ import { GlassCard } from '../components/Glass';
 import { Chip, IconButton } from '../components/ui';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -91,7 +92,7 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
         </IconButton>
       }
     >
-      <View style={styles.segWrap}>
+      <SpringIn style={styles.segWrap}>
         <MSeg<FilterValue>
           options={[
             { value: 'all', label: 'All' },
@@ -101,36 +102,39 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
           value={tab}
           onChange={setTab}
         />
-      </View>
+      </SpringIn>
 
       <View style={styles.list}>
-        {filtered.map((c) => (
-          <GlassCard key={c.id} style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={[styles.iconBox, { backgroundColor: c.color + '22' }]}>
-                <Text style={styles.iconGlyph}>{c.icon}</Text>
-              </View>
-              <View style={styles.textBlock}>
-                <Text style={[styles.name, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
-                  {c.name}
+        {filtered.map((c, i) => (
+          // animationDelay: `${0.04 + i*0.03}s` (MobileScreens.jsx:506)
+          <SpringIn key={c.id} delay={40 + i * 30}>
+            <GlassCard style={styles.card}>
+              <View style={styles.cardRow}>
+                <View style={[styles.iconBox, { backgroundColor: c.color + '22' }]}>
+                  <Text style={styles.iconGlyph}>{c.icon}</Text>
+                </View>
+                <View style={styles.textBlock}>
+                  <Text style={[styles.name, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
+                    {c.name}
+                  </Text>
+                  <Text style={[styles.meta, { color: t.text3 }]}>
+                    {c.txs} txns{c.subs.length > 0 ? ` · ${c.subs.length} sub-cat` : ''}
+                  </Text>
+                </View>
+                <Text style={[styles.total, { color: c.color, fontFamily: weight(700) }]}>
+                  ₹{c.total.toLocaleString('en-IN')}
                 </Text>
-                <Text style={[styles.meta, { color: t.text3 }]}>
-                  {c.txs} txns{c.subs.length > 0 ? ` · ${c.subs.length} sub-cat` : ''}
-                </Text>
               </View>
-              <Text style={[styles.total, { color: c.color, fontFamily: weight(700) }]}>
-                ₹{c.total.toLocaleString('en-IN')}
-              </Text>
-            </View>
 
-            {c.subs.length > 0 && (
-              <View style={[styles.subsRow, { borderTopColor: t.border }]}>
-                {c.subs.map((s) => (
-                  <Chip key={s}>{s}</Chip>
-                ))}
-              </View>
-            )}
-          </GlassCard>
+              {c.subs.length > 0 && (
+                <View style={[styles.subsRow, { borderTopColor: t.border }]}>
+                  {c.subs.map((s) => (
+                    <Chip key={s}>{s}</Chip>
+                  ))}
+                </View>
+              )}
+            </GlassCard>
+          </SpringIn>
         ))}
       </View>
     </MPageShell>

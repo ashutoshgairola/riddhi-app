@@ -38,6 +38,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconButton, SectionHead } from '../components/ui';
 import { MI } from '../components/icons';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -113,7 +114,7 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
       }
     >
       {/* Net worth hero (MobileScreens.jsx:365–384) */}
-      <View style={styles.heroCard}>
+      <SpringIn style={styles.heroCard}>
         <LinearGradient
           colors={['#241a4a', '#0e0b15']}
           start={{ x: 0.1, y: 0 }}
@@ -137,41 +138,44 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
             </View>
           </View>
         </LinearGradient>
-      </View>
+      </SpringIn>
 
       <SectionHead title="All Accounts" link={String(accounts.length)} />
 
       <View style={styles.accountList}>
-        {accounts.map((a) => (
-          <Pressable key={a.id} onPress={() => push({ kind: 'account-detail', data: a })}>
-            {({ pressed }) => (
-              <LinearGradient
-                colors={a.gradient}
-                start={{ x: 0.1, y: 0 }}
-                end={{ x: 0.9, y: 1 }}
-                style={[styles.accountCard, { opacity: pressed ? 0.92 : 1 }]}
-              >
-                <View style={styles.accountGlowBlob} pointerEvents="none" />
-                <View style={styles.accountRow}>
-                  <View style={styles.accountLogoBox}>
-                    <Text style={styles.accountLogoText}>{a.logo}</Text>
+        {accounts.map((a, i) => (
+          // animationDelay: `${0.04 + i*0.04}s` (MobileScreens.jsx:392)
+          <SpringIn key={a.id} delay={40 + i * 40}>
+            <Pressable onPress={() => push({ kind: 'account-detail', data: a })}>
+              {({ pressed }) => (
+                <LinearGradient
+                  colors={a.gradient}
+                  start={{ x: 0.1, y: 0 }}
+                  end={{ x: 0.9, y: 1 }}
+                  style={[styles.accountCard, { opacity: pressed ? 0.92 : 1 }]}
+                >
+                  <View style={styles.accountGlowBlob} pointerEvents="none" />
+                  <View style={styles.accountRow}>
+                    <View style={styles.accountLogoBox}>
+                      <Text style={styles.accountLogoText}>{a.logo}</Text>
+                    </View>
+                    <View style={styles.accountTextBlock}>
+                      <Text style={styles.accountName}>{a.name}</Text>
+                      <Text style={styles.accountSub}>
+                        {a.sub} · {a.type}
+                      </Text>
+                    </View>
+                    <View style={styles.accountRight}>
+                      <Text style={styles.accountBal}>{fmtBalance(a.bal)}</Text>
+                      <Text style={styles.accountChange}>
+                        {a.change > 0 ? '↑ +' : '↓ '}₹{Math.abs(a.change).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.accountTextBlock}>
-                    <Text style={styles.accountName}>{a.name}</Text>
-                    <Text style={styles.accountSub}>
-                      {a.sub} · {a.type}
-                    </Text>
-                  </View>
-                  <View style={styles.accountRight}>
-                    <Text style={styles.accountBal}>{fmtBalance(a.bal)}</Text>
-                    <Text style={styles.accountChange}>
-                      {a.change > 0 ? '↑ +' : '↓ '}₹{Math.abs(a.change).toLocaleString('en-IN')}
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            )}
-          </Pressable>
+                </LinearGradient>
+              )}
+            </Pressable>
+          </SpringIn>
         ))}
       </View>
     </MPageShell>

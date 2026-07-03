@@ -99,8 +99,13 @@ export class AuthService {
   }
 
   async googleLogin(idToken: string) {
-    const audience = this.config.get<string>('GOOGLE_CLIENT_ID');
-    if (!audience) {
+    // Comma-separated list: web client ID plus the iOS/Android client IDs —
+    // tokens minted on native devices carry the platform client ID as `aud`.
+    const audience = (this.config.get<string>('GOOGLE_CLIENT_ID') ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (audience.length === 0) {
       throw new UnauthorizedException('Google sign-in is not configured');
     }
 

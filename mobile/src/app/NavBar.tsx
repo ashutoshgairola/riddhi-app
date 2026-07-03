@@ -67,23 +67,30 @@ export function NavBar({ navLabels = true }: NavBarProps) {
             style={[styles.navdest, !navLabels && styles.navdestNoLabels]}
             onPress={() => goTab(dest.id)}
           >
-            <View
-              style={[
-                styles.navpill,
-                isActive && { backgroundColor: t.emDim },
-              ]}
-            >
-              <Icon size={22} color={isActive ? t.em : t.text2} strokeWidth={isActive ? 2.4 : 1.9} />
-            </View>
-            {navLabels && (
-              <Text
-                style={[
-                  styles.label,
-                  { color: isActive ? t.em : t.text2, fontFamily: weight(500) },
-                ]}
-              >
-                {dest.label}
-              </Text>
+            {({ pressed }) => (
+              <>
+                <View
+                  style={[
+                    styles.navpill,
+                    isActive && { backgroundColor: t.emDim },
+                    // .m-navdest:active .m-navpill { background: rgba(255,255,255,0.10) }
+                    // (platform.css:130) — only when not already the active-tint pill.
+                    pressed && !isActive && { backgroundColor: 'rgba(255,255,255,0.10)' },
+                  ]}
+                >
+                  <Icon size={22} color={isActive ? t.em : t.text2} strokeWidth={isActive ? 2.4 : 1.9} />
+                </View>
+                {navLabels && (
+                  <Text
+                    style={[
+                      styles.label,
+                      { color: isActive ? t.em : t.text2, fontFamily: weight(500) },
+                    ]}
+                  >
+                    {dest.label}
+                  </Text>
+                )}
+              </>
             )}
           </Pressable>
         );
@@ -110,14 +117,25 @@ export function MFab({ open, onPress }: MFabProps) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Add"
-      style={[
-        styles.mfab,
-        { backgroundColor: t.em, bottom: 96 + insets.bottom },
-        open && styles.mfabOpen,
-      ]}
+      style={{ position: 'absolute', right: 16, bottom: 96 + insets.bottom }}
       onPress={onPress}
     >
-      <MI.plus size={26} color="#060810" strokeWidth={2.4} />
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.mfab,
+            {
+              backgroundColor: t.em,
+              // .m-mfab.open: rotate(45deg) (platform.css:157) +
+              // .m-mfab:active { transform: scale(0.94) } (platform.css:156)
+              // — combined into one transform array so both can apply at once.
+              transform: [{ scale: pressed ? 0.94 : 1 }, { rotate: open ? '45deg' : '0deg' }],
+            },
+          ]}
+        >
+          <MI.plus size={26} color="#060810" strokeWidth={2.4} />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -158,10 +176,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.02 * 11,
   },
-  // .m-mfab (platform.css:138–157)
+  // .m-mfab (platform.css:138–157) — position/right/bottom now live on the
+  // outer `Pressable` (see `MFab`) so the `pressed` scale transform below
+  // doesn't fight with absolute-positioning styles.
   mfab: {
-    position: 'absolute',
-    right: 16,
     width: 56,
     height: 56,
     borderRadius: 18,
@@ -172,9 +190,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 16,
     elevation: 6,
-  },
-  // .m-mfab.open: rotate(45deg) (platform.css:157)
-  mfabOpen: {
-    transform: [{ rotate: '45deg' }],
   },
 });

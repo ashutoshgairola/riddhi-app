@@ -71,12 +71,14 @@ export function GlassView({ style, intensity = 30, radius: r = radius.xl, paddin
 
 /**
  * `.m-card` — `GlassView` with the card defaults: 18px padding, `xl` (26)
- * radius. Thin wrapper so card and bare-glass usages share one
- * implementation.
+ * radius, and a slightly higher blur intensity (40 vs. `GlassView`'s
+ * generic 30) — tuned closer to the CSS `blur(22px)` glass feel for the
+ * card surface specifically. Thin wrapper so card and bare-glass usages
+ * share one implementation.
  */
 export function GlassCard({ style, children }: GlassCardProps) {
   return (
-    <GlassView style={style} radius={radius.xl} padding={18}>
+    <GlassView style={style} intensity={40} radius={radius.xl} padding={18}>
       {children}
     </GlassView>
   );

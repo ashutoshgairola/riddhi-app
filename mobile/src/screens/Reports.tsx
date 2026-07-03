@@ -50,6 +50,7 @@ import { Chip, HScroll, IconButton, ListCard, ListRow, ProgressBar, SectionHead,
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -199,7 +200,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Period selector (MobileScreens.jsx:128–132) */}
-        <View style={styles.periodWrap}>
+        <SpringIn style={styles.periodWrap}>
           <MSeg<PeriodValue>
             options={[
               { value: '1m', label: '1M' },
@@ -211,12 +212,12 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
             value={period}
             onChange={setPeriod}
           />
-        </View>
+        </SpringIn>
 
         {tab === 'overview' && (
           <>
             {/* KPI Strip (MobileScreens.jsx:137–156) */}
-            <View style={styles.kpiGrid}>
+            <SpringIn style={styles.kpiGrid}>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Net Income</Text>
                 <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
@@ -243,73 +244,79 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                   {fmtKpi(overview.totalExpenses)}
                 </Text>
               </GlassCard>
-            </View>
+            </SpringIn>
 
-            {/* Income vs Expense (MobileScreens.jsx:158–177) */}
-            <GlassCard style={styles.sectionCard}>
-              <View style={styles.cardHeaderRow}>
-                <View>
-                  <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
-                    Income vs Expenses
-                  </Text>
-                  <Text style={[styles.cardSubtitle, { color: t.text1, fontFamily: weight(700) }]}>
-                    Last 8 months
-                  </Text>
-                </View>
-                <View style={styles.legendRow}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: t.em }]} />
-                    <Text style={[styles.legendText, { color: t.text3 }]}>Inc</Text>
+            {/* Income vs Expense (MobileScreens.jsx:158–177), animationDelay: .05s */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCard}>
+                <View style={styles.cardHeaderRow}>
+                  <View>
+                    <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                      Income vs Expenses
+                    </Text>
+                    <Text style={[styles.cardSubtitle, { color: t.text1, fontFamily: weight(700) }]}>
+                      Last 8 months
+                    </Text>
                   </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: t.red }]} />
-                    <Text style={[styles.legendText, { color: t.text3 }]}>Exp</Text>
-                  </View>
-                </View>
-              </View>
-              <MGroupedBars inc={REP_INC} exp={REP_EXP} labels={REP_LABELS} />
-            </GlassCard>
-
-            {/* Category breakdown (MobileScreens.jsx:179–196) */}
-            <GlassCard style={styles.sectionCard}>
-              <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
-                Spending by Category
-              </Text>
-              <MDonut data={CAT_DATA} total={TOTAL_CAT} />
-              <View style={styles.donutLegend}>
-                {CAT_DATA.map((d) => {
-                  const pct = Math.round((d.value / TOTAL_CAT) * 100);
-                  return (
-                    <View key={d.label} style={styles.donutLegendRow}>
-                      <View style={[styles.legendDot10, { backgroundColor: d.color }]} />
-                      <Text style={[styles.donutLegendLabel, { color: t.text1 }]}>{d.label}</Text>
-                      <Text style={[styles.donutLegendValue, { color: t.text1, fontFamily: weight(700) }]}>
-                        ₹{(d.value / 1000).toFixed(1)}K
-                      </Text>
-                      <Text style={[styles.donutLegendPct, { color: t.text3 }]}>{pct}%</Text>
+                  <View style={styles.legendRow}>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: t.em }]} />
+                      <Text style={[styles.legendText, { color: t.text3 }]}>Inc</Text>
                     </View>
-                  );
-                })}
-              </View>
-            </GlassCard>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: t.red }]} />
+                      <Text style={[styles.legendText, { color: t.text3 }]}>Exp</Text>
+                    </View>
+                  </View>
+                </View>
+                <MGroupedBars inc={REP_INC} exp={REP_EXP} labels={REP_LABELS} />
+              </GlassCard>
+            </SpringIn>
 
-            {/* Net worth trend (MobileScreens.jsx:198–210) */}
-            <GlassCard style={styles.sectionCardLast}>
-              <View style={styles.cardHeaderRow}>
-                <View>
-                  <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
-                    Net Worth Trend
-                  </Text>
-                  <Text style={[styles.netWorthValue, { color: t.text1, fontFamily: weight(700) }]}>₹13.4L</Text>
+            {/* Category breakdown (MobileScreens.jsx:179–196), animationDelay: .1s */}
+            <SpringIn delay={100}>
+              <GlassCard style={styles.sectionCard}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Spending by Category
+                </Text>
+                <MDonut data={CAT_DATA} total={TOTAL_CAT} />
+                <View style={styles.donutLegend}>
+                  {CAT_DATA.map((d) => {
+                    const pct = Math.round((d.value / TOTAL_CAT) * 100);
+                    return (
+                      <View key={d.label} style={styles.donutLegendRow}>
+                        <View style={[styles.legendDot10, { backgroundColor: d.color }]} />
+                        <Text style={[styles.donutLegendLabel, { color: t.text1 }]}>{d.label}</Text>
+                        <Text style={[styles.donutLegendValue, { color: t.text1, fontFamily: weight(700) }]}>
+                          ₹{(d.value / 1000).toFixed(1)}K
+                        </Text>
+                        <Text style={[styles.donutLegendPct, { color: t.text3 }]}>{pct}%</Text>
+                      </View>
+                    );
+                  })}
                 </View>
-                <View style={[styles.deltaBadge, { backgroundColor: t.emDim }]}>
-                  <Text style={[styles.deltaBadgeText, { color: t.em, fontFamily: weight(600) }]}>↑ 18.2%</Text>
+              </GlassCard>
+            </SpringIn>
+
+            {/* Net worth trend (MobileScreens.jsx:198–210), animationDelay: .15s */}
+            <SpringIn delay={150}>
+              <GlassCard style={styles.sectionCardLast}>
+                <View style={styles.cardHeaderRow}>
+                  <View>
+                    <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                      Net Worth Trend
+                    </Text>
+                    <Text style={[styles.netWorthValue, { color: t.text1, fontFamily: weight(700) }]}>₹13.4L</Text>
+                  </View>
+                  <View style={[styles.deltaBadge, { backgroundColor: t.emDim }]}>
+                    <Text style={[styles.deltaBadgeText, { color: t.em, fontFamily: weight(600) }]}>↑ 18.2%</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.sparklineBleed}>
-                <MSparkline data={REP_OVERVIEW} color="#7faf93" height={68} />
-              </View>
-            </GlassCard>
+                <View style={styles.sparklineBleed}>
+                  <MSparkline data={REP_OVERVIEW} color="#7faf93" height={68} />
+                </View>
+              </GlassCard>
+            </SpringIn>
           </>
         )}
 
@@ -326,6 +333,8 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               </View>
             </GlassCard>
 
+            {/* NOTE: source's "By Source" list has no `m-spring` class
+                (MobileScreens.jsx:224–245) — intentionally not wrapped. */}
             <SectionHead title="By Source" />
             <ListCard>
               {INCOME_SOURCES.map((d, i) => (
@@ -358,27 +367,30 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               <Text style={[styles.totalDelta, { color: t.red }]}>↑ 4.1% vs prior period</Text>
             </GlassCard>
 
-            <GlassCard style={styles.sectionCardLast}>
-              <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
-                Top Categories
-              </Text>
-              {CAT_DATA.map((d) => {
-                const pct = Math.round((d.value / TOTAL_CAT) * 100);
-                return (
-                  <View key={d.label} style={styles.topCatRow}>
-                    <View style={styles.topCatHeaderRow}>
-                      <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>
-                        {d.label}
-                      </Text>
-                      <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
-                        ₹{d.value.toLocaleString('en-IN')}
-                      </Text>
+            {/* animationDelay: .05s (MobileScreens.jsx:256) */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCardLast}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Top Categories
+                </Text>
+                {CAT_DATA.map((d) => {
+                  const pct = Math.round((d.value / TOTAL_CAT) * 100);
+                  return (
+                    <View key={d.label} style={styles.topCatRow}>
+                      <View style={styles.topCatHeaderRow}>
+                        <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>
+                          {d.label}
+                        </Text>
+                        <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
+                          ₹{d.value.toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                      <ProgressBar pct={pct} color={d.color} />
                     </View>
-                    <ProgressBar pct={pct} color={d.color} />
-                  </View>
-                );
-              })}
-            </GlassCard>
+                  );
+                })}
+              </GlassCard>
+            </SpringIn>
           </>
         )}
 
@@ -393,20 +405,23 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               </View>
             </GlassCard>
 
-            <GlassCard style={styles.sectionCardLast}>
-              <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
-                Goal Progress
-              </Text>
-              {SAVINGS_GOALS.map((g) => (
-                <View key={g.n} style={styles.topCatRow}>
-                  <View style={styles.topCatHeaderRow}>
-                    <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{g.n}</Text>
-                    <Text style={[styles.topCatValue, { color: g.c, fontFamily: weight(700) }]}>{g.pct}%</Text>
+            {/* animationDelay: .05s (MobileScreens.jsx:284) */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCardLast}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Goal Progress
+                </Text>
+                {SAVINGS_GOALS.map((g) => (
+                  <View key={g.n} style={styles.topCatRow}>
+                    <View style={styles.topCatHeaderRow}>
+                      <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{g.n}</Text>
+                      <Text style={[styles.topCatValue, { color: g.c, fontFamily: weight(700) }]}>{g.pct}%</Text>
+                    </View>
+                    <ProgressBar pct={g.pct} color={g.c} />
                   </View>
-                  <ProgressBar pct={g.pct} color={g.c} />
-                </View>
-              ))}
-            </GlassCard>
+                ))}
+              </GlassCard>
+            </SpringIn>
           </>
         )}
 
@@ -423,22 +438,25 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               </View>
             </GlassCard>
 
-            <GlassCard style={styles.sectionCardLast}>
-              <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
-                Asset Allocation
-              </Text>
-              {ASSET_ALLOCATION.map((d) => (
-                <View key={d.n} style={styles.topCatRow}>
-                  <View style={styles.topCatHeaderRow}>
-                    <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{d.n}</Text>
-                    <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
-                      {d.v} <Text style={[styles.topCatValueSub, { color: t.text3 }]}>· {d.pct}%</Text>
-                    </Text>
+            {/* animationDelay: .05s (MobileScreens.jsx:314) */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCardLast}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Asset Allocation
+                </Text>
+                {ASSET_ALLOCATION.map((d) => (
+                  <View key={d.n} style={styles.topCatRow}>
+                    <View style={styles.topCatHeaderRow}>
+                      <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{d.n}</Text>
+                      <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
+                        {d.v} <Text style={[styles.topCatValueSub, { color: t.text3 }]}>· {d.pct}%</Text>
+                      </Text>
+                    </View>
+                    <ProgressBar pct={d.pct} color={d.c} />
                   </View>
-                  <ProgressBar pct={d.pct} color={d.c} />
-                </View>
-              ))}
-            </GlassCard>
+                ))}
+              </GlassCard>
+            </SpringIn>
           </>
         )}
       </ScrollView>

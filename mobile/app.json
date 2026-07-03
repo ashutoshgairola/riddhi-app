@@ -1,15 +1,18 @@
 {
   "expo": {
     "name": "mobile",
-    "slug": "mobile",
+    "slug": "riddhi",
+    "scheme": "riddhi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ashutoshgairola.riddhi"
     },
     "android": {
+      "package": "com.ashutoshgairola.riddhi",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,6 +26,12 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d0df618e-bf09-41b5-9d00-257c53759f77"
+      }
+    },
+    "owner": "ashutoshgairola26"
   }
 }

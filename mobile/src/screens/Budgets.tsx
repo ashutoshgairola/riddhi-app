@@ -53,6 +53,7 @@ import { GlassCard } from '../components/Glass';
 import { IconButton, ProgressBar, SectionHead, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
+import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -139,63 +140,65 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Overall ring (MobileSecondary.jsx:32–53) */}
-        <GlassCard style={styles.ringCard}>
-          <View style={styles.ringWrap}>
-            <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_R}
-                stroke={t.bg3}
-                strokeWidth={RING_STROKE}
-                fill="none"
-              />
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_R}
-                stroke={ringColor}
-                strokeWidth={RING_STROKE}
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={`${(animPct / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-                origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-                rotation={-90}
-              />
-            </Svg>
-            <View style={styles.ringCenter} pointerEvents="none">
-              <Text style={[styles.ringPct, { color: t.text1, fontFamily: weight(700) }]}>
-                {animPct}%
+        <SpringIn>
+          <GlassCard style={styles.ringCard}>
+            <View style={styles.ringWrap}>
+              <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_R}
+                  stroke={t.bg3}
+                  strokeWidth={RING_STROKE}
+                  fill="none"
+                />
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_R}
+                  stroke={ringColor}
+                  strokeWidth={RING_STROKE}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(animPct / 100) * RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                  origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                  rotation={-90}
+                />
+              </Svg>
+              <View style={styles.ringCenter} pointerEvents="none">
+                <Text style={[styles.ringPct, { color: t.text1, fontFamily: weight(700) }]}>
+                  {animPct}%
+                </Text>
+                <Text style={[styles.ringLabel, { color: t.text3, fontFamily: weight(600) }]}>
+                  Used
+                </Text>
+              </View>
+            </View>
+            <View style={styles.ringInfo}>
+              <Text style={[styles.ringInfoTitle, { color: t.text3, fontFamily: weight(600) }]}>
+                April Budget
               </Text>
-              <Text style={[styles.ringLabel, { color: t.text3, fontFamily: weight(600) }]}>
-                Used
+              <View style={styles.ringInfoAmountRow}>
+                <Text style={[styles.ringInfoAmount, { color: t.text1, fontFamily: weight(700) }]}>
+                  ₹{(totalSpent / 1000).toFixed(0)}K{' '}
+                </Text>
+                <Text style={[styles.ringInfoAmountAlloc, { color: t.text3 }]}>
+                  / ₹{(totalAlloc / 1000).toFixed(0)}K
+                </Text>
+              </View>
+              <Text style={[styles.ringInfoRemaining, { color: t.text2 }]}>
+                ₹{(totalAlloc - totalSpent).toLocaleString('en-IN')} remaining
               </Text>
             </View>
-          </View>
-          <View style={styles.ringInfo}>
-            <Text style={[styles.ringInfoTitle, { color: t.text3, fontFamily: weight(600) }]}>
-              April Budget
-            </Text>
-            <View style={styles.ringInfoAmountRow}>
-              <Text style={[styles.ringInfoAmount, { color: t.text1, fontFamily: weight(700) }]}>
-                ₹{(totalSpent / 1000).toFixed(0)}K{' '}
-              </Text>
-              <Text style={[styles.ringInfoAmountAlloc, { color: t.text3 }]}>
-                / ₹{(totalAlloc / 1000).toFixed(0)}K
-              </Text>
-            </View>
-            <Text style={[styles.ringInfoRemaining, { color: t.text2 }]}>
-              ₹{(totalAlloc - totalSpent).toLocaleString('en-IN')} remaining
-            </Text>
-          </View>
-        </GlassCard>
+          </GlassCard>
+        </SpringIn>
 
         {/* Categories (MobileSecondary.jsx:55–94) */}
         <View style={styles.sectionWrap}>
           <SectionHead title="Categories" link={String(budgets.length)} />
         </View>
         <View style={styles.categoryList}>
-          {budgets.map((b) => {
+          {budgets.map((b, i) => {
             const pct = Math.round((b.spent / b.allocated) * 100);
             const over = pct >= 100;
             const warn = pct >= 75 && !over;
@@ -203,38 +206,41 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
             const badgeBg = over ? t.redDim : warn ? t.amberDim : t.emDim;
 
             return (
-              <GlassCard key={b.name} style={styles.categoryCard}>
-                <View style={styles.categoryHeaderRow}>
-                  <View style={[styles.categoryIconBox, { backgroundColor: b.c + '22' }]}>
-                    <Text style={styles.categoryIconGlyph}>{b.icon}</Text>
-                  </View>
-                  <View style={styles.categoryTextBlock}>
-                    <Text style={[styles.categoryName, { color: t.text1, fontFamily: weight(600) }]}>
-                      {b.name}
-                    </Text>
-                    <Text style={[styles.categoryAmount, { color: t.text3 }]}>
-                      ₹{b.spent.toLocaleString('en-IN')}{' '}
-                      <Text style={{ color: t.text3 }}>
-                        of ₹{b.allocated.toLocaleString('en-IN')}
+              // animationDelay: `${0.05 + i*0.04}s` (MobileSecondary.jsx:68)
+              <SpringIn key={b.name} delay={50 + i * 40}>
+                <GlassCard style={styles.categoryCard}>
+                  <View style={styles.categoryHeaderRow}>
+                    <View style={[styles.categoryIconBox, { backgroundColor: b.c + '22' }]}>
+                      <Text style={styles.categoryIconGlyph}>{b.icon}</Text>
+                    </View>
+                    <View style={styles.categoryTextBlock}>
+                      <Text style={[styles.categoryName, { color: t.text1, fontFamily: weight(600) }]}>
+                        {b.name}
                       </Text>
+                      <Text style={[styles.categoryAmount, { color: t.text3 }]}>
+                        ₹{b.spent.toLocaleString('en-IN')}{' '}
+                        <Text style={{ color: t.text3 }}>
+                          of ₹{b.allocated.toLocaleString('en-IN')}
+                        </Text>
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryPctBadge,
+                        { color: c, backgroundColor: badgeBg, fontFamily: weight(700) },
+                      ]}
+                    >
+                      {pct}%
                     </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.categoryPctBadge,
-                      { color: c, backgroundColor: badgeBg, fontFamily: weight(700) },
-                    ]}
-                  >
-                    {pct}%
-                  </Text>
-                </View>
-                <ProgressBar pct={Math.min(pct, 100)} color={c} />
-                {over ? (
-                  <Text style={[styles.overBudgetWarning, { color: t.red, fontFamily: weight(600) }]}>
-                    ⚠ Over budget by ₹{(b.spent - b.allocated).toLocaleString('en-IN')}
-                  </Text>
-                ) : null}
-              </GlassCard>
+                  <ProgressBar pct={Math.min(pct, 100)} color={c} />
+                  {over ? (
+                    <Text style={[styles.overBudgetWarning, { color: t.red, fontFamily: weight(600) }]}>
+                      ⚠ Over budget by ₹{(b.spent - b.allocated).toLocaleString('en-IN')}
+                    </Text>
+                  ) : null}
+                </GlassCard>
+              </SpringIn>
             );
           })}
         </View>
