@@ -12,6 +12,7 @@ const ACCESS_KEY = 'riddhi.accessToken';
 const REFRESH_KEY = 'riddhi.refreshToken';
 const BIOMETRIC_KEY = 'riddhi.biometricEnabled';
 const PIN_KEY = 'riddhi.pin';
+const PIN_LEN_KEY = 'riddhi.pinLength';
 
 export async function saveTokens(accessToken: string, refreshToken: string): Promise<void> {
   await AsyncStorage.multiSet([
@@ -48,6 +49,7 @@ export async function savePin(pin: string): Promise<void> {
     .join('');
   const hash = await hashPin(pin, salt);
   await SecureStore.setItemAsync(PIN_KEY, `${salt}:${hash}`);
+  await AsyncStorage.setItem(PIN_LEN_KEY, String(pin.length));
 }
 
 export async function verifyPin(pin: string): Promise<boolean> {
@@ -61,6 +63,14 @@ export async function hasPin(): Promise<boolean> {
   return (await SecureStore.getItemAsync(PIN_KEY)) != null;
 }
 
+/** Digit count of the stored PIN (drives the lock screen's dots/auto-submit). */
+export async function getPinLength(): Promise<number | null> {
+  const v = await AsyncStorage.getItem(PIN_LEN_KEY);
+  const n = v ? Number(v) : NaN;
+  return Number.isInteger(n) && n >= 4 && n <= 6 ? n : null;
+}
+
 export async function clearPin(): Promise<void> {
   await SecureStore.deleteItemAsync(PIN_KEY);
+  await AsyncStorage.removeItem(PIN_LEN_KEY);
 }
