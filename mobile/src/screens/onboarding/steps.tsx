@@ -5,6 +5,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Polyline, Rect } from 'react-native-svg';
 
+import { useBiometricLabel } from '../../auth/biometricLabel';
 import { Chip, Toggle } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
@@ -321,6 +322,7 @@ export function OBSecure({
   onBiometric: (v: boolean) => void;
 }) {
   const { t } = useTheme();
+  const bioLabel = useBiometricLabel();
   const press = (k: string) => {
     if (k === 'del') return onPin(pin.slice(0, -1));
     if (k === '.') return;
@@ -354,7 +356,7 @@ export function OBSecure({
             <FaceIdSm color={biometric ? t.em : t.text3} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14.5, color: t.text1, fontFamily: weight(700) }}>Enable Face ID</Text>
+            <Text style={{ fontSize: 14.5, color: t.text1, fontFamily: weight(700) }}>{`Enable ${bioLabel}`}</Text>
             <Text style={{ fontSize: 11.5, color: t.text3, marginTop: 2, fontFamily: weight(500) }}>
               Unlock without typing your PIN
             </Text>

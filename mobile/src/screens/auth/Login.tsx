@@ -1,18 +1,20 @@
 /** Login — RN port of AuthLogin (project/riddhi/MobileAuth.jsx:148-190). */
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
 import { useAuth } from '../../auth/AuthProvider';
+import { useBiometricLabel } from '../../auth/biometricLabel';
 import { Btn } from '../../components/ui';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { ApiError } from '../../api/client';
+import { authApi, USE_BACKEND } from '../../api';
 import { useTheme } from '../../theme/ThemeProvider';
 import { weight } from '../../theme/tokens';
 import {
   AuthDivider,
   AuthInput,
   AuthShell,
+  FaceIdGlyph,
   Field,
   PasswordField,
   PressableScale,
@@ -22,20 +24,11 @@ import {
 } from './authUi';
 import { useGoogleAuth } from './useGoogleAuth';
 
-/** Face-ID glyph (MobileAuth.jsx:177). */
-function FaceIdGlyph({ color }: { color: string }) {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z" />
-      <Path d="M4 11v2a8 8 0 0 0 16 0v-2" />
-    </Svg>
-  );
-}
-
 export function Login({ onBack, onSignup }: { onBack: () => void; onSignup: () => void }) {
   const { t } = useTheme();
   const { toast } = useFeedback();
   const { login, biometricLogin, canBiometricLogin } = useAuth();
+  const bioLabel = useBiometricLabel();
   const { promptGoogle } = useGoogleAuth();
   const [email, setEmail] = useState('');
   const [pwd, setPwd] = useState('');
@@ -57,7 +50,26 @@ export function Login({ onBack, onSignup }: { onBack: () => void; onSignup: () =
   const faceId = async () => {
     toast('Authenticating…', '🔒');
     const ok = await biometricLogin();
-    if (!ok) toast('Face ID sign-in failed', '⚠️');
+    if (!ok) toast(`${bioLabel} sign-in failed`, '⚠️');
+  };
+
+  const forgotPassword = async () => {
+    const target = email.trim();
+    if (!/.+@.+\..+/.test(target)) {
+      toast('Enter your email above first', '📧');
+      return;
+    }
+    if (!USE_BACKEND) {
+      // Mock mode has no auth backend to issue reset tokens.
+      toast('If that email exists, a reset link is on its way', '📧');
+      return;
+    }
+    try {
+      await authApi.forgotPassword(target);
+      toast('If that email exists, a reset link is on its way', '📧');
+    } catch {
+      toast('Could not reach the server', '📡');
+    }
   };
 
   return (
@@ -82,7 +94,7 @@ export function Login({ onBack, onSignup }: { onBack: () => void; onSignup: () =
         <Field label="Password">
           <PasswordField value={pwd} onChange={setPwd} />
         </Field>
-        <Pressable onPress={() => toast('Reset link sent', '📧')} style={{ alignSelf: 'flex-end', marginTop: -2, marginBottom: 18 }}>
+        <Pressable onPress={() => void forgotPassword()} style={{ alignSelf: 'flex-end', marginTop: -2, marginBottom: 18 }}>
           <Text style={{ fontSize: 13, color: t.em, fontFamily: weight(600) }}>Forgot password?</Text>
         </Pressable>
 
@@ -96,7 +108,7 @@ export function Login({ onBack, onSignup }: { onBack: () => void; onSignup: () =
           <PressableScale onPress={faceId}>
             <View style={[styles.faceIdBtn, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
               <FaceIdGlyph color={t.text1} />
-              <Text style={{ fontSize: 14, color: t.text1, fontFamily: weight(600) }}>Use Face ID</Text>
+              <Text style={{ fontSize: 14, color: t.text1, fontFamily: weight(600) }}>{`Use ${bioLabel}`}</Text>
             </View>
           </PressableScale>
         ) : null}

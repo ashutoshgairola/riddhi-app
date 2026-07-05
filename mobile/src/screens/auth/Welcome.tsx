@@ -1,21 +1,35 @@
 /** Welcome — RN port of AuthWelcome (project/riddhi/MobileAuth.jsx:91-143). */
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../../auth/AuthProvider';
+import { useBiometricLabel } from '../../auth/biometricLabel';
 import { Btn } from '../../components/ui';
 import { PageBackground } from '../../components/PageBackground';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
-import { PressableScale, SpringIn, Wordmark } from './authUi';
+import { FaceIdGlyph, PressableScale, SpringIn, Wordmark } from './authUi';
 
 const FEATS = [
   { i: '🔄', c: '#7faf93', l: 'Auto-sync from bank SMS', d: 'Transactions logged on-device' },
   { i: '◎', c: '#c9a86a', l: 'Smart budgets & goals', d: 'Know what\'s safe to spend' },
-  { i: '💬', c: '#9d8bd6', l: 'Ask Riddhi anything', d: 'Plan and log by chatting' },
+  { i: '💬', c: '#9d8bd6', l: 'Ask Munshi anything', d: 'Plan and log by chatting' },
 ];
 
 export function Welcome({ onSignup, onLogin }: { onSignup: () => void; onLogin: () => void }) {
   const { t } = useTheme();
+  const { toast } = useFeedback();
+  const { biometricLogin, canBiometricLogin } = useAuth();
+  const bioLabel = useBiometricLabel();
+  const insets = useSafeAreaInsets();
+
+  const faceId = async () => {
+    toast('Authenticating…', '🔒');
+    const ok = await biometricLogin();
+    if (!ok) toast(`${bioLabel} sign-in failed`, '⚠️');
+  };
   return (
     <View style={{ flex: 1 }}>
       <PageBackground />
@@ -24,14 +38,21 @@ export function Welcome({ onSignup, onLogin }: { onSignup: () => void; onLogin: 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 26 }}
       >
-        {/* Hero (MobileAuth.jsx:102-113): 280px radial glow behind wordmark */}
-        <View style={{ paddingTop: 64, paddingBottom: 24 }}>
+        {/* Hero (MobileAuth.jsx:102-113): 280px radial glow behind wordmark.
+            The source's 64px sat below the frame mock's status bar. */}
+        <View style={{ paddingTop: insets.top + 64, paddingBottom: 24 }}>
           <View pointerEvents="none" style={styles.heroGlow}>
             <Svg width={280} height={280}>
               <Defs>
+                {/* Alpha must go in stopOpacity — react-native-svg does not
+                    reliably honour rgba() alpha inside stopColor, which
+                    rendered the glow as a solid disc (same fix as Home's
+                    hero glow). The mid stop + fade to 100% stands in for
+                    the web's hard cut at 68%. */}
                 <RadialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="rgba(182,164,243,0.32)" />
-                  <Stop offset="68%" stopColor="rgba(182,164,243,0)" />
+                  <Stop offset="0%" stopColor="#b6a4f3" stopOpacity={0.32} />
+                  <Stop offset="45%" stopColor="#b6a4f3" stopOpacity={0.14} />
+                  <Stop offset="100%" stopColor="#b6a4f3" stopOpacity={0} />
                 </RadialGradient>
               </Defs>
               <Circle cx={140} cy={140} r={140} fill="url(#heroGlow)" />
@@ -65,8 +86,9 @@ export function Welcome({ onSignup, onLogin }: { onSignup: () => void; onLogin: 
           ))}
         </View>
 
-        {/* CTAs (MobileAuth.jsx:132-138) */}
-        <View style={{ marginTop: 'auto', paddingTop: 28, paddingBottom: 8 }}>
+        {/* CTAs (MobileAuth.jsx:132-138) — bottom inset clears the home
+            indicator (same pattern as obUi's footer). */}
+        <View style={{ marginTop: 'auto', paddingTop: 28, paddingBottom: insets.bottom + 8 }}>
           <Btn onPress={onSignup} style={{ height: 54 }}>
             <Text style={{ fontSize: 16, color: '#1a1228', fontFamily: weight(600) }}>Create account</Text>
           </Btn>
@@ -75,6 +97,14 @@ export function Welcome({ onSignup, onLogin }: { onSignup: () => void; onLogin: 
               <Text style={{ fontSize: 15, color: t.text1, fontFamily: weight(600) }}>I already have an account</Text>
             </View>
           </PressableScale>
+          {canBiometricLogin ? (
+            <PressableScale onPress={() => void faceId()}>
+              <View style={[styles.ghostBtn, styles.faceIdBtn, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
+                <FaceIdGlyph color={t.text1} />
+                <Text style={{ fontSize: 15, color: t.text1, fontFamily: weight(600) }}>{`Unlock with ${bioLabel}`}</Text>
+              </View>
+            </PressableScale>
+          ) : null}
           <Text style={[styles.terms, { color: t.text3, fontFamily: weight(500) }]}>
             By continuing you agree to our Terms & Privacy Policy
           </Text>
@@ -125,6 +155,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  faceIdBtn: {
+    flexDirection: 'row',
+    gap: 9,
   },
   terms: {
     fontSize: 11,

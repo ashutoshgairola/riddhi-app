@@ -8,6 +8,7 @@ import { useState } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 import { useAuth } from '../../auth/AuthProvider';
+import { useBiometricLabel } from '../../auth/biometricLabel';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { savePin, setBiometricEnabled } from '../../auth/tokenStore';
 import { OBDone } from './Done';
@@ -19,6 +20,7 @@ const TOTAL = 6;
 export function OnboardingWizard() {
   const { completeOnboarding, logout } = useAuth();
   const { toast } = useFeedback();
+  const bioLabel = useBiometricLabel();
 
   const [step, setStep] = useState(0);
   const [goals, setGoals] = useState<string[]>(['track']);
@@ -50,10 +52,10 @@ export function OnboardingWizard() {
     const hardware = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     if (!hardware || !enrolled) {
-      toast('Face ID not available on this device', '🔒');
+      toast(`${bioLabel} not available on this device`, '🔒');
       return;
     }
-    const res = await LocalAuthentication.authenticateAsync({ promptMessage: 'Enable Face ID' });
+    const res = await LocalAuthentication.authenticateAsync({ promptMessage: `Enable ${bioLabel}` });
     if (res.success) setBiometric(true);
   };
 
@@ -64,7 +66,7 @@ export function OnboardingWizard() {
     { i: '💰', l: 'Monthly income', v: fmtAmt(income) },
     { i: '🏦', l: 'Accounts', v: accounts.length ? `${accounts.length} connected` : 'Add later' },
     { i: '🌱', l: 'First goal', v: goalName ? `${goalName} · ${fmtAmt(goalTarget)}` : 'Skipped' },
-    { i: '🔒', l: 'Security', v: `PIN${biometric ? ' + Face ID' : ''}` },
+    { i: '🔒', l: 'Security', v: `PIN${biometric ? ` + ${bioLabel}` : ''}` },
   ];
 
   const enter = async () => {
@@ -147,7 +149,7 @@ export function OnboardingWizard() {
       );
     case 5:
       return (
-        <OBStep {...common} kicker="Protect" title="Secure your money" sub="Set a 4-digit PIN to lock the app. Add Face ID for one-tap access."
+        <OBStep {...common} kicker="Protect" title="Secure your money" sub={`Set a 4-digit PIN to lock the app. Add ${bioLabel} for one-tap access.`}
           footer={<OBFooter canNext={pin.length === 4} label="Finish setup" onNext={next} />}>
           <OBSecure pin={pin} onPin={setPin} biometric={biometric} onBiometric={(v) => void onBiometric(v)} />
         </OBStep>

@@ -37,19 +37,54 @@
  *  - Local toggle state (`hideBalances` off, `biometric` on, `notifsAll`
  *    on) — MobileScreens.jsx:541–543.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as WebBrowser from 'expo-web-browser';
+import * as LocalAuthentication from 'expo-local-authentication';
 
+import { api } from '../api';
+import { useAuth } from '../auth/AuthProvider';
+import { useBiometricLabel } from '../auth/biometricLabel';
+import { hasPin, savePin, setBiometricEnabled, verifyPin } from '../auth/tokenStore';
 import { GlassCard } from '../components/Glass';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { IconButton, ListCard, ListRow, SectionHead, Toggle } from '../components/ui';
 import { useFeedback } from '../feedback/FeedbackProvider';
+import { shareTxCsv } from '../lib/exportCsv';
+import { usePrefs } from '../prefs/PrefsProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { MPageShell } from './_MPageShell';
+
+// ── Preference option sets ──────────────────────────────────────────
+const LANGUAGES = [
+  { code: 'en', label: 'English (India)' },
+  { code: 'hi', label: 'हिन्दी Hindi' },
+  { code: 'gu', label: 'ગુજરાતી Gujarati' },
+  { code: 'kn', label: 'ಕನ್ನಡ Kannada' },
+] as const;
+
+const CURRENCIES = [
+  { code: 'INR', label: '₹ Indian Rupee (INR)', sub: 'INR · Indian Rupee' },
+  { code: 'USD', label: '$ US Dollar (USD)', sub: 'USD · US Dollar' },
+  { code: 'EUR', label: '€ Euro (EUR)', sub: 'EUR · Euro' },
+  { code: 'GBP', label: '£ Pound (GBP)', sub: 'GBP · British Pound' },
+] as const;
+
+const DATE_FORMATS = ['DD MMM YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] as const;
+
+// Product/legal pages opened in the in-app browser.
+const HELP_URL = 'https://riddhi.app/help';
+const PRIVACY_URL = 'https://riddhi.app/privacy';
+const TERMS_URL = 'https://riddhi.app/terms';
+
+// App version from app.json (single source of truth for the About row).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const appVersion: string = (require('../../app.json') as { expo: { version: string } }).expo
+  .version;
 
 // ── Row ─────────────────────────────────────────────────────────────
 // MobileScreens.jsx:572–581 (local `Row` helper) — icon box + title/sub +
@@ -90,12 +125,34 @@ function Row({ icon, color, title, sub, right, onPress, last }: RowProps) {
 export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
   const { t, mode, setMode } = useTheme();
   const { pop, nav } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
+  const { user, updateProfile, logout } = useAuth();
+  const { prefs, set: setPrefs } = usePrefs();
+  const bioLabel = useBiometricLabel();
+  // Hide the biometric row entirely on devices without enrolled biometrics
+  // (spec § Settings).
+  const [bioAvailable, setBioAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      LocalAuthentication.hasHardwareAsync(),
+      LocalAuthentication.isEnrolledAsync(),
+    ]).then(([hw, enrolled]) => {
+      if (!cancelled) setBioAvailable(hw && enrolled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  // Local toggle state (MobileScreens.jsx:541–543).
-  const [hideBalances, setHideBalances] = useState(false);
-  const [biometric, setBiometric] = useState(true);
-  const [notifsAll, setNotifsAll] = useState(true);
+  const displayName = user?.name ?? 'Riddhi Desai';
+  const email = user?.email ?? 'riddhi@example.com';
+  const initials = displayName
+    .split(/\s+/)
+    .map((w) => w.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   // Theme row — live app-wide switch (MobileScreens.jsx:545–549's setTheme,
   // minus the DOM/localStorage calls which ThemeProvider.setMode already
@@ -105,26 +162,104 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
     toast(v === 'light' ? 'Light mode on' : 'Dark mode on', v === 'light' ? '☀️' : '🌙');
   };
 
+  const setPref = (patch: Parameters<typeof setPrefs>[0], msg: string, icon?: string) => {
+    setPrefs(patch)
+      .then(() => toast(msg, icon))
+      .catch(() => toast("Couldn't save that setting", '📡'));
+  };
+
+  const editProfile = () => {
+    form({
+      title: 'Edit profile',
+      fields: [{ key: 'name', label: 'Name', initial: displayName }],
+      submitLabel: 'Save',
+      onSubmit: async (v) => {
+        await updateProfile(v['name']!);
+        toast('Profile updated', '✏️');
+      },
+    });
+  };
+
+  const toggleBiometric = async (v: boolean) => {
+    if (v) {
+      // Prove the biometric works before trusting it as an unlock method,
+      // mirroring the onboarding Secure step.
+      const auth = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Confirm to enable app lock',
+      });
+      if (!auth.success) {
+        toast(`${bioLabel} check failed`, '⚠️');
+        return;
+      }
+    }
+    await setBiometricEnabled(v);
+    setPref({ biometricEnabled: v }, v ? `${bioLabel} unlock on` : `${bioLabel} unlock off`, '🔒');
+  };
+
+  const changePin = async () => {
+    const exists = await hasPin();
+    form({
+      title: exists ? 'Change PIN' : 'Set PIN',
+      fields: [
+        ...(exists ? [{ key: 'current', label: 'Current PIN' } as const] : []),
+        { key: 'pin', label: 'New PIN (4–6 digits)' },
+        { key: 'confirm', label: 'Confirm new PIN' },
+      ],
+      submitLabel: exists ? 'Change PIN' : 'Set PIN',
+      onSubmit: async (v) => {
+        if (exists && !(await verifyPin(v['current'] ?? ''))) {
+          throw new Error('Current PIN is incorrect');
+        }
+        if (!/^\d{4,6}$/.test(v['pin'] ?? '')) throw new Error('PIN must be 4–6 digits');
+        if (v['pin'] !== v['confirm']) throw new Error("PINs don't match");
+        await savePin(v['pin']!);
+        toast('PIN updated', '🔑');
+      },
+    });
+  };
+
+  const exportCsv = async () => {
+    try {
+      await shareTxCsv('all');
+    } catch {
+      toast("Couldn't export data", '📡');
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      await api.users.deleteAccount();
+    } catch {
+      toast("Couldn't delete the account — try again", '📡');
+      return;
+    }
+    toast('Account deleted');
+    await logout();
+  };
+
+  const currencySub = CURRENCIES.find((c) => c.code === prefs.currency)?.sub ?? prefs.currency;
+  const languageSub = LANGUAGES.find((l) => l.code === prefs.language)?.label ?? prefs.language;
+
   return (
     <MPageShell title="Settings" onBack={pop}>
       {/* Profile card (MobileScreens.jsx:587–595) */}
-      <GlassCard style={styles.profileCard}>
+      <GlassCard style={styles.profileCard} contentStyle={styles.profileCardContent}>
         <LinearGradient
           colors={[t.em, '#9d8bd6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.avatar}
         >
-          <Text style={styles.avatarText}>RD</Text>
+          <Text style={styles.avatarText}>{initials}</Text>
         </LinearGradient>
         <View style={styles.profileInfo}>
-          <Text style={[styles.profileName, { color: t.text1, fontFamily: weight(700) }]}>Riddhi Desai</Text>
-          <Text style={[styles.profileEmail, { color: t.text3 }]}>riddhi@example.com</Text>
+          <Text style={[styles.profileName, { color: t.text1, fontFamily: weight(700) }]}>{displayName}</Text>
+          <Text style={[styles.profileEmail, { color: t.text3 }]}>{email}</Text>
           <View style={[styles.proBadge, { backgroundColor: t.emDim }]}>
             <Text style={[styles.proBadgeText, { color: t.em, fontFamily: weight(700) }]}>PRO MEMBER</Text>
           </View>
         </View>
-        <IconButton onPress={() => toast('Edit profile', '✏️')}>
+        <IconButton onPress={editProfile}>
           <MI.arrow size={18} color={t.text1} />
         </IconButton>
       </GlassCard>
@@ -146,6 +281,9 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
                 ]}
                 value={mode}
                 onChange={handleThemeChange}
+                // Inline in a list row — stretching would balloon the
+                // control across the row and crush the "Theme" label.
+                stretch={false}
               />
             }
           />
@@ -153,16 +291,14 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             icon="🌐"
             color={t.blue}
             title="Language"
-            sub="English (India)"
+            sub={languageSub}
             onPress={() =>
               sheet({
                 title: 'Language',
-                options: [
-                  { label: 'English (India)', onPress: () => toast('Language: English') },
-                  { label: 'हिन्दी Hindi', onPress: () => toast('भाषा: हिन्दी') },
-                  { label: 'ગુજરાતી Gujarati', onPress: () => toast('Language: Gujarati') },
-                  { label: 'ನನ್ನ Kannada', onPress: () => toast('Language: Kannada') },
-                ],
+                options: LANGUAGES.map((l) => ({
+                  label: l.label,
+                  onPress: () => setPref({ language: l.code }, `Language: ${l.label}`, '🌐'),
+                })),
               })
             }
           />
@@ -170,16 +306,14 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             icon="₹"
             color={t.em}
             title="Currency"
-            sub="INR · Indian Rupee"
+            sub={currencySub}
             onPress={() =>
               sheet({
                 title: 'Currency',
-                options: [
-                  { label: '₹ Indian Rupee (INR)', onPress: () => toast('Currency: INR') },
-                  { label: '$ US Dollar (USD)', onPress: () => toast('Currency: USD') },
-                  { label: '€ Euro (EUR)', onPress: () => toast('Currency: EUR') },
-                  { label: '£ Pound (GBP)', onPress: () => toast('Currency: GBP') },
-                ],
+                options: CURRENCIES.map((c) => ({
+                  label: c.label,
+                  onPress: () => setPref({ currency: c.code }, `Currency: ${c.code}`, '💱'),
+                })),
               })
             }
           />
@@ -187,16 +321,15 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             icon="📅"
             color={t.amber}
             title="Date format"
-            sub="DD MMM YYYY"
+            sub={prefs.dateFormat}
             last
             onPress={() =>
               sheet({
                 title: 'Date format',
-                options: [
-                  { label: 'DD MMM YYYY', onPress: () => toast('25 Apr 2026') },
-                  { label: 'MM/DD/YYYY', onPress: () => toast('04/25/2026') },
-                  { label: 'YYYY-MM-DD', onPress: () => toast('2026-04-25') },
-                ],
+                options: DATE_FORMATS.map((f) => ({
+                  label: f,
+                  onPress: () => setPref({ dateFormat: f }, `Date format: ${f}`, '📅'),
+                })),
               })
             }
           />
@@ -214,42 +347,36 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             sub="Mask amounts on home"
             right={
               <Toggle
-                on={hideBalances}
-                onChange={(v) => {
-                  setHideBalances(v);
-                  toast(v ? 'Balances hidden' : 'Balances visible');
-                }}
+                on={prefs.hideBalances}
+                onChange={(v) =>
+                  setPref({ hideBalances: v }, v ? 'Balances hidden' : 'Balances visible', '👁')
+                }
               />
             }
           />
-          <Row
-            icon="🔒"
-            color={t.red}
-            title="Biometric login"
-            sub="Face ID enabled"
-            right={
-              <Toggle
-                on={biometric}
-                onChange={(v) => {
-                  setBiometric(v);
-                  toast(v ? 'Biometric on' : 'Biometric off');
-                }}
-              />
-            }
-          />
-          <Row icon="🔑" color={t.amber} title="Change PIN" onPress={() => toast('Verify current PIN to continue', '🔑')} />
+          {bioAvailable ? (
+            <Row
+              icon="🔒"
+              color={t.red}
+              title="Biometric login"
+              sub={prefs.biometricEnabled ? `${bioLabel} enabled` : `${bioLabel} off`}
+              right={
+                <Toggle on={prefs.biometricEnabled} onChange={(v) => void toggleBiometric(v)} />
+              }
+            />
+          ) : null}
+          <Row icon="🔑" color={t.amber} title="Change PIN" onPress={() => void changePin()} />
           <Row
             icon="📱"
             color={t.cyan}
             title="Active sessions"
-            sub="2 devices"
+            sub="This device"
             last
             onPress={() =>
               sheet({
                 title: 'Active sessions',
                 options: [
-                  { label: 'iPhone 15 · this device', onPress: () => toast('Current device') },
-                  { label: 'Chrome · MacOS — log out', danger: true, onPress: () => toast('Signed out other device') },
+                  { label: 'This device · current session', icon: '📱', onPress: () => {} },
                 ],
               })
             }
@@ -267,23 +394,66 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             title="Push notifications"
             right={
               <Toggle
-                on={notifsAll}
-                onChange={(v) => {
-                  setNotifsAll(v);
-                  toast(v ? 'Notifications on' : 'Notifications off');
-                }}
+                on={prefs.notificationsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { notificationsEnabled: v },
+                    v ? 'Notifications on' : 'Notifications off',
+                    '🔔',
+                  )
+                }
               />
             }
           />
-          <Row icon="📊" color={t.blue} title="Budget alerts" sub="At 75% & 100%" onPress={() => toast('Budget alerts configured')} />
-          <Row icon="🎯" color={t.violet} title="Goal milestones" onPress={() => toast('Goal milestone alerts on')} />
+          <Row
+            icon="📊"
+            color={t.blue}
+            title="Budget alerts"
+            sub="At 75% & 100%"
+            right={
+              <Toggle
+                on={prefs.budgetAlertsEnabled}
+                onChange={(v) =>
+                  setPref({ budgetAlertsEnabled: v }, v ? 'Budget alerts on' : 'Budget alerts off', '📊')
+                }
+              />
+            }
+          />
+          <Row
+            icon="🎯"
+            color={t.violet}
+            title="Goal milestones"
+            right={
+              <Toggle
+                on={prefs.goalMilestonesEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { goalMilestonesEnabled: v },
+                    v ? 'Milestone alerts on' : 'Milestone alerts off',
+                    '🎯',
+                  )
+                }
+              />
+            }
+          />
           <Row
             icon="💰"
             color={t.amber}
             title="Large transactions"
             sub="> ₹10,000"
             last
-            onPress={() => toast('Large-transaction alerts on')}
+            right={
+              <Toggle
+                on={prefs.largeTxAlertsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { largeTxAlertsEnabled: v },
+                    v ? 'Large-transaction alerts on' : 'Large-transaction alerts off',
+                    '💰',
+                  )
+                }
+              />
+            }
           />
         </ListCard>
       </View>
@@ -296,13 +466,12 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             icon="📤"
             color={t.blue}
             title="Export data"
-            sub="CSV, PDF"
+            sub="Share as CSV"
             onPress={() =>
               sheet({
                 title: 'Export data',
                 options: [
-                  { label: 'Export as CSV', icon: '📄', onPress: () => toast('CSV exported', '📤') },
-                  { label: 'Export as PDF', icon: '📑', onPress: () => toast('PDF exported', '📤') },
+                  { label: 'Export as CSV', icon: '📄', onPress: () => void exportCsv() },
                 ],
               })
             }
@@ -315,9 +484,14 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             last
             onPress={() =>
               sheet({
-                title: 'Delete account?',
+                title: 'Delete account? This permanently erases all your data.',
                 options: [
-                  { label: 'Yes, delete everything', icon: '🗑', danger: true, onPress: () => toast('Account scheduled for deletion') },
+                  {
+                    label: 'Yes, delete everything',
+                    icon: '🗑',
+                    danger: true,
+                    onPress: () => void deleteAccount(),
+                  },
                   { label: 'Cancel', onPress: () => {} },
                 ],
               })
@@ -330,10 +504,10 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
       <View style={styles.section}>
         <SectionHead title="About" />
         <ListCard>
-          <Row icon="❓" color={t.blue} title="Help center" onPress={() => toast('Opening Help center', '❓')} />
-          <Row icon="📜" color={t.text3} title="Privacy policy" onPress={() => toast('Opening Privacy policy')} />
-          <Row icon="📋" color={t.text3} title="Terms of service" onPress={() => toast('Opening Terms of service')} />
-          <Row icon="✨" color={t.em} title="Version" sub="2.4.1 (build 246)" right={null} last />
+          <Row icon="❓" color={t.blue} title="Help center" onPress={() => void WebBrowser.openBrowserAsync(HELP_URL)} />
+          <Row icon="📜" color={t.text3} title="Privacy policy" onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} />
+          <Row icon="📋" color={t.text3} title="Terms of service" onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} />
+          <Row icon="✨" color={t.em} title="Version" sub={`v${appVersion}`} right={null} last />
         </ListCard>
       </View>
 
@@ -343,7 +517,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
           sheet({
             title: 'Sign out?',
             options: [
-              { label: 'Sign out', icon: '🚪', danger: true, onPress: () => toast('Signed out') },
+              { label: 'Sign out', icon: '🚪', danger: true, onPress: () => void logout() },
               { label: 'Cancel', onPress: () => {} },
             ],
           })
@@ -362,10 +536,14 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Profile card (MobileScreens.jsx:587–595)
   profileCard: {
+    marginBottom: 18,
+  },
+  // Content layout must target GlassCard's inner overlay (contentStyle) —
+  // on `style` it lands on the outer wrapper and the card stacks vertically.
+  profileCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 18,
   },
   avatar: {
     width: 60,
