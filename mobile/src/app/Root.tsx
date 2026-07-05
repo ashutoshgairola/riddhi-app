@@ -12,9 +12,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { PageBackground } from '../components/PageBackground';
 import { FeedbackProvider } from '../feedback/FeedbackProvider';
+import { PrefsProvider } from '../prefs/PrefsProvider';
 import { AuthFlow } from '../screens/auth/AuthFlow';
+import { LockScreen } from '../screens/auth/LockScreen';
 import { OnboardingWizard } from '../screens/onboarding/Wizard';
-import { SessionProvider } from '../session/SessionProvider';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import { AppShell } from './AppShell';
 import { NavProvider } from './navContext';
@@ -33,13 +34,13 @@ function AuthGate() {
       return <AuthFlow />;
     case 'onboarding':
       return <OnboardingWizard />;
+    case 'locked':
+      return <LockScreen />;
     case 'signedIn':
       return (
-        <SessionProvider>
-          <NavProvider>
-            <AppShell />
-          </NavProvider>
-        </SessionProvider>
+        <NavProvider>
+          <AppShell />
+        </NavProvider>
       );
   }
 }
@@ -62,7 +63,9 @@ export default function Root() {
       <ThemeProvider>
         <FeedbackProvider>
           <AuthProvider>
-            <AuthGate />
+            <PrefsProvider>
+              <AuthGate />
+            </PrefsProvider>
           </AuthProvider>
         </FeedbackProvider>
       </ThemeProvider>
