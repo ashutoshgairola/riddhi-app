@@ -32,6 +32,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView } from './Glass';
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, radius, spring, weight } from '../theme/tokens';
+import { MI } from './icons';
+import { useNav } from '../app/navContext';
 
 // ── Topbar ──────────────────────────────────────────────────────────
 // .m-topbar (mobile.css:186–197) + .m-topbar.scrolled (198–203) +
@@ -406,6 +408,30 @@ export function HScroll({ children, contentStyle }: HScrollProps) {
     >
       {children}
     </ScrollView>
+  );
+}
+
+/** Standard topbar search button — navigates to the full-screen Search
+ * palette. `search` is not a primary tab, so `nav` pushes it and its back
+ * button pops (navContext.tsx). */
+export function SearchButton() {
+  const { t } = useTheme();
+  const { nav } = useNav();
+  return (
+    <IconButton onPress={() => nav('search')}>
+      <MI.search size={20} color={t.text1} />
+    </IconButton>
+  );
+}
+
+/** Horizontal row for a topbar's right slot when it holds more than one
+ * action (e.g. SearchButton + a plus/filter/more IconButton). Search goes
+ * first. Values mirror the former per-screen `topbarActions` style. */
+export function TopbarActions({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      {children}
+    </View>
   );
 }
 
