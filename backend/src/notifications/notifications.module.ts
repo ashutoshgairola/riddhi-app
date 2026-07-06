@@ -7,11 +7,22 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { PushDispatcher } from './push-dispatcher.service';
 import { UsersModule } from '../users/users.module';
+import { BudgetsModule } from '../budgets/budgets.module';
+import { NotificationsListener } from './notifications.listener';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, DeviceToken]), UsersModule],
+  imports: [
+    TypeOrmModule.forFeature([Notification, DeviceToken]),
+    UsersModule,
+    BudgetsModule,
+  ],
   controllers: [NotificationsController],
-  providers: [NotificationsRepository, NotificationsService, PushDispatcher],
+  providers: [
+    NotificationsRepository,
+    NotificationsService,
+    PushDispatcher,
+    NotificationsListener,
+  ],
   exports: [TypeOrmModule, NotificationsService],
 })
 export class NotificationsModule {}
