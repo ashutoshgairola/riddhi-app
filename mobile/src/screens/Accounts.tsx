@@ -37,7 +37,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BankLogo } from '../components/BankLogo';
-import { IconButton, SectionHead } from '../components/ui';
+import { IconButton, SearchButton, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
@@ -130,9 +130,12 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
       title="Accounts"
       onBack={pop}
       right={
-        <IconButton onPress={openAddAccountSheet}>
-          <MI.plus size={20} color={t.text1} />
-        </IconButton>
+        <TopbarActions>
+          <SearchButton />
+          <IconButton onPress={openAddAccountSheet}>
+            <MI.plus size={20} color={t.text1} />
+          </IconButton>
+        </TopbarActions>
       }
     >
       {/* Net worth hero (MobileScreens.jsx:365–384) */}

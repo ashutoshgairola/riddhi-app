@@ -33,7 +33,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BankLogo } from '../components/BankLogo';
 import { GlassCard } from '../components/Glass';
-import { IconButton, ListCard, ListRow, SectionHead } from '../components/ui';
+import { IconButton, ListCard, ListRow, SearchButton, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -152,9 +152,12 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
       title={a.name}
       onBack={pop}
       right={
-        <IconButton onPress={openMoreSheet}>
-          <MI.more size={20} color={t.text1} />
-        </IconButton>
+        <TopbarActions>
+          <SearchButton />
+          <IconButton onPress={openMoreSheet}>
+            <MI.more size={20} color={t.text1} />
+          </IconButton>
+        </TopbarActions>
       }
     >
       {/* Balance card (MobileScreens.jsx:426–438) */}

@@ -26,7 +26,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Chip, HScroll, IconButton } from '../components/ui';
+import { Chip, HScroll, IconButton, SearchButton, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
@@ -101,9 +101,12 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
       title="Notifications"
       onBack={pop}
       right={
-        <IconButton onPress={openMoreSheet}>
-          <MI.more size={20} color={t.text1} />
-        </IconButton>
+        <TopbarActions>
+          <SearchButton />
+          <IconButton onPress={openMoreSheet}>
+            <MI.more size={20} color={t.text1} />
+          </IconButton>
+        </TopbarActions>
       }
     >
       <View style={styles.hscrollWrap}>

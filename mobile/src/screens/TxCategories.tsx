@@ -27,7 +27,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '../components/Glass';
-import { Chip, IconButton } from '../components/ui';
+import { Chip, IconButton, SearchButton, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { SpringIn } from '../components/SpringIn';
@@ -103,9 +103,12 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
       title="Categories"
       onBack={pop}
       right={
-        <IconButton onPress={openNewCategorySheet}>
-          <MI.plus size={20} color={t.text1} />
-        </IconButton>
+        <TopbarActions>
+          <SearchButton />
+          <IconButton onPress={openNewCategorySheet}>
+            <MI.plus size={20} color={t.text1} />
+          </IconButton>
+        </TopbarActions>
       }
     >
       <SpringIn style={styles.segWrap}>

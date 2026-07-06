@@ -44,7 +44,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import { GlassCard } from '../components/Glass';
 import { BankLogo } from '../components/BankLogo';
-import { IconButton, ListCard, ListRow, Toggle } from '../components/ui';
+import { IconButton, ListCard, ListRow, SearchButton, Toggle, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
@@ -198,9 +198,12 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       title="Auto-sync"
       onBack={pop}
       right={
-        <IconButton onPress={openMoreSheet}>
-          <MI.more size={20} color={t.text1} />
-        </IconButton>
+        <TopbarActions>
+          <SearchButton />
+          <IconButton onPress={openMoreSheet}>
+            <MI.more size={20} color={t.text1} />
+          </IconButton>
+        </TopbarActions>
       }
     >
       {/* status card (MobileSync.jsx:126–150) */}
