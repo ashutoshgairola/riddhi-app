@@ -24,7 +24,15 @@ import {
 } from './authUi';
 import { useGoogleAuth } from './useGoogleAuth';
 
-export function Login({ onBack, onSignup }: { onBack: () => void; onSignup: () => void }) {
+export function Login({
+  onBack,
+  onSignup,
+  onForgot,
+}: {
+  onBack: () => void;
+  onSignup: () => void;
+  onForgot: (email: string) => void;
+}) {
   const { t } = useTheme();
   const { toast } = useFeedback();
   const { login, biometricLogin, canBiometricLogin } = useAuth();
@@ -60,13 +68,17 @@ export function Login({ onBack, onSignup }: { onBack: () => void; onSignup: () =
       return;
     }
     if (!USE_BACKEND) {
-      // Mock mode has no auth backend to issue reset tokens.
-      toast('If that email exists, a reset link is on its way', '📧');
+      // Mock mode has no auth backend to issue reset codes.
+      toast('If that email exists, a reset code is on its way', '📧');
+      onForgot(target);
       return;
     }
     try {
       await authApi.forgotPassword(target);
-      toast('If that email exists, a reset link is on its way', '📧');
+      toast('If that email exists, a reset code is on its way', '📧');
+      // Move to the reset screen with the email prefilled so the emailed code
+      // can be entered here.
+      onForgot(target);
     } catch {
       toast('Could not reach the server', '📡');
     }

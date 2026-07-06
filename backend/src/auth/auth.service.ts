@@ -9,10 +9,11 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { User } from '../users/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly userRepo: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
   ) {}
 
   private googleClient = new OAuth2Client();
@@ -82,44 +84,101 @@ export class AuthService {
     return { ...tokens, user: this.safeUser(user) };
   }
 
+  // A pending reset code is valid for 10 minutes and survives at most this many
+  // wrong guesses before it is burned — bounding brute force of the 6-digit space.
+  private static readonly RESET_CODE_TTL_MS = 10 * 60 * 1000;
+  private static readonly RESET_MAX_ATTEMPTS = 5;
+
+  private hashCode(code: string): string {
+    return createHash('sha256').update(code).digest('hex');
+  }
+
   /**
-   * Issues a password-reset token (30-min expiry). Always resolves the same
-   * way whether or not the email exists, so the endpoint can't be used to
-   * enumerate accounts. No email service is wired yet — the token is logged
+   * Emails a 6-digit password-reset code (10-min expiry). Always resolves the
+   * same way whether or not the email exists, so the endpoint can't be used to
+   * enumerate accounts. When email is not configured the code is logged
    * server-side so a reset can be completed manually in dev.
    */
   async forgotPassword(email: string) {
     const user = await this.userRepo.findOne({ where: { email } });
     if (user) {
-      const token = randomBytes(32).toString('hex');
-      user.resetTokenHash = createHash('sha256').update(token).digest('hex');
-      user.resetTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+      user.resetTokenHash = this.hashCode(code);
+      user.resetTokenExpiresAt = new Date(
+        Date.now() + AuthService.RESET_CODE_TTL_MS,
+      );
+      user.resetAttempts = 0;
       await this.userRepo.save(user);
-      // TODO: send via email service; logged for manual dev use until then.
-      console.log(`[auth] password reset token for ${email}: ${token}`);
+
+      const body =
+        `Someone requested a password reset for your Riddhi account.\n\n` +
+        `Your reset code is: ${code}\n\n` +
+        `Enter it in the app to choose a new password. This code expires in ` +
+        `10 minutes. If you didn't request it, you can ignore this email.`;
+      // Non-blocking failure: never reveal delivery status to the caller (no
+      // account enumeration), but do log send failures server-side.
+      await this.mail
+        .send(email, 'Your Riddhi password reset code', body)
+        .catch(() => undefined);
     }
     return { ok: true };
   }
 
-  async resetPassword(token: string, newPassword: string) {
-    const tokenHash = createHash('sha256').update(token).digest('hex');
+  /**
+   * Verifies the emailed code for `email` and sets a new password. Every
+   * failure path returns the same generic error so neither the email's
+   * existence nor a code's correctness can be probed.
+   */
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const invalid = () =>
+      new UnauthorizedException('Invalid or expired reset code');
+
     const user = await this.userRepo
       .createQueryBuilder('user')
-      .addSelect('user.resetTokenHash')
-      .where('user.resetTokenHash = :tokenHash', { tokenHash })
+      .addSelect(['user.resetTokenHash', 'user.resetAttempts'])
+      .where('user.email = :email', { email })
       .getOne();
+
     if (
       !user ||
+      !user.resetTokenHash ||
       !user.resetTokenExpiresAt ||
       user.resetTokenExpiresAt.getTime() < Date.now()
     ) {
-      throw new UnauthorizedException('Invalid or expired reset token');
+      throw invalid();
     }
+
+    if (user.resetAttempts >= AuthService.RESET_MAX_ATTEMPTS) {
+      // Burn the code so a throttled attacker can't keep trying past expiry.
+      await this.clearResetCode(user);
+      throw invalid();
+    }
+
+    if (!this.codeMatches(code, user.resetTokenHash)) {
+      user.resetAttempts += 1;
+      await this.userRepo.save(user);
+      throw invalid();
+    }
+
     user.password = await bcrypt.hash(newPassword, 10);
+    await this.clearResetCode(user);
+    return { ok: true };
+  }
+
+  private async clearResetCode(user: User) {
     user.resetTokenHash = null;
     user.resetTokenExpiresAt = null;
+    user.resetAttempts = 0;
     await this.userRepo.save(user);
-    return { ok: true };
+  }
+
+  /** Constant-time compare of a candidate code against the stored hash. */
+  private codeMatches(code: string, storedHash: string): boolean {
+    const candidate = Buffer.from(this.hashCode(code));
+    const stored = Buffer.from(storedHash);
+    return (
+      candidate.length === stored.length && timingSafeEqual(candidate, stored)
+    );
   }
 
   async refresh(refreshToken: string) {

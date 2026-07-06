@@ -1,8 +1,19 @@
-import { IsString, MinLength, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  Length,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 
 export class ResetPasswordDto {
+  @IsEmail()
+  email: string;
+
+  // The 6-digit numeric code emailed by forgot-password.
   @IsString()
-  token: string;
+  @Length(6, 6)
+  code: string;
 
   @IsString()
   @MinLength(8)

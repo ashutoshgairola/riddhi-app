@@ -48,6 +48,14 @@ export const authApi = {
   forgotPassword(email: string): Promise<{ ok: boolean }> {
     return apiClient.post('/auth/forgot-password', { email });
   },
+  /** Completes a reset with the 6-digit code emailed to `email`. */
+  resetPassword(
+    email: string,
+    code: string,
+    password: string,
+  ): Promise<{ ok: boolean }> {
+    return apiClient.post('/auth/reset-password', { email, code, password });
+  },
   updateProfile(patch: { name?: string }): Promise<ApiUser> {
     return apiClient.patch('/users/me', patch);
   },
