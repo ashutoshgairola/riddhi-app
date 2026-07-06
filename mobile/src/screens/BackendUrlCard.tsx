@@ -13,21 +13,34 @@ import { useFeedback } from '../feedback/FeedbackProvider';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 
-export function BackendUrlCard() {
+interface BackendUrlCardProps {
+  /**
+   * Fires after Save/Reset with the resolved URL. Lets a host that renders this
+   * above a native Modal (where the root ToastHost is hidden) show its own inline
+   * confirmation. Omit it — as Settings does — to rely on the toast alone.
+   */
+  onChanged?: (url: string) => void;
+}
+
+export function BackendUrlCard({ onChanged }: BackendUrlCardProps = {}) {
   const { t } = useTheme();
   const { toast } = useFeedback();
   const [value, setValue] = useState(getBaseUrl());
 
   const save = async () => {
     await setBaseUrl(value);
-    setValue(getBaseUrl());
+    const resolved = getBaseUrl();
+    setValue(resolved);
     toast('Backend URL saved', '🔌');
+    onChanged?.(resolved);
   };
 
   const reset = async () => {
     await setBaseUrl(null);
-    setValue(getBakedDefault());
+    const resolved = getBakedDefault();
+    setValue(resolved);
     toast('Reset to default backend', '↩️');
+    onChanged?.(resolved);
   };
 
   return (

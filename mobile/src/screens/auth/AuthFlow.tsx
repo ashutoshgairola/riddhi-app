@@ -4,17 +4,30 @@
  * change: translateX 100%->0, opacity .4->1, 0.32s ease.
  */
 import { useEffect, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, Text } from 'react-native';
+import * as Linking from 'expo-linking';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ease } from '../../theme/tokens';
 import { BackendUrlCard } from '../BackendUrlCard';
 import { Welcome } from './Welcome';
 import { Login } from './Login';
 import { Signup } from './Signup';
+import { ResetPassword } from './ResetPassword';
 
-type AuthScreen = 'welcome' | 'login' | 'signup';
+type AuthScreen = 'welcome' | 'login' | 'signup' | 'reset';
 const ENTER_MS = 320;
+
+/** Pulls a reset token out of a `riddhi://reset-password?token=…` deep link. */
+function resetTokenFromUrl(url: string | null): string | null {
+  if (!url) return null;
+  const { path, hostname, queryParams } = Linking.parse(url);
+  const isReset = path === 'reset-password' || hostname === 'reset-password';
+  const token = queryParams?.['token'];
+  if (isReset && typeof token === 'string' && token) return token;
+  return null;
+}
 
 // Dev-only: expose the backend-URL override before sign-in. Session restore
 // against a rotated (dead) ngrok URL bounces the user to this signed-out flow;
@@ -24,7 +37,34 @@ const SHOW_DEV = process.env['EXPO_PUBLIC_SHOW_DEV_SETTINGS'] === '1';
 
 export function AuthFlow() {
   const [screen, setScreen] = useState<AuthScreen>('welcome');
+  const [resetToken, setResetToken] = useState('');
   const [devOpen, setDevOpen] = useState(false);
+  const [devMsg, setDevMsg] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
+
+  // Deep link `riddhi://reset-password?token=…` (cold start + while foregrounded)
+  // jumps straight to the reset screen with the token prefilled.
+  useEffect(() => {
+    let active = true;
+    void Linking.getInitialURL().then((url) => {
+      const token = resetTokenFromUrl(url);
+      if (active && token) {
+        setResetToken(token);
+        setScreen('reset');
+      }
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      const token = resetTokenFromUrl(url);
+      if (token) {
+        setResetToken(token);
+        setScreen('reset');
+      }
+    });
+    return () => {
+      active = false;
+      sub.remove();
+    };
+  }, []);
   const progress = useSharedValue(1);
   // Read on the JS thread; Dimensions.get is a host function and must not be
   // called inside the worklet (throws on the UI runtime → SIGABRT in Expo Go).
@@ -45,9 +85,26 @@ export function AuthFlow() {
       case 'welcome':
         return <Welcome onSignup={() => setScreen('signup')} onLogin={() => setScreen('login')} />;
       case 'login':
-        return <Login onBack={() => setScreen('welcome')} onSignup={() => setScreen('signup')} />;
+        return (
+          <Login
+            onBack={() => setScreen('welcome')}
+            onSignup={() => setScreen('signup')}
+            onForgot={() => {
+              setResetToken('');
+              setScreen('reset');
+            }}
+          />
+        );
       case 'signup':
         return <Signup onBack={() => setScreen('welcome')} onLogin={() => setScreen('login')} />;
+      case 'reset':
+        return (
+          <ResetPassword
+            initialToken={resetToken}
+            onBack={() => setScreen('login')}
+            onDone={() => setScreen('login')}
+          />
+        );
     }
   };
 
@@ -57,9 +114,12 @@ export function AuthFlow() {
       {SHOW_DEV && (
         <>
           <Pressable
-            style={styles.devBtn}
+            style={[styles.devBtn, { top: insets.top + 8 }]}
             hitSlop={8}
-            onPress={() => setDevOpen(true)}
+            onPress={() => {
+              setDevMsg(null);
+              setDevOpen(true);
+            }}
             accessibilityLabel="Open backend URL settings"
           >
             <Text style={styles.devBtnText}>⚙︎ Backend URL</Text>
@@ -73,7 +133,10 @@ export function AuthFlow() {
             <Pressable style={styles.backdrop} onPress={() => setDevOpen(false)}>
               {/* Inner press swallows taps so touching the card doesn't dismiss. */}
               <Pressable style={styles.sheet} onPress={() => {}}>
-                <BackendUrlCard />
+                {/* Inline confirmation: the root toast host renders behind this
+                    native Modal, so echo the result here instead. */}
+                <BackendUrlCard onChanged={(url) => setDevMsg(`Now using ${url}`)} />
+                {devMsg ? <Text style={styles.devMsg}>{devMsg}</Text> : null}
                 <Pressable style={styles.closeBtn} onPress={() => setDevOpen(false)}>
                   <Text style={styles.closeText}>Close</Text>
                 </Pressable>
@@ -92,7 +155,6 @@ const styles = StyleSheet.create({
   // varied auth backgrounds, not part of the themed design surface).
   devBtn: {
     position: 'absolute',
-    top: 52,
     right: 14,
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -108,6 +170,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   sheet: { width: '100%' },
+  devMsg: { color: 'rgba(255,255,255,0.85)', fontSize: 12, textAlign: 'center', marginTop: 4 },
   closeBtn: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 20 },
   closeText: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
 });
