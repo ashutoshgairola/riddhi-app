@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   navbar: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     height: 80,
     paddingTop: 12,
     paddingHorizontal: 8,
