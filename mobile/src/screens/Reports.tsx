@@ -46,7 +46,7 @@ import {
 
 import { MDonut, MGroupedBars, MSparkline } from '../components/charts';
 import { GlassCard } from '../components/Glass';
-import { Chip, HScroll, IconButton, ListCard, ListRow, ProgressBar, SectionHead, Topbar } from '../components/ui';
+import { Chip, HScroll, IconButton, ListCard, ListRow, ProgressBar, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
@@ -217,9 +217,12 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
           </IconButton>
         }
         right={
-          <IconButton onPress={openPeriodSheet}>
-            <MI.filter size={20} color={t.text1} />
-          </IconButton>
+          <TopbarActions>
+            <SearchButton />
+            <IconButton onPress={openPeriodSheet}>
+              <MI.filter size={20} color={t.text1} />
+            </IconButton>
+          </TopbarActions>
         }
       />
 

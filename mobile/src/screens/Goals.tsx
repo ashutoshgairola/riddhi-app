@@ -36,7 +36,7 @@ import {
 } from 'react-native';
 
 import { GlassView } from '../components/Glass';
-import { IconButton, ProgressBar, Topbar } from '../components/ui';
+import { IconButton, ProgressBar, SearchButton, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
@@ -132,9 +132,12 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
         title="Goals"
         scrolled={scrolled}
         right={
-          <IconButton onPress={openNewGoalSheet}>
-            <MI.plus size={20} color={t.text1} />
-          </IconButton>
+          <TopbarActions>
+            <SearchButton />
+            <IconButton onPress={openNewGoalSheet}>
+              <MI.plus size={20} color={t.text1} />
+            </IconButton>
+          </TopbarActions>
         }
       />
 

@@ -50,7 +50,7 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 
 import { GlassCard } from '../components/Glass';
-import { IconButton, ProgressBar, SectionHead, Topbar } from '../components/ui';
+import { IconButton, ProgressBar, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
@@ -142,9 +142,12 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
         title="Budgets"
         scrolled={scrolled}
         right={
-          <IconButton onPress={openCreateSheet}>
-            <MI.plus size={20} color={t.text1} />
-          </IconButton>
+          <TopbarActions>
+            <SearchButton />
+            <IconButton onPress={openCreateSheet}>
+              <MI.plus size={20} color={t.text1} />
+            </IconButton>
+          </TopbarActions>
         }
       />
 

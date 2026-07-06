@@ -43,7 +43,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { MSparkline } from '../components/charts';
-import { IconButton, ListCard, ListRow, SectionHead, Topbar } from '../components/ui';
+import { IconButton, ListCard, ListRow, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
@@ -128,9 +128,12 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
         title="Investments"
         scrolled={scrolled}
         right={
-          <IconButton onPress={openAddHoldingSheet}>
-            <MI.plus size={20} color={t.text1} />
-          </IconButton>
+          <TopbarActions>
+            <SearchButton />
+            <IconButton onPress={openAddHoldingSheet}>
+              <MI.plus size={20} color={t.text1} />
+            </IconButton>
+          </TopbarActions>
         }
       />
 
