@@ -8,12 +8,14 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { QueryBudgetsDto } from './dto/query-budgets.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('budgets')
@@ -21,8 +23,11 @@ export class BudgetsController {
   constructor(private readonly budgetsService: BudgetsService) {}
 
   @Get()
-  findAll(@CurrentUser() user: { userId: string; email: string }) {
-    return this.budgetsService.findAll(user.userId);
+  findAll(
+    @CurrentUser() user: { userId: string; email: string },
+    @Query() query: QueryBudgetsDto,
+  ) {
+    return this.budgetsService.findAll(user.userId, query.month);
   }
 
   @Get(':id')

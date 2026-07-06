@@ -60,3 +60,50 @@ describe('BudgetsService.computeBudget — subcategory rollup', () => {
     expect(result.categories[0].spent).toBe(3000); // X excluded
   });
 });
+
+describe('BudgetsService.findAll — month filter', () => {
+  const emptyCompute = {
+    fetchUserCategories: jest.fn().mockResolvedValue([]),
+    fetchExpensesForBudget: jest.fn().mockResolvedValue(new Map()),
+  };
+
+  it('filters to the requested month via repository.findByMonth', async () => {
+    const julyBudget = {
+      id: 'jul',
+      startDate: new Date('2026-07-01T00:00:00Z'),
+      endDate: new Date('2026-07-31T00:00:00Z'),
+      categories: [],
+    } as unknown as Budget;
+
+    const budgetsRepository = {
+      ...emptyCompute,
+      findByMonth: jest.fn().mockResolvedValue([julyBudget]),
+      findAllByUser: jest.fn().mockResolvedValue([]),
+    };
+    const service = new BudgetsService(budgetsRepository as never);
+
+    const result = await service.findAll('u1', '2026-07');
+
+    expect(budgetsRepository.findByMonth).toHaveBeenCalledTimes(1);
+    expect(budgetsRepository.findAllByUser).not.toHaveBeenCalled();
+    const [, start, end] = budgetsRepository.findByMonth.mock.calls[0];
+    expect((start as Date).toISOString()).toBe('2026-07-01T00:00:00.000Z');
+    expect((end as Date).toISOString()).toBe('2026-07-31T23:59:59.999Z');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('jul');
+  });
+
+  it('returns all budgets when no month is given', async () => {
+    const budgetsRepository = {
+      ...emptyCompute,
+      findByMonth: jest.fn(),
+      findAllByUser: jest.fn().mockResolvedValue([]),
+    };
+    const service = new BudgetsService(budgetsRepository as never);
+
+    await service.findAll('u1');
+
+    expect(budgetsRepository.findAllByUser).toHaveBeenCalledTimes(1);
+    expect(budgetsRepository.findByMonth).not.toHaveBeenCalled();
+  });
+});

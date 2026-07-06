@@ -20,9 +20,23 @@ export interface ComputedBudget extends Budget {
 export class BudgetsService {
   constructor(private readonly budgetsRepository: BudgetsRepository) {}
 
-  async findAll(userId: string): Promise<ComputedBudget[]> {
-    const budgets = await this.budgetsRepository.findAllByUser(userId);
+  async findAll(userId: string, month?: string): Promise<ComputedBudget[]> {
+    let budgets: Budget[];
+    if (month) {
+      const { start, end } = this.monthBounds(month);
+      budgets = await this.budgetsRepository.findByMonth(userId, start, end);
+    } else {
+      budgets = await this.budgetsRepository.findAllByUser(userId);
+    }
     return Promise.all(budgets.map((b) => this.computeBudget(b, userId)));
+  }
+
+  /** UTC [start, end] bounds for a YYYY-MM month key. */
+  monthBounds(month: string): { start: Date; end: Date } {
+    const [year, mon] = month.split('-').map(Number);
+    const start = new Date(Date.UTC(year, mon - 1, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
+    return { start, end };
   }
 
   async findOne(id: string, userId: string): Promise<ComputedBudget> {

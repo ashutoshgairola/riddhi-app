@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { Budget } from './budget.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { TransactionCategory } from '../categories/category.entity';
@@ -33,6 +33,14 @@ export class BudgetsRepository {
   findAllByUser(userId: string): Promise<Budget[]> {
     return this.budgetRepo.find({
       where: { userId },
+      relations: ['categories'],
+      order: { startDate: 'DESC' },
+    });
+  }
+
+  findByMonth(userId: string, start: Date, end: Date): Promise<Budget[]> {
+    return this.budgetRepo.find({
+      where: { userId, startDate: Between(start, end) },
       relations: ['categories'],
       order: { startDate: 'DESC' },
     });
