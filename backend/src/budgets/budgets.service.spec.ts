@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { BudgetsService } from './budgets.service';
 import { Budget } from './budget.entity';
 
@@ -105,5 +106,52 @@ describe('BudgetsService.findAll — month filter', () => {
 
     expect(budgetsRepository.findAllByUser).toHaveBeenCalledTimes(1);
     expect(budgetsRepository.findByMonth).not.toHaveBeenCalled();
+  });
+});
+
+describe('BudgetsService.create — one per month', () => {
+  const baseDto = {
+    name: 'July 2026',
+    startDate: '2026-07-01',
+    endDate: '2026-07-31',
+    income: 0,
+    categories: [],
+  };
+
+  it('rejects a second budget in the same month', async () => {
+    const budgetsRepository = {
+      findByMonth: jest.fn().mockResolvedValue([{ id: 'existing' }]),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    const service = new BudgetsService(budgetsRepository as never);
+
+    await expect(service.create('u1', baseDto as never)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(budgetsRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('creates when the month is free', async () => {
+    const saved = { id: 'new' };
+    const budgetsRepository = {
+      findByMonth: jest.fn().mockResolvedValue([]),
+      create: jest.fn().mockReturnValue(saved),
+      save: jest.fn().mockResolvedValue(saved),
+      findOneByUser: jest.fn().mockResolvedValue({
+        ...saved,
+        startDate: new Date('2026-07-01T00:00:00Z'),
+        endDate: new Date('2026-07-31T00:00:00Z'),
+        categories: [],
+      }),
+      fetchUserCategories: jest.fn().mockResolvedValue([]),
+      fetchExpensesForBudget: jest.fn().mockResolvedValue(new Map()),
+    };
+    const service = new BudgetsService(budgetsRepository as never);
+
+    const result = await service.create('u1', baseDto as never);
+
+    expect(budgetsRepository.save).toHaveBeenCalledTimes(1);
+    expect(result.id).toBe('new');
   });
 });

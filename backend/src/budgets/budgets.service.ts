@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { BudgetsRepository } from './budgets.repository';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -46,6 +50,12 @@ export class BudgetsService {
   }
 
   async create(userId: string, dto: CreateBudgetDto): Promise<ComputedBudget> {
+    const { start, end } = this.monthBounds(dto.startDate.slice(0, 7));
+    const clash = await this.budgetsRepository.findByMonth(userId, start, end);
+    if (clash.length > 0) {
+      throw new ConflictException('A budget already exists for this month');
+    }
+
     const budget = this.budgetsRepository.create({
       name: dto.name,
       startDate: new Date(dto.startDate),
