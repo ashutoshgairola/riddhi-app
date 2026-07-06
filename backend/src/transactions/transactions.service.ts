@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   TransactionsRepository,
   PaginatedTransactions,
@@ -16,6 +17,7 @@ import { Transaction } from './transaction.entity';
 import { TransactionType, TransactionStatus } from '../common/enums';
 import { Account } from '../accounts/account.entity';
 import type { EntityManager } from 'typeorm';
+import { TRANSACTION_CREATED } from '../notifications/notification-events';
 
 /**
  * Per-account balance movement for a transaction, before signing for
@@ -50,6 +52,7 @@ export class TransactionsService {
     private readonly transactionsRepository: TransactionsRepository,
     private readonly accountsService: AccountsService,
     private readonly dataSource: DataSource,
+    private readonly events: EventEmitter2,
   ) {}
 
   findAll(
@@ -126,6 +129,7 @@ export class TransactionsService {
       );
 
       await queryRunner.commitTransaction();
+      this.events.emit(TRANSACTION_CREATED, { userId, transaction: saved });
       return saved;
     } catch (err) {
       await queryRunner.rollbackTransaction();

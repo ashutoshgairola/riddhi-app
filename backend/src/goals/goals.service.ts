@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GoalsRepository } from './goals.repository';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { Goal } from './goal.entity';
 import { ContributionFrequency } from '../common/enums';
+import { GOAL_UPDATED } from '../notifications/notification-events';
 
 const PERIODS_PER_YEAR: Record<ContributionFrequency, number> = {
   [ContributionFrequency.DAILY]: 365,
@@ -48,7 +50,10 @@ function computeGoalFields(goal: Goal) {
 
 @Injectable()
 export class GoalsService {
-  constructor(private readonly goalsRepository: GoalsRepository) {}
+  constructor(
+    private readonly goalsRepository: GoalsRepository,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async findAll(userId: string) {
     const goals = await this.goalsRepository.findAllByUser(userId);
@@ -75,9 +80,19 @@ export class GoalsService {
   async update(id: string, userId: string, dto: UpdateGoalDto) {
     const goal = await this.goalsRepository.findOneByUser(id, userId);
     if (!goal) throw new NotFoundException('Goal not found');
+    const previousPct = computeGoalFields(goal).progressPct;
     Object.assign(goal, dto);
     const saved = await this.goalsRepository.save(goal);
-    return computeGoalFields(saved);
+    const computed = computeGoalFields(saved);
+    if (computed.progressPct !== previousPct) {
+      this.events.emit(GOAL_UPDATED, {
+        userId,
+        goalId: saved.id,
+        previousPct,
+        newPct: computed.progressPct,
+      });
+    }
+    return computed;
   }
 
   async remove(id: string, userId: string): Promise<void> {
