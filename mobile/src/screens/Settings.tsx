@@ -68,6 +68,7 @@ import { usePrefs } from "../prefs/PrefsProvider";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { useTheme } from "../theme/ThemeProvider";
 import { weight } from "../theme/tokens";
+import { BackendUrlCard } from "./BackendUrlCard";
 import { MPageShell } from "./_MPageShell";
 
 // ── Preference option sets ──────────────────────────────────────────
@@ -611,6 +612,8 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
           />
         </ListCard>
       </View>
+
+      {process.env['EXPO_PUBLIC_SHOW_DEV_SETTINGS'] === '1' && <BackendUrlCard />}
 
       {/* Sign out (MobileScreens.jsx:656–661) */}
       <Pressable
