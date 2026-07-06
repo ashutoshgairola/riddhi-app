@@ -79,6 +79,12 @@ export class UserPreferences {
   @Column({ type: 'boolean', default: true })
   largeTxAlertsEnabled: boolean;
 
+  @Column({ type: 'boolean', default: true })
+  munshiSuggestionsEnabled: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  monthlyReportEnabled: boolean;
+
   @Column({ type: 'boolean', default: false })
   onboardingCompleted: boolean;
 

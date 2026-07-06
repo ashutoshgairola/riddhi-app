@@ -9,6 +9,11 @@ import {
 import { NotificationType } from '../common/enums';
 import { User } from '../users/user.entity';
 
+export interface NotificationData {
+  screen: string;
+  id?: string;
+}
+
 @Entity('notification')
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
@@ -22,6 +27,9 @@ export class Notification {
 
   @Column({ type: 'text' })
   body: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  data: NotificationData | null;
 
   @Column({ type: 'boolean', default: false })
   read: boolean;

@@ -84,6 +84,7 @@ export enum NotificationType {
   LARGE_TRANSACTION = 'large_transaction',
   MONTHLY_REPORT = 'monthly_report',
   SECURITY_ALERT = 'security_alert',
+  MUNSHI_SUGGESTION = 'munshi_suggestion',
 }
 
 // User Preferences enums

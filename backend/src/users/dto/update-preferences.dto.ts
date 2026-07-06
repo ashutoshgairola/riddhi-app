@@ -54,4 +54,12 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   largeTxAlertsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  munshiSuggestionsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  monthlyReportEnabled?: boolean;
 }
