@@ -82,18 +82,28 @@ export function Search({ entry: _entry }: { entry: ScreenEntry }) {
     return () => clearTimeout(id);
   }, []);
 
-  const { data: txns } = useApiData(() => api.transactions.list({ limit: 100 }), EMPTY_TXNS);
+  // Debounce the query so we don't fire a request on every keystroke.
+  const [dq, setDq] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setDq(q.trim()), 220);
+    return () => clearTimeout(id);
+  }, [q]);
 
   const ql = q.trim().toLowerCase();
-  // Page matches (nav destinations) + real transaction matches (by
-  // description or category). Recent = the latest transactions.
+
+  // Recent transactions for the empty (no-query) state.
+  const { data: recentTxns } = useApiData(() => api.transactions.list({ limit: 8 }), EMPTY_TXNS);
+
+  // Server-side search across ALL history (matches the description) — no
+  // longer capped at the latest 100. Only runs when there's a query.
+  const { data: txMatches } = useApiData(
+    () => (dq ? api.transactions.list({ search: dq, limit: 50 }) : Promise.resolve(EMPTY_TXNS)),
+    EMPTY_TXNS,
+    [dq],
+  );
+
+  // Page (nav destination) matches.
   const matches = ql ? PAGES.filter((p) => p.l.toLowerCase().includes(ql)) : PAGES;
-  const txMatches = ql
-    ? txns.filter(
-        (tx) => tx.desc.toLowerCase().includes(ql) || tx.cat.toLowerCase().includes(ql),
-      )
-    : [];
-  const recentTxns = txns.slice(0, 5);
 
   const openTx = (tx: TxView) => push({ kind: 'tx-detail', data: tx });
 

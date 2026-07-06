@@ -2,8 +2,30 @@ import { Injectable } from '@nestjs/common';
 import { ParseSmsResult } from './dto/parse.dto';
 import { BANK_MAP, CATEGORY_KEYWORD_MAP, Category } from './keyword-map';
 
+export interface ParsedSms extends ParseSmsResult {
+  /** Echoes the client-provided id so the device can de-dupe/track. */
+  id: string;
+  raw: string;
+}
+
 @Injectable()
 export class SmsSyncService {
+  /**
+   * Parse a batch of on-device SMS bodies, keeping only those that look like
+   * real transaction alerts (an amount was found). The client sends every
+   * recent message; the server does the filtering so the keyword logic lives
+   * in one place.
+   */
+  parseBatch(messages: { id: string; raw: string }[]): ParsedSms[] {
+    const out: ParsedSms[] = [];
+    for (const m of messages) {
+      const result = this.parse(m.raw);
+      if (result.amount === null) continue; // not a transaction alert
+      out.push({ id: m.id, raw: m.raw, ...result });
+    }
+    return out;
+  }
+
   parse(raw: string): ParseSmsResult {
     const text = raw; // keep original for matching
 

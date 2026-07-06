@@ -47,6 +47,7 @@ import { api } from "../api";
 import { useAuth } from "../auth/AuthProvider";
 import { useBiometricLabel } from "../auth/biometricLabel";
 import {
+  getBiometricEnabled,
   hasPin,
   savePin,
   setBiometricEnabled,
@@ -59,6 +60,7 @@ import {
   IconButton,
   ListCard,
   ListRow,
+  SearchButton,
   SectionHead,
   Toggle,
 } from "../components/ui";
@@ -150,11 +152,24 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
   // fingerprint still sees the setting and gets told how to fix it, rather
   // than the toggle silently vanishing.
   const [bioAvailable, setBioAvailable] = useState(false);
+  // Reflect the *device-local* lock state (what actually enforces the lock),
+  // not the synced `biometricEnabled` account preference — the two diverge on
+  // a fresh install, and showing the pref would falsely claim the lock is on.
+  const [bioOn, setBioOn] = useState(false);
+  const [pinSet, setPinSet] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    void LocalAuthentication.hasHardwareAsync().then((hw) => {
-      if (!cancelled) setBioAvailable(hw);
-    });
+    void (async () => {
+      const [hw, bio, pin] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        getBiometricEnabled(),
+        hasPin(),
+      ]);
+      if (cancelled) return;
+      setBioAvailable(hw);
+      setBioOn(bio);
+      setPinSet(pin);
+    })();
     return () => {
       cancelled = true;
     };
@@ -220,6 +235,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
       }
     }
     await setBiometricEnabled(v);
+    setBioOn(v);
     setPref(
       { biometricEnabled: v },
       v ? `${bioLabel} unlock on` : `${bioLabel} unlock off`,
@@ -245,7 +261,8 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
           throw new Error("PIN must be 4–6 digits");
         if (v["pin"] !== v["confirm"]) throw new Error("PINs don't match");
         await savePin(v["pin"]!);
-        toast("PIN updated", "🔑");
+        setPinSet(true);
+        toast(exists ? "PIN updated" : "App lock is on for this device", "🔑");
       },
     });
   };
@@ -275,7 +292,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
     LANGUAGES.find((l) => l.code === prefs.language)?.label ?? prefs.language;
 
   return (
-    <MPageShell title="Settings" onBack={pop}>
+    <MPageShell title="Settings" onBack={pop} right={<SearchButton />}>
       {/* Profile card (MobileScreens.jsx:587–595) */}
       <GlassCard
         style={styles.profileCard}
@@ -407,43 +424,19 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
               icon="🔒"
               color={t.red}
               title="Biometric login"
-              sub={
-                prefs.biometricEnabled
-                  ? `${bioLabel} enabled`
-                  : `${bioLabel} off`
-              }
+              sub={bioOn ? `${bioLabel} enabled` : `${bioLabel} off`}
               right={
-                <Toggle
-                  on={prefs.biometricEnabled}
-                  onChange={(v) => void toggleBiometric(v)}
-                />
+                <Toggle on={bioOn} onChange={(v) => void toggleBiometric(v)} />
               }
             />
           ) : null}
           <Row
             icon="🔑"
             color={t.amber}
-            title="Change PIN"
-            onPress={() => void changePin()}
-          />
-          <Row
-            icon="📱"
-            color={t.cyan}
-            title="Active sessions"
-            sub="This device"
+            title={pinSet ? "Change PIN" : "Set PIN"}
+            sub={pinSet ? undefined : "No PIN set on this device"}
             last
-            onPress={() =>
-              sheet({
-                title: "Active sessions",
-                options: [
-                  {
-                    label: "This device · current session",
-                    icon: "📱",
-                    onPress: () => {},
-                  },
-                ],
-              })
-            }
+            onPress={() => void changePin()}
           />
         </ListCard>
       </View>
@@ -509,7 +502,6 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             color={t.amber}
             title="Large transactions"
             sub="> ₹10,000"
-            last
             right={
               <Toggle
                 on={prefs.largeTxAlertsEnabled}
@@ -520,6 +512,45 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
                       ? "Large-transaction alerts on"
                       : "Large-transaction alerts off",
                     "💰",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon="🧮"
+            color={t.em}
+            title="Munshi ji suggestions"
+            sub="Daily AI nudge when noteworthy"
+            right={
+              <Toggle
+                on={prefs.munshiSuggestionsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { munshiSuggestionsEnabled: v },
+                    v
+                      ? "Munshi ji suggestions on"
+                      : "Munshi ji suggestions off",
+                    "🧮",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon="📅"
+            color={t.blue}
+            title="Monthly report"
+            sub="On the 1st of each month"
+            last
+            right={
+              <Toggle
+                on={prefs.monthlyReportEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { monthlyReportEnabled: v },
+                    v ? "Monthly report on" : "Monthly report off",
+                    "📅",
                   )
                 }
               />
@@ -613,7 +644,9 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
         </ListCard>
       </View>
 
-      {process.env['EXPO_PUBLIC_SHOW_DEV_SETTINGS'] === '1' && <BackendUrlCard />}
+      {process.env["EXPO_PUBLIC_SHOW_DEV_SETTINGS"] === "1" && (
+        <BackendUrlCard />
+      )}
 
       {/* Sign out (MobileScreens.jsx:656–661) */}
       <Pressable

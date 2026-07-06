@@ -21,6 +21,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MI, type IconName } from '../components/icons';
@@ -87,6 +88,24 @@ export function TabBar() {
       {highlight && (
         <View style={[styles.topHighlight, { backgroundColor: highlight }]} pointerEvents="none" />
       )}
+      {/* Radial glow pooled behind the centre FAB — echoes the page glow so the
+          button reads as a light source seated in the bar. Placed after the
+          blur/tint layers but before the tab row, so it sits above the bar
+          background and behind the FAB. stopOpacity carries the intensity
+          (react-native-svg discards alpha baked into stopColor — see
+          PageBackground). */}
+      <View style={styles.fabGlow} pointerEvents="none">
+        <Svg width="100%" height="100%">
+          <Defs>
+            <RadialGradient id="fabGlow" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset={0} stopColor="rgb(150,120,240)" stopOpacity={mode === 'light' ? 0.44 : 0.2} />
+              <Stop offset={0.9} stopColor="rgb(150,120,240)" stopOpacity={0} />
+              <Stop offset={1} stopColor="rgb(150,120,240)" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Ellipse cx="50%" cy="100%" rx="55%" ry="100%" fill="url(#fabGlow)" />
+        </Svg>
+      </View>
       {TABS.map((tab) => {
         if (tab.id === 'fab') {
           return (
@@ -224,6 +243,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 13,
     zIndex: 1,
+  },
+  // Glow wash that spreads left→right across the full width of the bar, kept
+  // strictly INSIDE it. The box fills the bar interior and clips with
+  // overflow:'hidden' so the glow can't escape the navbar (top:2 stays clear of
+  // the FAB, which protrudes above the bar). The Ellipse is anchored bottom-
+  // centre and made wider than the box (rx 62%) so its bright band runs the
+  // whole width (rx 55%) and tapers as it nears both ends, fading upward.
+  fabGlow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 2,
+    bottom: 0,
+    overflow: 'hidden',
   },
   // .m-fab-tab (mobile.css:302–308)
   fabTab: {

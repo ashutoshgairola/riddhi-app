@@ -13,6 +13,9 @@
     },
     "android": {
       "package": "com.ashutoshgairola.riddhi",
+      "permissions": [
+        "android.permission.READ_SMS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,7 +28,16 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-sharing",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default",
+          "color": "#E6F4FE"
+        }
+      ]
     ],
     "extra": {
       "eas": {

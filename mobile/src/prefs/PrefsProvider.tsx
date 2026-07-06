@@ -23,11 +23,17 @@ const DEFAULTS: ApiUserPreferences = {
   budgetAlertsEnabled: true,
   goalMilestonesEnabled: true,
   largeTxAlertsEnabled: true,
+  munshiSuggestionsEnabled: true,
+  monthlyReportEnabled: true,
   selectedBanks: [],
 };
 
 interface PrefsContextValue {
   prefs: ApiUserPreferences;
+  /** True once the backend preferences have been fetched (or the fetch
+   * failed and defaults stand). Consumers that must not act on the default
+   * `biometricEnabled` before the real value loads should gate on this. */
+  loaded: boolean;
   set(patch: PrefsPatch): Promise<void>;
 }
 
@@ -35,6 +41,7 @@ const PrefsContext = createContext<PrefsContextValue | null>(null);
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<ApiUserPreferences>(DEFAULTS);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +52,9 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         /* keep defaults; next set() will persist over them */
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -66,7 +76,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ prefs, set }), [prefs, set]);
+  const value = useMemo(() => ({ prefs, loaded, set }), [prefs, loaded, set]);
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>;
 }

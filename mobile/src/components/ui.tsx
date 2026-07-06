@@ -316,9 +316,10 @@ const TOGGLE_KNOB_ON = 19;
 export interface ToggleProps {
   on: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }
 
-export function Toggle({ on, onChange }: ToggleProps) {
+export function Toggle({ on, onChange, disabled = false }: ToggleProps) {
   const { t } = useTheme();
   const knobLeft = useSharedValue(on ? TOGGLE_KNOB_ON : TOGGLE_KNOB_OFF);
 
@@ -339,7 +340,11 @@ export function Toggle({ on, onChange }: ToggleProps) {
   }));
 
   return (
-    <Pressable onPress={() => onChange(!on)} style={[styles.toggleTrack, { backgroundColor: on ? t.em : t.bg3 }]}>
+    <Pressable
+      onPress={() => onChange(!on)}
+      disabled={disabled}
+      style={[styles.toggleTrack, { backgroundColor: on ? t.em : t.bg3, opacity: disabled ? 0.4 : 1 }]}
+    >
       <Animated.View style={[styles.toggleKnob, knobStyle]} />
     </Pressable>
   );

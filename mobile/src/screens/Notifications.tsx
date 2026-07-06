@@ -23,22 +23,22 @@
  *    icon box (`n.color`+'22'); title bold (700) when unread else 600;
  *    body; time — MobileScreens.jsx:698–712.
  */
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { Chip, HScroll, IconButton, SearchButton, TopbarActions } from '../components/ui';
-import { MI } from '../components/icons';
-import { SpringIn } from '../components/SpringIn';
-import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
-import { useFeedback } from '../feedback/FeedbackProvider';
-import { useNav, type ScreenEntry } from '../app/navContext';
-import { api } from '../api';
-import { useApiData } from '../api/useApi';
-import { MPageShell } from './_MPageShell';
+import { Chip, HScroll, IconButton, SearchButton, TopbarActions } from "../components/ui";
+import { MI } from "../components/icons";
+import { SpringIn } from "../components/SpringIn";
+import { useTheme } from "../theme/ThemeProvider";
+import { weight } from "../theme/tokens";
+import { useFeedback } from "../feedback/FeedbackProvider";
+import { useNav, type ScreenEntry } from "../app/navContext";
+import { api } from "../api";
+import { useApiData } from "../api/useApi";
+import { MPageShell } from "./_MPageShell";
 
 // ── Data (MobileScreens.jsx:672–680) ─────────────────────────────────
-type NotifType = 'budget' | 'goal' | 'tx' | 'report' | 'security';
+type NotifType = "budget" | "goal" | "tx" | "report" | "security" | "munshi";
 
 interface Notification {
   icon: string;
@@ -53,45 +53,57 @@ interface Notification {
 // Renders empty while the api loads (or is unreachable) — no mock data.
 const ALL_NOTIFS: Notification[] = [];
 
-type FilterValue = 'all' | 'unread' | NotifType;
+type FilterValue = "all" | "unread" | NotifType;
 
 const FILTER_CHIPS: { v: FilterValue; l: string }[] = [
-  { v: 'all', l: 'All' },
-  { v: 'unread', l: 'Unread' },
-  { v: 'budget', l: 'Budgets' },
-  { v: 'goal', l: 'Goals' },
-  { v: 'tx', l: 'Transactions' },
-  { v: 'report', l: 'Reports' },
-  { v: 'security', l: 'Security' },
+  { v: "all", l: "All" },
+  { v: "unread", l: "Unread" },
+  { v: "budget", l: "Budgets" },
+  { v: "goal", l: "Goals" },
+  { v: "tx", l: "Transactions" },
+  { v: "report", l: "Reports" },
+  { v: "security", l: "Security" },
+  { v: "munshi", l: "Munshi ji" },
 ];
 
 export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, nav } = useNav();
   const { toast, sheet } = useFeedback();
-  const [filter, setFilter] = useState<FilterValue>('all');
+  const [filter, setFilter] = useState<FilterValue>("all");
 
-  const { data: notifs } = useApiData(() => api.notifications.list(), ALL_NOTIFS);
+  const { data: notifs } = useApiData(
+    () => api.notifications.list(),
+    ALL_NOTIFS,
+  );
 
   // Filter logic (MobileScreens.jsx:681) — verbatim.
   const filtered =
-    filter === 'all' ? notifs : filter === 'unread' ? notifs.filter((n) => n.unread) : notifs.filter((n) => n.type === filter);
+    filter === "all"
+      ? notifs
+      : filter === "unread"
+        ? notifs.filter((n) => n.unread)
+        : notifs.filter((n) => n.type === filter);
 
   const openMoreSheet = () => {
     sheet({
-      title: 'Notifications',
+      title: "Notifications",
       options: [
         {
-          label: 'Mark all as read',
-          icon: '✓',
+          label: "Mark all as read",
+          icon: "✓",
           onPress: () => {
             api.notifications
               .markAllRead()
-              .then(() => toast('All marked read', '✓'))
-              .catch(() => toast("Couldn't mark all read", '📡'));
+              .then(() => toast("All marked read", "✓"))
+              .catch(() => toast("Couldn't mark all read", "📡"));
           },
         },
-        { label: 'Notification settings', icon: '⚙️', onPress: () => nav('settings') },
+        {
+          label: "Notification settings",
+          icon: "⚙️",
+          onPress: () => nav("settings"),
+        },
       ],
     });
   };
@@ -126,16 +138,29 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
             <View
               style={[
                 styles.card,
-                { backgroundColor: n.unread ? t.bg2 : t.bg1, borderColor: t.border },
+                {
+                  backgroundColor: n.unread ? t.bg2 : t.bg1,
+                  borderColor: t.border,
+                },
               ]}
             >
-              {n.unread && <View style={[styles.unreadDot, { backgroundColor: t.em }]} />}
-              <View style={[styles.iconBox, { backgroundColor: n.color + '22' }]}>
+              {n.unread && (
+                <View style={[styles.unreadDot, { backgroundColor: t.em }]} />
+              )}
+              <View
+                style={[styles.iconBox, { backgroundColor: n.color + "22" }]}
+              >
                 <Text style={styles.iconGlyph}>{n.icon}</Text>
               </View>
               <View style={styles.textBlock}>
                 <Text
-                  style={[styles.title, { color: t.text1, fontFamily: weight(n.unread ? 700 : 600) }]}
+                  style={[
+                    styles.title,
+                    {
+                      color: t.text1,
+                      fontFamily: weight(n.unread ? 700 : 600),
+                    },
+                  ]}
                   numberOfLines={2}
                 >
                   {n.title}
@@ -156,20 +181,20 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   list: {
-    flexDirection: 'column',
+    flexDirection: "column",
     gap: 10,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
     padding: 14,
     borderWidth: 1,
     borderRadius: 14,
-    position: 'relative',
+    position: "relative",
   },
   unreadDot: {
-    position: 'absolute',
+    position: "absolute",
     top: 14,
     right: 14,
     width: 7,
@@ -180,8 +205,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   iconGlyph: {

@@ -158,6 +158,7 @@ export function toBudgetCategoryView(bc: ApiBudgetCategory): BudgetCategoryView 
     c: bc.color ?? (CATEGORY_COLORS[bc.name] ?? DEFAULT_CAT_COLOR),
     allocated: bc.allocated,
     spent: bc.spent,
+    categoryIds: bc.categoryIds ?? [],
   };
 }
 
@@ -222,6 +223,7 @@ const NOTIF_TYPE_MAP: Record<string, NotifViewType> = {
   large_transaction: 'tx',
   monthly_report: 'report',
   security_alert: 'security',
+  munshi_suggestion: 'munshi',
 };
 
 const NOTIF_COLORS: Record<NotifViewType, string> = {
@@ -230,6 +232,7 @@ const NOTIF_COLORS: Record<NotifViewType, string> = {
   tx: '#c9a86a',
   report: '#8197c4',
   security: '#8a8299',
+  munshi: '#9d8bd6',
 };
 
 const NOTIF_ICONS: Record<NotifViewType, string> = {
@@ -238,6 +241,7 @@ const NOTIF_ICONS: Record<NotifViewType, string> = {
   tx: '💰',
   report: '📊',
   security: '🔒',
+  munshi: '🧮',
 };
 
 export function toNotificationView(n: ApiNotification): NotificationView {
@@ -250,6 +254,7 @@ export function toNotificationView(n: ApiNotification): NotificationView {
     color: NOTIF_COLORS[type],
     unread: !n.read,
     type,
+    data: n.data ?? null,
   };
 }
 

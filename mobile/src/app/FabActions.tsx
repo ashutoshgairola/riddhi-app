@@ -26,19 +26,19 @@
  * `fabOpen` — only `openAdd()` does, MobileApp.jsx:273); the other 3
  * actions call `openAdd()`, which already closes the FAB itself.
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withTiming,
-} from 'react-native-reanimated';
-import { useEffect } from 'react';
+} from "react-native-reanimated";
+import { useEffect } from "react";
 
-import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
-import { useNav } from './navContext';
+import { useTheme } from "../theme/ThemeProvider";
+import { weight } from "../theme/tokens";
+import { useNav } from "./navContext";
 
 // fabActions (MobileApp.jsx:280–285).
 interface FabAction {
@@ -46,15 +46,36 @@ interface FabAction {
   desc: string;
   icon: string;
   /** Token key into `Tokens`, resolved against the active theme below. */
-  colorToken: 'violet' | 'red' | 'em' | 'blue';
-  action?: 'chat';
+  colorToken: "violet" | "red" | "em" | "blue";
+  action?: "chat";
 }
 
 const FAB_ACTIONS: FabAction[] = [
-  { label: 'Ask Munshi', desc: 'Log or plan by chat', icon: '💬', colorToken: 'violet', action: 'chat' },
-  { label: 'Add Expense', desc: 'Quick log a spend', icon: '💸', colorToken: 'red' },
-  { label: 'Add Income', desc: 'Salary, freelance…', icon: '💰', colorToken: 'em' },
-  { label: 'Transfer', desc: 'Move between accounts', icon: '🔄', colorToken: 'blue' },
+  {
+    label: "Ask Munshi ji",
+    desc: "Log or plan by chat",
+    icon: "💬",
+    colorToken: "violet",
+    action: "chat",
+  },
+  {
+    label: "Add Expense",
+    desc: "Quick log a spend",
+    icon: "💸",
+    colorToken: "red",
+  },
+  {
+    label: "Add Income",
+    desc: "Salary, freelance…",
+    icon: "💰",
+    colorToken: "em",
+  },
+  {
+    label: "Transfer",
+    desc: "Move between accounts",
+    icon: "🔄",
+    colorToken: "blue",
+  },
 ];
 
 // .m-fab-backdrop: opacity .22s var(--ease) (mobile.css:339).
@@ -67,7 +88,15 @@ const STAGGER_STEP_MS = 40;
 // Android speed-dial actions stack upward from the FAB (MobileApp.jsx:317).
 const androidActionBottom = (i: number) => 96 + 56 + 12 + i * 64;
 
-function FabActionCard({ item, index, isAndroid }: { item: FabAction; index: number; isAndroid: boolean }) {
+function FabActionCard({
+  item,
+  index,
+  isAndroid,
+}: {
+  item: FabAction;
+  index: number;
+  isAndroid: boolean;
+}) {
   const { t, mode } = useTheme();
   const { fabOpen, setFabOpen, nav, openAdd } = useNav();
   const color = t[item.colorToken];
@@ -98,8 +127,8 @@ function FabActionCard({ item, index, isAndroid }: { item: FabAction; index: num
   });
 
   const handlePress = () => {
-    if (item.action === 'chat') {
-      nav('chat');
+    if (item.action === "chat") {
+      nav("chat");
       setFabOpen(false);
     } else {
       openAdd();
@@ -114,20 +143,31 @@ function FabActionCard({ item, index, isAndroid }: { item: FabAction; index: num
         { bottom: isAndroid ? androidActionBottom(index) : 100 + index * 64 },
         style,
       ]}
-      pointerEvents={fabOpen ? 'auto' : 'none'}
+      pointerEvents={fabOpen ? "auto" : "none"}
     >
       <Pressable
-        style={[styles.actionInner, { backgroundColor: t.fabActionBg, borderColor: t.fabActionBorder }]}
+        style={[
+          styles.actionInner,
+          { backgroundColor: t.fabActionBg, borderColor: t.fabActionBorder },
+        ]}
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={item.label}
       >
-        <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+        <BlurView
+          intensity={30}
+          tint={mode === "light" ? "light" : "dark"}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={[styles.icon, { backgroundColor: `${color}22` }]}>
           <Text style={styles.iconGlyph}>{item.icon}</Text>
         </View>
         <View>
-          <Text style={[styles.label, { color: t.text1, fontFamily: weight(600) }]}>{item.label}</Text>
+          <Text
+            style={[styles.label, { color: t.text1, fontFamily: weight(600) }]}
+          >
+            {item.label}
+          </Text>
           <Text style={[styles.desc, { color: t.text2 }]}>{item.desc}</Text>
         </View>
       </Pressable>
@@ -137,12 +177,14 @@ function FabActionCard({ item, index, isAndroid }: { item: FabAction; index: num
 
 export function FabActions() {
   const { fabOpen, setFabOpen, platform } = useNav();
-  const isAndroid = platform === 'android';
+  const isAndroid = platform === "android";
 
   const backdropOpacity = useSharedValue(0);
 
   useEffect(() => {
-    backdropOpacity.value = withTiming(fabOpen ? 1 : 0, { duration: BACKDROP_DURATION_MS });
+    backdropOpacity.value = withTiming(fabOpen ? 1 : 0, {
+      duration: BACKDROP_DURATION_MS,
+    });
   }, [fabOpen, backdropOpacity]);
 
   const backdropStyle = useAnimatedStyle(() => ({
@@ -151,20 +193,37 @@ export function FabActions() {
 
   return (
     <>
-      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={fabOpen ? 'auto' : 'none'}>
+      <Animated.View
+        style={[styles.backdrop, backdropStyle]}
+        pointerEvents={fabOpen ? "auto" : "none"}
+      >
         <Pressable
           style={styles.backdropFill}
           onPress={() => setFabOpen(false)}
           accessibilityRole="button"
           accessibilityLabel="Close"
         >
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[styles.backdropTint, { backgroundColor: 'rgba(0,0,0,0.65)' }]} />
+          <BlurView
+            intensity={20}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={[
+              styles.backdropTint,
+              { backgroundColor: "rgba(0,0,0,0.65)" },
+            ]}
+          />
         </Pressable>
       </Animated.View>
 
       {FAB_ACTIONS.map((item, i) => (
-        <FabActionCard key={item.label} item={item} index={i} isAndroid={isAndroid} />
+        <FabActionCard
+          key={item.label}
+          item={item}
+          index={i}
+          isAndroid={isAndroid}
+        />
       ))}
     </>
   );
@@ -173,7 +232,7 @@ export function FabActions() {
 const styles = StyleSheet.create({
   // .m-fab-backdrop (mobile.css:330–341)
   backdrop: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -188,7 +247,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backdropTint: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -196,7 +255,7 @@ const styles = StyleSheet.create({
   },
   // .m-fab-action (mobile.css:343–365)
   action: {
-    position: 'absolute',
+    position: "absolute",
     zIndex: 61,
     // Above the backdrop (4), below the FAB (6/8) on Android's elevation plane.
     elevation: 5,
@@ -204,30 +263,30 @@ const styles = StyleSheet.create({
   actionIos: {
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: "center",
   },
   actionAndroid: {
     right: 16,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   actionInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingVertical: 12,
     paddingRight: 18,
     paddingLeft: 14,
     borderRadius: 18,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   // .m-fab-action .ico (mobile.css:366–371)
   icon: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconGlyph: {
     fontSize: 18,

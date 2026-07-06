@@ -123,7 +123,8 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
   };
 
   const downloadStatement = () => {
-    shareTxCsv('all')
+    // Scope the statement to THIS account, not the whole ledger.
+    shareTxCsv({ accountId: String(a.id), label: a.name })
       .then(() => toast('Statement exported', '📄'))
       .catch(() => toast("Couldn't export statement", '📡'));
   };
@@ -142,7 +143,7 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
   // Quick-action row: Transfer opens the add-transaction sheet (transfer type),
   // Statement exports a CSV, Settings opens the account's more menu.
   const runQuickAction = (k: QuickActionKey) => {
-    if (k === 'transfer') openAdd();
+    if (k === 'transfer') openAdd({ type: 'transfer', accountId: String(a.id) });
     else if (k === 'statement') downloadStatement();
     else openMoreSheet();
   };

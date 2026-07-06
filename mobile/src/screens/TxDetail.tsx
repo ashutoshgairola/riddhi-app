@@ -129,13 +129,14 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
     });
   };
 
-  // Detail rows (MobileScreens.jsx:811–818) — date/reference now derive
-  // from the actual transaction instead of the prototype's hardcoded text.
+  // Detail rows (MobileScreens.jsx:811–818) — every value now derives from
+  // the actual transaction. The prototype's hardcoded "Status: Completed"
+  // row is dropped: the backend has no per-transaction status, so showing a
+  // constant "Completed" for every entry was fake.
   const rows: { k: string; v: string; c?: string }[] = [
     { k: 'Category', v: tx.cat, c: tx.cCol },
     { k: 'Date', v: tx.date.slice(0, 10) },
     { k: 'Type', v: tx.type === 'inc' ? 'Income' : 'Expense' },
-    { k: 'Status', v: 'Completed', c: t.em },
     { k: 'Reference', v: `TXN${String(tx.id).replace(/-/g, '').slice(0, 14).toUpperCase()}` },
   ];
 

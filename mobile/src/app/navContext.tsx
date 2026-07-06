@@ -33,6 +33,7 @@ export type ScreenKind =
   | 'accounts'
   | 'account-detail'
   | 'tx-cats'
+  | 'cat-detail'
   | 'settings'
   | 'notifs'
   | 'search'
@@ -52,6 +53,19 @@ export interface ScreenEntry {
 export const PRIMARY_TABS: ScreenKind[] = ['home', 'txns', 'budgets', 'goals', 'invest'];
 
 export type Platform = 'ios' | 'android';
+
+/** Optional seed values for the Add-transaction sheet (e.g. an account's
+ * "Transfer" quick action opens the sheet in transfer mode, scoped to it). */
+export interface AddPrefill {
+  type?: 'expense' | 'income' | 'transfer';
+  accountId?: string;
+  /** Seed amount (absolute value, in rupees) — e.g. from a scanned receipt. */
+  amount?: number;
+  /** Seed description/note. */
+  desc?: string;
+  /** Seed category label (matched against the type's quick-add chips). */
+  category?: string;
+}
 
 /** Dev override for the shell's platform-specific transition/chrome.
  * Task 3.2 will exercise the Android path by flipping this (or by passing
@@ -76,13 +90,16 @@ export interface NavContextValue {
   /** Tab-bar navigate: 'more' opens the More sheet; everything else resets
    * the stack to `[{kind: id}]` and closes the FAB. MobileApp.jsx:251–255. */
   goTab: (id: ScreenKind | 'more') => void;
-  /** Opens the Add-transaction sheet, closing the FAB. MobileApp.jsx:273. */
-  openAdd: () => void;
+  /** Opens the Add-transaction sheet, closing the FAB. MobileApp.jsx:273.
+   * An optional prefill seeds the sheet's type/account. */
+  openAdd: (prefill?: AddPrefill) => void;
   platform: Platform;
   fabOpen: boolean;
   setFabOpen: (open: boolean) => void;
   addOpen: boolean;
   setAddOpen: (open: boolean) => void;
+  /** Prefill for the currently-open Add sheet (cleared when it closes). */
+  addPrefill: AddPrefill | null;
   moreOpen: boolean;
   setMoreOpen: (open: boolean) => void;
   profileOpen: boolean;
@@ -102,6 +119,7 @@ export function NavProvider({ children, platform = DEV_PLATFORM_OVERRIDE ?? 'ios
   const [stack, setStack] = useState<ScreenEntry[]>([{ kind: 'home' }]);
   const [fabOpen, setFabOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [addPrefill, setAddPrefill] = useState<AddPrefill | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -134,9 +152,16 @@ export function NavProvider({ children, platform = DEV_PLATFORM_OVERRIDE ?? 'ios
     setProfileOpen(false);
   }, []);
 
-  const openAdd = useCallback(() => {
+  const openAdd = useCallback((prefill?: AddPrefill) => {
+    setAddPrefill(prefill ?? null);
     setAddOpen(true);
     setFabOpen(false);
+  }, []);
+
+  // Clear any prefill once the sheet closes so the next plain open starts fresh.
+  const handleSetAddOpen = useCallback((open: boolean) => {
+    setAddOpen(open);
+    if (!open) setAddPrefill(null);
   }, []);
 
   const activeTab = useMemo<ScreenKind | null>(() => {
@@ -158,13 +183,14 @@ export function NavProvider({ children, platform = DEV_PLATFORM_OVERRIDE ?? 'ios
       fabOpen,
       setFabOpen,
       addOpen,
-      setAddOpen,
+      setAddOpen: handleSetAddOpen,
+      addPrefill,
       moreOpen,
       setMoreOpen,
       profileOpen,
       setProfileOpen,
     }),
-    [stack, top, activeTab, nav, push, pop, goTab, openAdd, platform, fabOpen, addOpen, moreOpen, profileOpen],
+    [stack, top, activeTab, nav, push, pop, goTab, openAdd, handleSetAddOpen, platform, fabOpen, addOpen, addPrefill, moreOpen, profileOpen],
   );
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;

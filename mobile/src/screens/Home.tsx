@@ -28,31 +28,47 @@
  *  - Hero card gradient/border/blur/shadow — MobileHome.jsx:98–125.
  *  - `fmt`/`fmtK` formatters — MobileHome.jsx:70–71.
  */
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useState } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, {
+  Defs,
+  RadialGradient as SvgRadialGradient,
+  Stop,
+  Circle,
+} from "react-native-svg";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAuth } from '../auth/AuthProvider';
-import { GlassView } from '../components/Glass';
-import { IconButton } from '../components/ui';
-import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
-import { MI } from '../components/icons';
-import { PageBackground } from '../components/PageBackground';
-import { PullToRefresh } from '../components/PullToRefresh';
-import { SpringIn } from '../components/SpringIn';
-import { WeekChart } from '../components/charts';
-import { useCountUp } from '../hooks/useCountUp';
-import { useTheme } from '../theme/ThemeProvider';
-import { radius, weight } from '../theme/tokens';
-import { useNav, type ScreenEntry } from '../app/navContext';
-import { api } from '../api';
-import { useApiData } from '../api/useApi';
-import type { NotificationView, WeekDataPoint } from '../api/types';
-import { AiInsightsStrip } from './home/AiInsightsStrip';
+import { useAuth } from "../auth/AuthProvider";
+import { GlassView } from "../components/Glass";
+import { IconButton } from "../components/ui";
+import { MASKED_AMOUNT, usePrefs } from "../prefs/PrefsProvider";
+import { MI } from "../components/icons";
+import { PageBackground } from "../components/PageBackground";
+import { PullToRefresh } from "../components/PullToRefresh";
+import { SpringIn } from "../components/SpringIn";
+import { WeekChart } from "../components/charts";
+import { useCountUp } from "../hooks/useCountUp";
+import { useTheme } from "../theme/ThemeProvider";
+import { radius, weight } from "../theme/tokens";
+import { useNav, type ScreenEntry } from "../app/navContext";
+import { api } from "../api";
+import { useApiData } from "../api/useApi";
+import type { NotificationView, WeekDataPoint } from "../api/types";
+import { AiInsightsStrip } from "./home/AiInsightsStrip";
 
 interface RecentTx {
   icon: string;
@@ -60,22 +76,30 @@ interface RecentTx {
   cat: string;
   date: string;
   amt: number;
-  type: 'exp' | 'inc';
+  type: "exp" | "inc";
 }
 
 // Empty-but-renderable fallbacks while the api loads (or is unreachable).
-const EMPTY_WEEK: WeekDataPoint[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
-  (d) => ({ d, v: 0 }),
-);
+const EMPTY_WEEK: WeekDataPoint[] = [
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+  "Sun",
+].map((d) => ({ d, v: 0 }));
 const EMPTY_RECENT: RecentTx[] = [];
 const EMPTY_NOTIFS: NotificationView[] = [];
 
 function fmt(n: number): string {
-  return '₹' + Math.abs(n).toLocaleString('en-IN');
+  return "₹" + Math.abs(n).toLocaleString("en-IN");
 }
 
 function fmtK(n: number): string {
-  return n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : `₹${Math.round(n / 1000)}K`;
+  return n >= 100000
+    ? `₹${(n / 100000).toFixed(2)}L`
+    : `₹${Math.round(n / 1000)}K`;
 }
 
 // ── Section label (MobileHome.jsx Label, lines 75–80) ────────────────
@@ -91,11 +115,18 @@ function Label({
   const { t } = useTheme();
   return (
     <View style={styles.labelRow}>
-      <Text style={[styles.labelText, { color: t.text1, fontFamily: weight(700) }]}>{children}</Text>
+      <Text
+        style={[styles.labelText, { color: t.text1, fontFamily: weight(700) }]}
+      >
+        {children}
+      </Text>
       {action ? (
         <Text
           onPress={onAction}
-          style={[styles.labelAction, { color: t.text2, fontFamily: weight(600) }]}
+          style={[
+            styles.labelAction,
+            { color: t.text2, fontFamily: weight(600) },
+          ]}
         >
           {action}
         </Text>
@@ -115,10 +146,19 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
   const hide = prefs.hideBalances;
   const masked = (formatted: string) => (hide ? MASKED_AMOUNT : formatted);
 
-  const { data: recentTx } = useApiData(() => api.transactions.recent(), EMPTY_RECENT);
+  const { data: recentTx } = useApiData(
+    () => api.transactions.recent(),
+    EMPTY_RECENT,
+  );
   const { data: week } = useApiData(() => api.reports.weekSpend(), EMPTY_WEEK);
-  const { data: summary } = useApiData(() => api.budgets.currentSummary(), null);
-  const { data: notifs } = useApiData(() => api.notifications.list(), EMPTY_NOTIFS);
+  const { data: summary } = useApiData(
+    () => api.budgets.currentSummary(),
+    null,
+  );
+  const { data: notifs } = useApiData(
+    () => api.notifications.list(),
+    EMPTY_NOTIFS,
+  );
   const hasUnread = notifs.some((n) => n.unread);
 
   // "Safe to spend today" — current budget's remainder spread over the
@@ -155,9 +195,17 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
       >
         {/* ── Signature hero card (MobileHome.jsx:98–125) ── */}
         <SpringIn style={[styles.hero, { borderColor: t.glassBrd2 }]}>
-          <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+          <BlurView
+            intensity={30}
+            tint={mode === "light" ? "light" : "dark"}
+            style={StyleSheet.absoluteFill}
+          />
           <LinearGradient
-            colors={['rgba(155,130,238,0.26)', 'rgba(98,80,168,0.17)', 'rgba(60,50,95,0.13)']}
+            colors={[
+              "rgba(155,130,238,0.26)",
+              "rgba(98,80,168,0.17)",
+              "rgba(60,50,95,0.13)",
+            ]}
             locations={[0, 0.55, 1]}
             start={{ x: 0.1, y: 0 }}
             end={{ x: 0.75, y: 1 }}
@@ -176,7 +224,13 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
                   the blob near-solid. The extra mid stop + fade running to
                   100% (vs the CSS's hard cut at 70%) stands in for the web's
                   `filter: blur(10px)` softening. */}
-              <SvgRadialGradient id="heroGlow" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+              <SvgRadialGradient
+                id="heroGlow"
+                cx="50%"
+                cy="50%"
+                r="50%"
+                gradientUnits="objectBoundingBox"
+              >
                 <Stop offset="0%" stopColor="#b6a4f3" stopOpacity={0.35} />
                 <Stop offset="45%" stopColor="#b6a4f3" stopOpacity={0.16} />
                 <Stop offset="100%" stopColor="#b6a4f3" stopOpacity={0} />
@@ -184,31 +238,70 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
             </Defs>
             <Circle cx={110} cy={110} r={110} fill="url(#heroGlow)" />
           </Svg>
-          <View style={[styles.heroHiLight, { backgroundColor: t.glassHi.slice(t.glassHi.lastIndexOf(' ') + 1) }]} pointerEvents="none" />
+          <View
+            style={[
+              styles.heroHiLight,
+              {
+                backgroundColor: t.glassHi.slice(
+                  t.glassHi.lastIndexOf(" ") + 1,
+                ),
+              },
+            ]}
+            pointerEvents="none"
+          />
 
           <View style={styles.heroContent}>
             <View style={styles.heroTopRow}>
-              <Text style={[styles.heroLabel, { color: t.text2, fontFamily: weight(600) }]}>
+              <Text
+                style={[
+                  styles.heroLabel,
+                  { color: t.text2, fontFamily: weight(600) },
+                ]}
+              >
                 Safe to spend today
               </Text>
-              <View style={[styles.daysChip, { backgroundColor: t.glassBg2, borderColor: t.glassBrd }]}>
-                <Text style={[styles.daysChipText, { color: t.text1, fontFamily: weight(700) }]}>
+              <View
+                style={[
+                  styles.daysChip,
+                  { backgroundColor: t.glassBg2, borderColor: t.glassBrd },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.daysChipText,
+                    { color: t.text1, fontFamily: weight(700) },
+                  ]}
+                >
                   {daysLeft} days left
                 </Text>
               </View>
             </View>
 
             <View style={styles.amountRow}>
-              <Text style={[styles.amountRupee, { color: t.text2, fontFamily: weight(700) }]}>₹</Text>
-              <Text style={[styles.amountValue, { color: t.text1, fontFamily: weight(800) }]}>
-                {masked(Math.abs(dailyCount).toLocaleString('en-IN'))}
+              <Text
+                style={[
+                  styles.amountRupee,
+                  { color: t.text2, fontFamily: weight(700) },
+                ]}
+              >
+                ₹
+              </Text>
+              <Text
+                style={[
+                  styles.amountValue,
+                  { color: t.text1, fontFamily: weight(800) },
+                ]}
+              >
+                {masked(Math.abs(dailyCount).toLocaleString("en-IN"))}
               </Text>
             </View>
 
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${pctUsed * 100}%` }]}>
+              <View
+                style={[styles.progressFill, { width: `${pctUsed * 100}%` }]}
+              >
                 <LinearGradient
-                  colors={[t.em, '#c8b8f7']}
+                  colors={[t.em, "#c8b8f7"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill}
@@ -216,11 +309,23 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
               </View>
             </View>
             <View style={styles.progressLabelsRow}>
-              <Text style={[styles.progressLeft, { color: t.text1, fontFamily: weight(700) }]}>
+              <Text
+                style={[
+                  styles.progressLeft,
+                  { color: t.text1, fontFamily: weight(700) },
+                ]}
+              >
                 {masked(fmt(left))} left
               </Text>
-              <Text style={[styles.progressSpent, { color: t.text2, fontFamily: weight(600) }]}>
-                {hide ? MASKED_AMOUNT : `${fmtK(spent)} of ${fmtK(budgetTotal)}`}
+              <Text
+                style={[
+                  styles.progressSpent,
+                  { color: t.text2, fontFamily: weight(600) },
+                ]}
+              >
+                {hide
+                  ? MASKED_AMOUNT
+                  : `${fmtK(spent)} of ${fmtK(budgetTotal)}`}
               </Text>
             </View>
           </View>
@@ -229,22 +334,32 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
         {/* ── SMS auto-sync banner (MobileHome.jsx:128–141, animationDelay: .03s) ── */}
         <SpringIn delay={30}>
           <GlassView style={styles.syncBanner} padding={0} radius={radius.lg}>
-            <SyncBannerInner onPress={() => nav('sync')} />
+            <SyncBannerInner onPress={() => nav("sync")} />
           </GlassView>
         </SpringIn>
 
         {/* ── This week spending (MobileHome.jsx:144–151, animationDelay: .06s) ── */}
-        <Label action="Stats →" onAction={() => nav('reports')}>
+        <Label action="Stats →" onAction={() => nav("reports")}>
           This week
         </Label>
         <SpringIn delay={60}>
           <GlassView style={styles.weekCard} padding={0} radius={radius.xl}>
             <View style={styles.weekCardInner}>
               <View style={styles.weekHeaderRow}>
-                <Text style={[styles.weekHeaderLabel, { color: t.text3, fontFamily: weight(500) }]}>
+                <Text
+                  style={[
+                    styles.weekHeaderLabel,
+                    { color: t.text3, fontFamily: weight(500) },
+                  ]}
+                >
                   Spent this week
                 </Text>
-                <Text style={[styles.weekHeaderValue, { color: t.text1, fontFamily: weight(800) }]}>
+                <Text
+                  style={[
+                    styles.weekHeaderValue,
+                    { color: t.text1, fontFamily: weight(800) },
+                  ]}
+                >
                   {masked(fmt(weekTotal))}
                 </Text>
               </View>
@@ -254,20 +369,25 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
         </SpringIn>
 
         {/* ── AI insights (rule-based cards deep-linking into chat) ── */}
-        <Label action="Ask Munshi →" onAction={() => nav('chat')}>
-          Munshi's insights
+        <Label action="Ask Munshi ji →" onAction={() => nav("chat")}>
+          Munshi ji's insights
         </Label>
         <SpringIn delay={80}>
           <AiInsightsStrip />
         </SpringIn>
 
         {/* ── Recent (MobileHome.jsx:154–168, animationDelay: .1s) ── */}
-        <Label action="See all →" onAction={() => nav('txns')}>
+        <Label action="See all →" onAction={() => nav("txns")}>
           Recent
         </Label>
         <SpringIn delay={100} style={styles.recentList}>
           {recentTx.map((tx, i) => (
-            <RecentRow key={i} tx={tx} hideAmount={hide} onPress={() => nav('txns')} />
+            <RecentRow
+              key={i}
+              tx={tx}
+              hideAmount={hide}
+              onPress={() => nav("txns")}
+            />
           ))}
         </SpringIn>
 
@@ -277,9 +397,17 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
       {/* ── Topbar (MobileHome.jsx:84–92) — overlays the scroller so content
           slides under the glass; the chrome fades in with scroll, mirroring
           the CSS `transition: background .25s` on `.m-topbar.scrolled`. ── */}
-      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]} pointerEvents="box-none">
+      <View
+        style={[styles.topbar, { paddingTop: insets.top + 14 }]}
+        pointerEvents="box-none"
+      >
         <TopbarChrome visible={scrolled} />
-        <TopbarContent onProfile={() => setProfileOpen(true)} onSearch={() => nav('search')} onNotif={() => nav('notifs')} notifDot={hasUnread} />
+        <TopbarContent
+          onProfile={() => setProfileOpen(true)}
+          onSearch={() => nav("search")}
+          onNotif={() => nav("notifs")}
+          notifDot={hasUnread}
+        />
       </View>
     </View>
   );
@@ -301,12 +429,22 @@ function TopbarChrome({ visible }: { visible: boolean }) {
   return (
     <Animated.View style={[StyleSheet.absoluteFill, fade]} pointerEvents="none">
       <BlurView
-        intensity={mode === 'light' ? 40 : 45}
-        tint={mode === 'light' ? 'light' : 'dark'}
+        intensity={mode === "light" ? 40 : 45}
+        tint={mode === "light" ? "light" : "dark"}
         style={StyleSheet.absoluteFill}
       />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.topbarScrolledBg }]} />
-      <View style={[styles.topbarHairline, { backgroundColor: t.topbarScrolledBorder }]} />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: t.topbarScrolledBg },
+        ]}
+      />
+      <View
+        style={[
+          styles.topbarHairline,
+          { backgroundColor: t.topbarScrolledBorder },
+        ]}
+      />
     </Animated.View>
   );
 }
@@ -325,25 +463,45 @@ function TopbarContent({
 }) {
   const { t } = useTheme();
   const { user } = useAuth();
-  const displayName = user?.name ?? 'Riddhi Desai';
+  const displayName = user?.name ?? "Riddhi Desai";
   const initials = displayName
     .split(/\s+/)
     .map((w) => w.charAt(0))
-    .join('')
+    .join("")
     .slice(0, 2)
     .toUpperCase();
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   return (
     <View style={styles.topbarRow}>
       <Pressable onPress={onProfile} style={styles.avatarPressTarget}>
-        <LinearGradient colors={[t.em, '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
+        <LinearGradient
+          colors={[t.em, "#8b5cf6"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.avatar}
+        >
           <Text style={styles.avatarLabel}>{initials}</Text>
         </LinearGradient>
       </Pressable>
       <View style={styles.greetingBlock}>
-        <Text style={[styles.greetingLine, { color: t.text2, fontFamily: weight(500) }]}>{greeting}</Text>
-        <Text style={[styles.greetingName, { color: t.text1, fontFamily: weight(700) }]}>{displayName}</Text>
+        <Text
+          style={[
+            styles.greetingLine,
+            { color: t.text2, fontFamily: weight(500) },
+          ]}
+        >
+          {greeting}
+        </Text>
+        <Text
+          style={[
+            styles.greetingName,
+            { color: t.text1, fontFamily: weight(700) },
+          ]}
+        >
+          {displayName}
+        </Text>
       </View>
       <IconButton onPress={onSearch}>
         <MI.search size={20} color={t.text1} />
@@ -364,14 +522,28 @@ function SyncBannerInner({ onPress }: { onPress: () => void }) {
           <MI.sms size={19} color={t.em} />
         </View>
         <View style={styles.syncTextBlock}>
-          <Text style={[styles.syncTitle, { color: t.text1, fontFamily: weight(700) }]}>
+          <Text
+            style={[
+              styles.syncTitle,
+              { color: t.text1, fontFamily: weight(700) },
+            ]}
+          >
             SMS auto-sync
           </Text>
-          <Text style={[styles.syncSubtitle, { color: t.text3, fontFamily: weight(500) }]}>
+          <Text
+            style={[
+              styles.syncSubtitle,
+              { color: t.text3, fontFamily: weight(500) },
+            ]}
+          >
             Log transactions from bank messages
           </Text>
         </View>
-        <Text style={[styles.syncReview, { color: t.em, fontFamily: weight(700) }]}>Open</Text>
+        <Text
+          style={[styles.syncReview, { color: t.em, fontFamily: weight(700) }]}
+        >
+          Open
+        </Text>
       </View>
     </Pressable>
   );
@@ -389,25 +561,46 @@ function RecentRow({
   const { t } = useTheme();
   return (
     <Pressable onPress={onPress} style={styles.recentRowTouchable}>
-      <View style={[styles.recentRow, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
+      <View
+        style={[
+          styles.recentRow,
+          { backgroundColor: t.glassBg, borderColor: t.glassBrd },
+        ]}
+      >
         <View style={[styles.recentIconWrap, { backgroundColor: t.bg3 }]}>
           <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
         </View>
         <View style={styles.recentTextBlock}>
-          <Text style={[styles.recentDesc, { color: t.text1, fontFamily: weight(700) }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.recentDesc,
+              { color: t.text1, fontFamily: weight(700) },
+            ]}
+            numberOfLines={1}
+          >
             {tx.desc}
           </Text>
-          <Text style={[styles.recentMeta, { color: t.text3, fontFamily: weight(500) }]}>
+          <Text
+            style={[
+              styles.recentMeta,
+              { color: t.text3, fontFamily: weight(500) },
+            ]}
+          >
             {tx.cat} · {tx.date}
           </Text>
         </View>
         <Text
           style={[
             styles.recentAmt,
-            { color: tx.type === 'inc' ? t.em : t.text1, fontFamily: weight(800) },
+            {
+              color: tx.type === "inc" ? t.em : t.text1,
+              fontFamily: weight(800),
+            },
           ]}
         >
-          {hideAmount ? MASKED_AMOUNT : `${tx.amt > 0 ? '+' : '−'}${fmt(tx.amt)}`}
+          {hideAmount
+            ? MASKED_AMOUNT
+            : `${tx.amt > 0 ? "+" : "−"}${fmt(tx.amt)}`}
         </Text>
       </View>
     </Pressable>
@@ -421,7 +614,7 @@ const styles = StyleSheet.create({
 
   // Topbar — absolute so the scroller runs under it (liquid glass).
   topbar: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -431,15 +624,15 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   topbarHairline: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 1,
   },
   topbarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   avatarPressTarget: {
@@ -449,12 +642,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarLabel: {
     fontFamily: weight(800),
-    color: '#1a1228',
+    color: "#1a1228",
     fontSize: 15,
   },
   greetingBlock: {
@@ -479,8 +672,8 @@ const styles = StyleSheet.create({
 
   // Hero card
   hero: {
-    position: 'relative',
-    overflow: 'hidden',
+    position: "relative",
+    overflow: "hidden",
     borderRadius: 30,
     paddingTop: 22,
     paddingHorizontal: 22,
@@ -496,19 +689,19 @@ const styles = StyleSheet.create({
     height: 220,
   },
   heroHiLight: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 1,
   },
   heroContent: {
-    position: 'relative',
+    position: "relative",
   },
   heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   heroLabel: {
     fontSize: 13.5,
@@ -524,8 +717,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   amountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: 3,
     marginTop: 10,
   },
@@ -544,18 +737,18 @@ const styles = StyleSheet.create({
   progressTrack: {
     marginTop: 20,
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 99,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 99,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressLabelsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 10,
   },
   progressLeft: {
@@ -570,11 +763,11 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   syncBannerTouchable: {
-    width: '100%',
+    width: "100%",
   },
   syncBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 13,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -583,8 +776,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   syncTextBlock: {
@@ -605,9 +798,9 @@ const styles = StyleSheet.create({
 
   // Labels
   labelRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
     marginTop: 28,
     marginHorizontal: 4,
     marginBottom: 14,
@@ -628,8 +821,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   weekHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: 8,
     paddingHorizontal: 4,
     paddingBottom: 4,
@@ -640,7 +833,7 @@ const styles = StyleSheet.create({
   weekHeaderValue: {
     fontSize: 18,
     letterSpacing: -0.36,
-    marginLeft: 'auto',
+    marginLeft: "auto",
   },
 
   // Recent
@@ -648,11 +841,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recentRowTouchable: {
-    width: '100%',
+    width: "100%",
   },
   recentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 13,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -663,8 +856,8 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   recentIconGlyph: {

@@ -65,6 +65,15 @@ export function PageBackground({ children }: PropsWithChildren = {}) {
   const [stop0, stop46, stop100] = t.pageGradient;
   const [glowTL, glowTR, glowBC] = t.pageGlow;
   const glowColors = [glowTL, glowTR, glowBC];
+  // react-native-svg's <Stop> DISCARDS any alpha in `stopColor` — it masks the
+  // color with `& 0x00ffffff` and derives the stop's alpha solely from
+  // `stopOpacity` (extractGradient.ts:83-84). So the intensity baked into each
+  // `pageGlow` rgba() must be lifted into stopOpacity, or every glow renders at
+  // full opacity regardless of the token. Parse the alpha to use as the peak.
+  const glowPeak = glowColors.map((c) => {
+    const m = /rgba?\([^)]*?,\s*([\d.]+)\s*\)$/.exec(c.trim());
+    return m ? Number(m[1]) : 1;
+  });
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -78,6 +87,13 @@ export function PageBackground({ children }: PropsWithChildren = {}) {
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
         <Defs>
           {GLOWS.map((g, i) => (
+            // gradientUnits MUST be userSpaceOnUse: cx/cy/rx/ry below are
+            // viewport-relative percentages (matching the Ellipse), which is
+            // only correct in user space. Under objectBoundingBox (the
+            // default) react-native-svg would reinterpret them relative to the
+            // ellipse's bounding box, pushing the opaque center off-screen and
+            // making the glow invisible. Mirrors the library's canonical
+            // Ellipse-fill example (react-native-svg USAGE.md).
             <RadialGradient
               key={i}
               id={`pageGlow${i}`}
@@ -85,9 +101,9 @@ export function PageBackground({ children }: PropsWithChildren = {}) {
               cy={`${g.cy}%`}
               rx={`${g.rx}%`}
               ry={`${g.ry}%`}
-              gradientUnits="objectBoundingBox"
+              gradientUnits="userSpaceOnUse"
             >
-              <Stop offset={0} stopColor={glowColors[i]} stopOpacity={1} />
+              <Stop offset={0} stopColor={glowColors[i]} stopOpacity={glowPeak[i]} />
               <Stop offset={g.transparentStop} stopColor={glowColors[i]} stopOpacity={0} />
               <Stop offset={1} stopColor={glowColors[i]} stopOpacity={0} />
             </RadialGradient>

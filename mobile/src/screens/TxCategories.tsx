@@ -24,7 +24,7 @@
  *  - Sub-cat chip row, only when `subs.length>0` — MobileScreens.jsx:522–528.
  */
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '../components/Glass';
 import { Chip, IconButton, SearchButton, TopbarActions } from '../components/ui';
@@ -58,7 +58,7 @@ type FilterValue = 'all' | 'exp' | 'inc';
 
 export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { pop } = useNav();
+  const { pop, push } = useNav();
   const { toast, sheet, form } = useFeedback();
   const [tab, setTab] = useState<FilterValue>('all');
 
@@ -127,6 +127,19 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
         {filtered.map((c, i) => (
           // animationDelay: `${0.04 + i*0.03}s` (MobileScreens.jsx:506)
           <SpringIn key={c.id} delay={40 + i * 30}>
+            <Pressable
+              onPress={() =>
+                push({
+                  kind: 'cat-detail',
+                  data: {
+                    name: c.name,
+                    icon: c.icon,
+                    color: c.color,
+                    categoryIds: [String(c.id)],
+                  },
+                })
+              }
+            >
             <GlassCard contentStyle={styles.cardContent}>
               <View style={styles.cardRow}>
                 <View style={[styles.iconBox, { backgroundColor: c.color + '22' }]}>
@@ -153,6 +166,7 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
                 </View>
               )}
             </GlassCard>
+            </Pressable>
           </SpringIn>
         ))}
       </View>

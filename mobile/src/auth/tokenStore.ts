@@ -13,6 +13,9 @@ const REFRESH_KEY = 'riddhi.refreshToken';
 const BIOMETRIC_KEY = 'riddhi.biometricEnabled';
 const PIN_KEY = 'riddhi.pin';
 const PIN_LEN_KEY = 'riddhi.pinLength';
+// Set once the user declines the on-device app-lock setup prompt, so a
+// returning user whose account "remembers" a lock isn't nagged every launch.
+const LOCK_SETUP_DISMISSED_KEY = 'riddhi.lockSetupDismissed';
 
 export async function saveTokens(accessToken: string, refreshToken: string): Promise<void> {
   await AsyncStorage.multiSet([
@@ -32,6 +35,19 @@ export async function clearTokens(): Promise<void> {
 
 export async function setBiometricEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(BIOMETRIC_KEY, enabled ? '1' : '0');
+  // Configuring a credential means the lock is now active on this device;
+  // forget any earlier "not now" so future divergence can re-prompt.
+  if (enabled) await AsyncStorage.removeItem(LOCK_SETUP_DISMISSED_KEY);
+}
+
+/** Whether the user declined setting up the app lock on this device. */
+export async function getLockSetupDismissed(): Promise<boolean> {
+  return (await AsyncStorage.getItem(LOCK_SETUP_DISMISSED_KEY)) === '1';
+}
+
+export async function setLockSetupDismissed(dismissed: boolean): Promise<void> {
+  if (dismissed) await AsyncStorage.setItem(LOCK_SETUP_DISMISSED_KEY, '1');
+  else await AsyncStorage.removeItem(LOCK_SETUP_DISMISSED_KEY);
 }
 
 export async function getBiometricEnabled(): Promise<boolean> {
@@ -50,6 +66,8 @@ export async function savePin(pin: string): Promise<void> {
   const hash = await hashPin(pin, salt);
   await SecureStore.setItemAsync(PIN_KEY, `${salt}:${hash}`);
   await AsyncStorage.setItem(PIN_LEN_KEY, String(pin.length));
+  // A PIN now enforces the lock on this device — clear any prior dismissal.
+  await AsyncStorage.removeItem(LOCK_SETUP_DISMISSED_KEY);
 }
 
 export async function verifyPin(pin: string): Promise<boolean> {

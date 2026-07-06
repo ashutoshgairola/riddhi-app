@@ -24,6 +24,7 @@ export class TransactionsRepository {
   ): Promise<PaginatedTransactions> {
     const {
       type,
+      search,
       categoryId,
       accountId,
       from,
@@ -40,6 +41,9 @@ export class TransactionsRepository {
 
     if (type) {
       qb.andWhere('tx.type = :type', { type });
+    }
+    if (search) {
+      qb.andWhere('tx.description ILIKE :search', { search: `%${search}%` });
     }
     if (categoryId) {
       qb.andWhere('tx.categoryId = :categoryId', { categoryId });

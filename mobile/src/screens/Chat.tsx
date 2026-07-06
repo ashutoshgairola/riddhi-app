@@ -20,11 +20,11 @@
  * use prefill+autoSend).
  *
  * Image attach: there is no OCR/vision pipeline (the chat turn is text-only),
- * so a picked image is shown and answered honestly — Munshi asks the user to
+ * so a picked image is shown and answered honestly — Munshi ji asks the user to
  * type the amount/merchant, which the real agent then logs. It never invents
  * a transaction from the picture.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -35,9 +35,9 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -46,16 +46,17 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
-import { IconButton } from '../components/ui';
-import { MI } from '../components/icons';
-import { PageBackground } from '../components/PageBackground';
-import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
-import { useNav, type ScreenEntry } from '../app/navContext';
-import { streamChat, ChatStreamInterrupted } from '../api/chatStream';
-import { chatApi } from '../api/chatApi';
+import { IconButton, SearchButton, TopbarActions } from "../components/ui";
+import { MI } from "../components/icons";
+import { PageBackground } from "../components/PageBackground";
+import { useTheme } from "../theme/ThemeProvider";
+import { weight } from "../theme/tokens";
+import { useNav, type ScreenEntry } from "../app/navContext";
+import { api } from "../api";
+import { streamChat, ChatStreamInterrupted } from "../api/chatStream";
+import { chatApi } from "../api/chatApi";
 import {
   applyEvent,
   hydrateMessages,
@@ -63,16 +64,16 @@ import {
   userMsg,
   type ChatBlock,
   type ChatMsg,
-} from './chat/types';
-import { WidgetRenderer } from './chat/WidgetRenderer';
-import { ToolStatusChip } from './chat/ToolStatusChip';
-import { ThreadsSheet } from './chat/ThreadsSheet';
+} from "./chat/types";
+import { WidgetRenderer } from "./chat/WidgetRenderer";
+import { ToolStatusChip } from "./chat/ToolStatusChip";
+import { ThreadsSheet } from "./chat/ThreadsSheet";
 
 const CHAT_SUGGESTIONS = [
-  'I ordered pizza at 5 for ₹1,000',
-  'Where am I overspending this month?',
-  'How are my goals doing?',
-  'Got my ₹1,18,000 salary today',
+  "I ordered pizza at 5 for ₹1,000",
+  "Where am I overspending this month?",
+  "How are my goals doing?",
+  "Got my ₹1,18,000 salary today",
 ];
 
 // Honest reply when a user attaches an image — there is no OCR yet, so we
@@ -104,7 +105,9 @@ function TypingDot({ delayMs, color }: { delayMs: number; color: string }) {
     transform: [{ translateY: -3 * progress.value }],
   }));
 
-  return <Animated.View style={[styles.dot, { backgroundColor: color }, style]} />;
+  return (
+    <Animated.View style={[styles.dot, { backgroundColor: color }, style]} />
+  );
 }
 
 interface ChatEntryData {
@@ -115,12 +118,12 @@ interface ChatEntryData {
 
 export function Chat({ entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { pop } = useNav();
+  const { pop, openAdd } = useNav();
   const insets = useSafeAreaInsets();
   const entryData = (entry.data ?? {}) as ChatEntryData;
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [input, setInput] = useState(entryData.prefill ?? '');
+  const [input, setInput] = useState(entryData.prefill ?? "");
   const [busy, setBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const threadIdRef = useRef<string | undefined>(entryData.threadId);
@@ -150,8 +153,8 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
       ...m,
       {
         id: nextLocalId(),
-        role: 'assistant',
-        blocks: [{ type: 'error', message, retryable }],
+        role: "assistant",
+        blocks: [{ type: "error", message, retryable }],
       },
     ]);
   };
@@ -159,7 +162,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
   const send = async (text?: string) => {
     const q = (text ?? input).trim();
     if (!q || busy) return;
-    setInput('');
+    setInput("");
     lastSentRef.current = q;
     setMessages((m) => [...m, userMsg(q)]);
     setBusy(true);
@@ -169,29 +172,30 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
         threadId: threadIdRef.current,
         message: q,
         onEvent: (event) => {
-          if (event.type === 'message_start') threadIdRef.current = event.threadId;
+          if (event.type === "message_start")
+            threadIdRef.current = event.threadId;
           setMessages((m) => applyEvent(m, event));
         },
       });
     } catch (err) {
       if (err instanceof ChatStreamInterrupted) {
-        appendError('Connection dropped mid-reply.', true);
+        appendError("Connection dropped mid-reply.", true);
       } else {
         // Stream never started — fall back to the buffered endpoint.
         try {
           const res = await chatApi.sendMessageBuffered(threadIdRef.current, q);
           threadIdRef.current = res.threadId;
           const blocks: ChatBlock[] = res.blocks.map((b) =>
-            b.type === 'text'
-              ? { type: 'text', text: b.text ?? '' }
-              : { type: 'widget', widget: b.widget! },
+            b.type === "text"
+              ? { type: "text", text: b.text ?? "" }
+              : { type: "widget", widget: b.widget! },
           );
           setMessages((m) => [
             ...m,
-            { id: res.messageId, role: 'assistant', blocks },
+            { id: res.messageId, role: "assistant", blocks },
           ]);
         } catch {
-          appendError("Couldn't reach Munshi. Check your connection.", true);
+          appendError("Couldn't reach Munshi ji. Check your connection.", true);
         }
       }
     } finally {
@@ -204,7 +208,8 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
     if (bootRef.current) return;
     bootRef.current = true;
     if (entryData.threadId) void loadThread(entryData.threadId);
-    else if (entryData.prefill && entryData.autoSend) void send(entryData.prefill);
+    else if (entryData.prefill && entryData.autoSend)
+      void send(entryData.prefill);
     // boot runs exactly once for this screen entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -214,23 +219,69 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsMultipleSelection: false,
-      quality: 0.8,
+      quality: 0.7,
+      base64: true,
     });
     if (result.canceled || result.assets.length === 0) return;
-    const uri = result.assets[0].uri;
-    // Show the picked image, then answer honestly — no OCR pipeline exists,
-    // so we ask for the details rather than inventing a transaction.
+    const asset = result.assets[0];
+
+    // Show the picked image immediately, plus a "reading…" placeholder we
+    // update once the backend vision scan returns.
+    const scanMsgId = nextLocalId();
     setMessages((m) => [
       ...m,
-      { id: nextLocalId(), role: 'user', blocks: [], image: uri },
+      { id: nextLocalId(), role: "user", blocks: [], image: asset.uri },
       {
-        id: nextLocalId(),
-        role: 'assistant',
-        blocks: [{ type: 'text', text: IMAGE_REPLY }],
+        id: scanMsgId,
+        role: "assistant",
+        blocks: [{ type: "text", text: "Reading your receipt…" }],
       },
     ]);
+
+    const replaceScanMsg = (text: string) =>
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === scanMsgId
+            ? { ...msg, blocks: [{ type: "text" as const, text }] }
+            : msg,
+        ),
+      );
+
+    if (!asset.base64) {
+      replaceScanMsg(IMAGE_REPLY);
+      return;
+    }
+
+    try {
+      const allowed = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ] as const;
+      const mime = (allowed as readonly string[]).includes(asset.mimeType ?? "")
+        ? (asset.mimeType as (typeof allowed)[number])
+        : "image/jpeg";
+      const scanned = await api.receipts.scan(asset.base64, mime);
+      if (scanned.amount) {
+        const where = scanned.merchant ? ` at ${scanned.merchant}` : "";
+        replaceScanMsg(
+          `I read ₹${scanned.amount.toLocaleString("en-IN")}${where}. Opening it for you to confirm.`,
+        );
+        openAdd({
+          type: scanned.type === "income" ? "income" : "expense",
+          amount: scanned.amount,
+          desc: scanned.merchant ?? undefined,
+          category: scanned.category ?? undefined,
+        });
+      } else {
+        replaceScanMsg(IMAGE_REPLY);
+      }
+    } catch {
+      replaceScanMsg(IMAGE_REPLY);
+    }
   };
 
   const selectThread = (threadId: string | null) => {
@@ -247,11 +298,11 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
   const canSend = input.trim().length > 0 && !busy;
   const lastMsg = messages[messages.length - 1];
   const showTyping =
-    busy && (lastMsg?.role !== 'assistant' || lastMsg.blocks.length === 0);
+    busy && (lastMsg?.role !== "assistant" || lastMsg.blocks.length === 0);
 
   const renderBlock = (block: ChatBlock, key: string, isUser: boolean) => {
     switch (block.type) {
-      case 'text':
+      case "text":
         if (!block.text.trim()) return null;
         return (
           <View
@@ -262,7 +313,11 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
                 ? [styles.bubbleUser, { backgroundColor: t.em }]
                 : [
                     styles.bubbleBot,
-                    { backgroundColor: t.bg1, borderColor: t.border, borderWidth: 1 },
+                    {
+                      backgroundColor: t.bg1,
+                      borderColor: t.border,
+                      borderWidth: 1,
+                    },
                   ],
             ]}
           >
@@ -270,7 +325,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
               style={[
                 styles.bubbleText,
                 {
-                  color: isUser ? '#1a1228' : t.text1,
+                  color: isUser ? "#1a1228" : t.text1,
                   fontFamily: weight(isUser ? 500 : 400),
                 },
               ]}
@@ -279,17 +334,32 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
             </Text>
           </View>
         );
-      case 'widget':
+      case "widget":
         return <WidgetRenderer key={key} widget={block.widget} />;
-      case 'tool_status':
+      case "tool_status":
         return (
-          <ToolStatusChip key={key} label={block.label} done={block.done} ok={block.ok} />
+          <ToolStatusChip
+            key={key}
+            label={block.label}
+            done={block.done}
+            ok={block.ok}
+          />
         );
-      case 'error':
+      case "error":
         return (
           <View key={key} style={styles.errorWrap}>
-            <View style={[styles.errorBubble, { backgroundColor: t.redDim, borderColor: t.red }]}>
-              <Text style={[styles.errorText, { color: t.red, fontFamily: weight(500) }]}>
+            <View
+              style={[
+                styles.errorBubble,
+                { backgroundColor: t.redDim, borderColor: t.red },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.errorText,
+                  { color: t.red, fontFamily: weight(500) },
+                ]}
+              >
                 {block.message}
               </Text>
             </View>
@@ -298,13 +368,23 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
                 onPress={() => {
                   const retry = lastSentRef.current;
                   // Drop the failed turn's error bubble before retrying.
-                  setMessages((m) => m.filter((msg) => !msg.blocks.includes(block)));
+                  setMessages((m) =>
+                    m.filter((msg) => !msg.blocks.includes(block)),
+                  );
                   void send(retry ?? undefined);
                 }}
-                style={[styles.retryBtn, { backgroundColor: t.bg2, borderColor: t.border }]}
+                style={[
+                  styles.retryBtn,
+                  { backgroundColor: t.bg2, borderColor: t.border },
+                ]}
               >
                 <MI.refresh size={13} color={t.text2} />
-                <Text style={[styles.retryText, { color: t.text2, fontFamily: weight(600) }]}>
+                <Text
+                  style={[
+                    styles.retryText,
+                    { color: t.text2, fontFamily: weight(600) },
+                  ]}
+                >
                   Retry
                 </Text>
               </Pressable>
@@ -317,7 +397,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
   return (
     <KeyboardAvoidingView
       style={styles.page}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={insets.top}
     >
       <PageBackground />
@@ -329,16 +409,33 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
         </IconButton>
         <View style={styles.topbarMid}>
           <View style={[styles.sparkleBox, { backgroundColor: t.emDim }]}>
-            <Image source={require('../../assets/munshi.png')} style={styles.sparkleLogo} />
+            <Image
+              source={require("../../assets/munshi.png")}
+              style={styles.sparkleLogo}
+            />
           </View>
           <View>
-            <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]}>Ask Munshi</Text>
-            <Text style={[styles.online, { color: t.em, fontFamily: weight(600) }]}>● Online</Text>
+            <Text
+              style={[
+                styles.title,
+                { color: t.text1, fontFamily: weight(700) },
+              ]}
+            >
+              Ask Munshi ji
+            </Text>
+            <Text
+              style={[styles.online, { color: t.em, fontFamily: weight(600) }]}
+            >
+              ● Online
+            </Text>
           </View>
         </View>
-        <IconButton onPress={() => setHistoryOpen(true)}>
-          <MI.sms size={18} color={t.text1} />
-        </IconButton>
+        <TopbarActions>
+          <SearchButton />
+          <IconButton onPress={() => setHistoryOpen(true)}>
+            <MI.sms size={18} color={t.text1} />
+          </IconButton>
+        </TopbarActions>
       </View>
 
       {/* body */}
@@ -351,22 +448,47 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
         {empty && (
           <View style={styles.emptyWrap}>
             <View style={[styles.emptySparkle, { backgroundColor: t.emDim }]}>
-              <Image source={require('../../assets/munshi.png')} style={styles.emptyLogo} />
+              <Image
+                source={require("../../assets/munshi.png")}
+                style={styles.emptyLogo}
+              />
             </View>
-            <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(700) }]}>
-              Every rupee,{'\n'}accounted for.
+            <Text
+              style={[
+                styles.emptyTitle,
+                { color: t.text1, fontFamily: weight(700) },
+              ]}
+            >
+              Every rupee,{"\n"}accounted for.
             </Text>
-            <Text style={[styles.emptySubtitle, { color: t.text3, fontFamily: weight(400) }]}>
-              Log spends, move budgets, track goals, or ask anything — Munshi keeps the hisaab.
+            <Text
+              style={[
+                styles.emptySubtitle,
+                { color: t.text3, fontFamily: weight(400) },
+              ]}
+            >
+              Log spends, move budgets, track goals, or ask anything — Munshi ji
+              keeps the hisaab.
             </Text>
 
             <View style={styles.emptyActions}>
               <Pressable
                 onPress={handlePickImage}
-                style={[styles.scanBtn, { backgroundColor: t.emDim, borderColor: 'rgba(182,164,243,0.25)' }]}
+                style={[
+                  styles.scanBtn,
+                  {
+                    backgroundColor: t.emDim,
+                    borderColor: "rgba(182,164,243,0.25)",
+                  },
+                ]}
               >
                 <MI.camera size={16} color={t.em} />
-                <Text style={[styles.scanBtnText, { color: t.em, fontFamily: weight(600) }]}>
+                <Text
+                  style={[
+                    styles.scanBtnText,
+                    { color: t.em, fontFamily: weight(600) },
+                  ]}
+                >
                   Attach a bill or bank screenshot
                 </Text>
               </Pressable>
@@ -374,10 +496,20 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
                 <Pressable
                   key={s}
                   onPress={() => send(s)}
-                  style={[styles.suggestionBtn, { backgroundColor: t.bg1, borderColor: t.border }]}
+                  style={[
+                    styles.suggestionBtn,
+                    { backgroundColor: t.bg1, borderColor: t.border },
+                  ]}
                 >
                   <MI.arrow size={15} color={t.text3} />
-                  <Text style={[styles.suggestionText, { color: t.text1, fontFamily: weight(500) }]}>{s}</Text>
+                  <Text
+                    style={[
+                      styles.suggestionText,
+                      { color: t.text1, fontFamily: weight(500) },
+                    ]}
+                  >
+                    {s}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -387,7 +519,10 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
         {messages.map((m) => (
           <View
             key={m.id}
-            style={[styles.msgRow, { alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }]}
+            style={[
+              styles.msgRow,
+              { alignItems: m.role === "user" ? "flex-end" : "flex-start" },
+            ]}
           >
             {m.image ? (
               <Image
@@ -396,13 +531,20 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
                 resizeMode="cover"
               />
             ) : null}
-            {m.blocks.map((block, i) => renderBlock(block, `${m.id}-${i}`, m.role === 'user'))}
+            {m.blocks.map((block, i) =>
+              renderBlock(block, `${m.id}-${i}`, m.role === "user"),
+            )}
           </View>
         ))}
 
         {showTyping && (
           <View style={styles.typingRow}>
-            <View style={[styles.typingBubble, { backgroundColor: t.bg1, borderColor: t.border }]}>
+            <View
+              style={[
+                styles.typingBubble,
+                { backgroundColor: t.bg1, borderColor: t.border },
+              ]}
+            >
               <TypingDot delayMs={0} color={t.text3} />
               <TypingDot delayMs={160} color={t.text3} />
               <TypingDot delayMs={320} color={t.text3} />
@@ -415,12 +557,19 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
       <View
         style={[
           styles.composer,
-          { borderTopColor: t.border, backgroundColor: t.bg, paddingBottom: Math.max(insets.bottom, 0) + 12 },
+          {
+            borderTopColor: t.border,
+            backgroundColor: t.bg,
+            paddingBottom: Math.max(insets.bottom, 0) + 12,
+          },
         ]}
       >
         <Pressable
           onPress={handlePickImage}
-          style={[styles.attachBtn, { backgroundColor: t.bg2, borderColor: t.border }]}
+          style={[
+            styles.attachBtn,
+            { backgroundColor: t.bg2, borderColor: t.border },
+          ]}
         >
           <MI.camera size={19} color={t.text2} />
         </Pressable>
@@ -430,14 +579,21 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
           placeholder="Message Munshi…"
           placeholderTextColor={t.text3}
           multiline
-          style={[styles.input, { backgroundColor: t.bg2, borderColor: t.border, color: t.text1 }]}
+          style={[
+            styles.input,
+            { backgroundColor: t.bg2, borderColor: t.border, color: t.text1 },
+          ]}
         />
         <Pressable
           onPress={() => send()}
           disabled={!canSend}
           style={[styles.sendBtn, { backgroundColor: canSend ? t.em : t.bg3 }]}
         >
-          <MI.send size={19} color={canSend ? '#1a1228' : t.text3} strokeWidth={2.2} />
+          <MI.send
+            size={19}
+            color={canSend ? "#1a1228" : t.text3}
+            strokeWidth={2.2}
+          />
         </Pressable>
       </View>
 
@@ -455,33 +611,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topbar: {
-    position: 'relative',
+    position: "relative",
     paddingTop: 14,
     paddingHorizontal: 18,
     paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   topbarMid: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   sparkleBox: {
     width: 34,
     height: 34,
     borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   sparkleLogo: {
     width: 34,
     height: 34,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   title: {
     fontSize: 15,
@@ -507,15 +663,15 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   emptyLogo: {
     width: 54,
     height: 54,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   emptyTitle: {
     fontSize: 21,
@@ -528,7 +684,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyActions: {
-    flexDirection: 'column',
+    flexDirection: "column",
     gap: 8,
     marginTop: 22,
   },
@@ -537,8 +693,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 14,
     borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   scanBtnText: {
@@ -550,8 +706,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 14,
     borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   suggestionText: {
@@ -559,11 +715,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   msgRow: {
-    flexDirection: 'column',
+    flexDirection: "column",
     marginBottom: 14,
   },
   bubble: {
-    maxWidth: '82%',
+    maxWidth: "82%",
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 18,
@@ -590,7 +746,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorBubble: {
-    maxWidth: '82%',
+    maxWidth: "82%",
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 18,
@@ -602,9 +758,9 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   retryBtn: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingVertical: 7,
     paddingHorizontal: 13,
@@ -615,7 +771,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   typingRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 14,
   },
   typingBubble: {
@@ -624,7 +780,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 5,
   },
   dot: {
@@ -637,8 +793,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: 9,
   },
   attachBtn: {
@@ -646,8 +802,8 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   input: {
@@ -664,8 +820,8 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
 });

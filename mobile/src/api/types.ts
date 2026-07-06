@@ -120,7 +120,8 @@ export type ApiNotificationType =
   | 'goal_progress'
   | 'large_transaction'
   | 'monthly_report'
-  | 'security_alert';
+  | 'security_alert'
+  | 'munshi_suggestion';
 
 export interface ApiNotification {
   id: string;
@@ -129,6 +130,8 @@ export interface ApiNotification {
   body: string;
   read: boolean;
   createdAt: string; // ISO date
+  /** Deep-link payload for tap handling (null for older rows). */
+  data?: { screen: string; id?: string } | null;
 }
 
 export interface ApiReportOverview {
@@ -191,6 +194,8 @@ export interface BudgetCategoryView {
   c: string; // hex color
   allocated: number;
   spent: number;
+  /** Transaction-category ids this budget line tracks (for drill-down). */
+  categoryIds: string[];
 }
 
 /** Goal view — matches Goal in Goals.tsx */
@@ -235,7 +240,7 @@ export interface ApiCategoryActivity {
 }
 
 /** Notification view — matches Notification in Notifications.tsx */
-export type NotifViewType = 'budget' | 'goal' | 'tx' | 'report' | 'security';
+export type NotifViewType = 'budget' | 'goal' | 'tx' | 'report' | 'security' | 'munshi';
 
 export interface NotificationView {
   icon: string;
@@ -245,6 +250,8 @@ export interface NotificationView {
   color: string;
   unread: boolean;
   type: NotifViewType;
+  /** Deep-link payload carried through from the API row. */
+  data?: { screen: string; id?: string } | null;
 }
 
 /** Report overview view */
@@ -271,6 +278,15 @@ export interface ApiPaginatedTransactions {
   limit: number;
 }
 
+/** Result of scanning a receipt image (backend vision extraction). */
+export interface ScannedReceipt {
+  amount: number | null;
+  merchant: string | null;
+  date: string | null;
+  type: 'income' | 'expense';
+  category: string | null;
+}
+
 export interface NewTxInput {
   desc: string;
   /** Signed: positive = income, negative = expense. */
@@ -280,6 +296,8 @@ export interface NewTxInput {
   /** ISO date; defaults to today. */
   date?: string;
   note?: string;
+  /** Source account this transaction belongs to. */
+  accountId?: string;
 }
 
 export interface UpdateTxInput {
@@ -341,6 +359,8 @@ export interface ApiUserPreferences {
   budgetAlertsEnabled: boolean;
   goalMilestonesEnabled: boolean;
   largeTxAlertsEnabled: boolean;
+  munshiSuggestionsEnabled: boolean;
+  monthlyReportEnabled: boolean;
   /** Bank names picked during onboarding — drives the Sync screen. */
   selectedBanks: string[];
 }

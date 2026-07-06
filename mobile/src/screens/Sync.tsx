@@ -39,7 +39,8 @@
  *  - "How it works" info row copy — MobileSync.jsx:197–204.
  */
 import { StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from '../api';
 import { GlassCard } from '../components/Glass';
@@ -51,8 +52,13 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
-import { useApiData } from '../api/useApi';
 import { usePrefs } from '../prefs/PrefsProvider';
+import {
+  ensureSmsPermission,
+  fetchSmsSuggestions,
+  rememberProcessed,
+  smsSyncSupported,
+} from '../lib/smsSync';
 import { MPageShell } from './_MPageShell';
 import { DetectedCard } from './DetectedCard';
 
@@ -106,6 +112,9 @@ const DEFAULT_BANK_COLOR = '#3b3563';
 
 const fmtR = (n: number) => '₹' + Math.abs(n).toLocaleString('en-IN');
 
+// Auto-sync is a client-only toggle (no backend field), persisted locally.
+const AUTO_SYNC_KEY = 'sms-sync/auto';
+
 export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
@@ -113,8 +122,14 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { prefs } = usePrefs();
 
   const [pending, setPending] = useState<SyncDetected[]>(NO_DETECTED);
+  // Transactions confirmed from SMS during this session (the "Auto-added"
+  // list). Previously this relabeled *all* recent transactions as if they were
+  // SMS-added and mis-set `account` to the category — both fixed here.
+  const [added, setAdded] = useState<SyncRecent[]>([]);
   const [autoSync, setAutoSync] = useState(true);
   const [justAdded, setJustAdded] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const supported = smsSyncSupported();
 
   // Connected banks come from onboarding (prefs.selectedBanks); the last
   // slot is always the dimmed "Add" affordance from the design.
@@ -128,17 +143,58 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
     { name: 'Add', col: DEFAULT_BANK_COLOR, logo: '+', count: 0, off: true },
   ];
 
-  // "Auto-added" shows the latest real transactions.
-  const { data: recentTx } = useApiData(() => api.transactions.recent(), []);
-  const recent: SyncRecent[] = recentTx.map((tx) => ({
-    merchant: tx.desc,
-    icon: tx.icon,
-    amount: tx.amt,
-    cat: tx.cat,
-    catCol: tx.cCol,
-    account: tx.cat,
-    time: tx.date,
-  }));
+  // Restore the persisted auto-sync preference on mount.
+  useEffect(() => {
+    void AsyncStorage.getItem(AUTO_SYNC_KEY).then((v) => {
+      if (v !== null) setAutoSync(v === '1');
+    });
+  }, []);
+  const toggleAutoSync = (on: boolean) => {
+    setAutoSync(on);
+    void AsyncStorage.setItem(AUTO_SYNC_KEY, on ? '1' : '0');
+  };
+
+  /** Reads recent bank SMS and loads new suggestions into the review queue. */
+  const runSync = useCallback(
+    async (interactive: boolean) => {
+      if (!smsSyncSupported()) {
+        if (interactive) toast('SMS auto-sync needs the Android app', '🤖');
+        return;
+      }
+      const granted = await ensureSmsPermission();
+      if (!granted) {
+        if (interactive) toast('SMS permission denied', '🔒');
+        return;
+      }
+      setSyncing(true);
+      try {
+        const found = await fetchSmsSuggestions();
+        setPending((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...found.filter((f) => !seen.has(f.id)), ...prev];
+        });
+        if (interactive) {
+          toast(
+            found.length
+              ? `Found ${found.length} message${found.length > 1 ? 's' : ''}`
+              : 'No new messages',
+            '🔄',
+          );
+        }
+      } catch {
+        if (interactive) toast("Couldn't read messages", '📡');
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [toast],
+  );
+
+  // Auto-read on open when auto-sync is enabled (Android only; no-op elsewhere).
+  useEffect(() => {
+    if (autoSync) void runSync(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSync]);
 
   /** Persists one detected SMS transaction through the api layer. */
   const saveDetected = (tx: SyncDetected) =>
@@ -149,26 +205,47 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       categoryName: tx.cat,
     });
 
+  /** Maps a confirmed detection into an "Auto-added" list row. */
+  const toRecentRow = (tx: SyncDetected): SyncRecent => ({
+    merchant: tx.merchant,
+    icon: tx.icon,
+    amount: tx.amount,
+    cat: tx.cat,
+    catCol: tx.catCol,
+    account: tx.account,
+    time: 'Just now',
+  });
+
   const confirm = (id: string) => {
     const tx = pending.find((p) => p.id === id);
     setPending((p) => p.filter((t2) => t2.id !== id));
     if (!tx) return;
     saveDetected(tx)
-      .then(() => setJustAdded((n) => n + 1))
+      .then(() => {
+        setJustAdded((n) => n + 1);
+        setAdded((a) => [toRecentRow(tx), ...a]);
+        void rememberProcessed([tx.id]);
+      })
       .catch(() => {
         toast("Couldn't add that transaction", '📡');
         setPending((p) => [tx, ...p]);
       });
   };
   const dismiss = (id: string) => {
-    // Dismissing an SMS suggestion is local-only by design — nothing to persist.
-    setPending((p) => p.filter((tx) => tx.id !== id));
+    const tx = pending.find((p) => p.id === id);
+    setPending((p) => p.filter((t2) => t2.id !== id));
+    // Remember it so the same message isn't re-suggested on the next sync.
+    if (tx) void rememberProcessed([tx.id]);
   };
   const addAll = () => {
     const batch = pending;
     setPending([]);
     Promise.all(batch.map(saveDetected))
-      .then(() => setJustAdded((n) => n + batch.length))
+      .then(() => {
+        setJustAdded((n) => n + batch.length);
+        setAdded((a) => [...batch.map(toRecentRow), ...a]);
+        void rememberProcessed(batch.map((b) => b.id));
+      })
       .catch(() => {
         toast("Couldn't add all transactions", '📡');
         setPending(batch);
@@ -179,13 +256,16 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
     sheet({
       title: 'Auto-sync',
       options: [
-        { label: 'Sync now', icon: '🔄', onPress: () => toast('Syncing messages…', '🔄') },
-        { label: 'Manage banks', icon: '🏦', onPress: () => toast('Manage connected banks') },
+        {
+          label: syncing ? 'Syncing…' : 'Sync now',
+          icon: '🔄',
+          onPress: () => void runSync(true),
+        },
         {
           label: autoSync ? 'Pause auto-sync' : 'Resume auto-sync',
           icon: autoSync ? '⏸' : '▶️',
           onPress: () => {
-            setAutoSync(!autoSync);
+            toggleAutoSync(!autoSync);
             toast(autoSync ? 'Auto-sync paused' : 'Auto-sync resumed');
           },
         },
@@ -224,10 +304,14 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             <View style={styles.statusText}>
               <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>SMS auto-sync</Text>
               <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
-                {autoSync ? 'Listening for bank SMS' : 'Paused'}
+                {!supported
+                  ? 'Available on the Android app'
+                  : autoSync
+                    ? 'Listening for bank SMS'
+                    : 'Paused'}
               </Text>
             </View>
-            <Toggle on={autoSync} onChange={setAutoSync} />
+            <Toggle on={autoSync} onChange={toggleAutoSync} disabled={!supported} />
           </View>
 
           {/* connected banks (MobileSync.jsx:142–149) */}
@@ -282,40 +366,44 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         </SpringIn>
       )}
 
-      {/* recently synced (MobileSync.jsx:176–194) */}
-      <View style={styles.sectionHeadRow}>
-        <Text style={[styles.sectionTitle, { color: t.text1, fontFamily: weight(700) }]}>Auto-added</Text>
-        <Text style={[styles.sectionMeta, { color: t.text3 }]}>High confidence</Text>
-      </View>
-      {/* animationDelay: .1s (MobileSync.jsx:181) */}
-      <SpringIn delay={100}>
-        <ListCard>
-          {recent.map((tx, i) => (
-            <ListRow key={i} last={i === recent.length - 1}>
-              <View style={[styles.recentIconBox, { backgroundColor: tx.catCol + '22' }]}>
-                <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
-              </View>
-              <View style={styles.recentText}>
-                <Text style={[styles.recentMerchant, { color: t.text1, fontFamily: weight(600) }]}>{tx.merchant}</Text>
-                <View style={styles.recentMetaRow}>
-                  <Text style={[styles.recentCat, { color: tx.catCol, fontFamily: weight(600) }]}>{tx.cat}</Text>
-                  <Text style={[styles.recentDot, { color: t.text3 }]}>•</Text>
-                  <Text style={[styles.recentTime, { color: t.text3 }]}>{tx.time}</Text>
-                </View>
-              </View>
-              <Text
-                style={[
-                  styles.recentAmount,
-                  { color: tx.amount > 0 ? t.em : t.text1, fontFamily: weight(700) },
-                ]}
-              >
-                {tx.amount > 0 ? '+' : ''}
-                {fmtR(tx.amount)}
-              </Text>
-            </ListRow>
-          ))}
-        </ListCard>
-      </SpringIn>
+      {/* recently synced (MobileSync.jsx:176–194) — session confirmations only */}
+      {added.length > 0 ? (
+        <>
+          <View style={styles.sectionHeadRow}>
+            <Text style={[styles.sectionTitle, { color: t.text1, fontFamily: weight(700) }]}>Auto-added</Text>
+            <Text style={[styles.sectionMeta, { color: t.text3 }]}>This session</Text>
+          </View>
+          {/* animationDelay: .1s (MobileSync.jsx:181) */}
+          <SpringIn delay={100}>
+            <ListCard>
+              {added.map((tx, i) => (
+                <ListRow key={i} last={i === added.length - 1}>
+                  <View style={[styles.recentIconBox, { backgroundColor: tx.catCol + '22' }]}>
+                    <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
+                  </View>
+                  <View style={styles.recentText}>
+                    <Text style={[styles.recentMerchant, { color: t.text1, fontFamily: weight(600) }]}>{tx.merchant}</Text>
+                    <View style={styles.recentMetaRow}>
+                      <Text style={[styles.recentCat, { color: tx.catCol, fontFamily: weight(600) }]}>{tx.cat}</Text>
+                      <Text style={[styles.recentDot, { color: t.text3 }]}>•</Text>
+                      <Text style={[styles.recentTime, { color: t.text3 }]}>{tx.time}</Text>
+                    </View>
+                  </View>
+                  <Text
+                    style={[
+                      styles.recentAmount,
+                      { color: tx.amount > 0 ? t.em : t.text1, fontFamily: weight(700) },
+                    ]}
+                  >
+                    {tx.amount > 0 ? '+' : ''}
+                    {fmtR(tx.amount)}
+                  </Text>
+                </ListRow>
+              ))}
+            </ListCard>
+          </SpringIn>
+        </>
+      ) : null}
 
       {/* how it works (MobileSync.jsx:197–204) */}
       <View style={styles.infoRow}>
@@ -323,7 +411,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
           <MI.info size={15} color={t.text3} />
         </View>
         <Text style={[styles.infoText, { color: t.text3 }]}>
-          Riddhi reads transaction alerts from your bank's SMS on-device — message content never leaves your phone.
+          Riddhi reads transaction alerts from your bank's SMS and parses the amount & merchant. Nothing is added until you confirm it.
         </Text>
       </View>
     </MPageShell>

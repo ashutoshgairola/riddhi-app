@@ -84,6 +84,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   }, [mode]);
 
+  // `dark`/`light` are module constants that never change at runtime, so
+  // listing them as deps is a no-op in production. But during development
+  // Fast Refresh re-evaluates tokens.ts to a *new* object identity on every
+  // edit; including them here lets a token change re-run this memo and update
+  // `t` live, instead of silently keeping the stale theme until a full reload.
   const value = useMemo<ThemeContextValue>(
     () => ({
       t: mode === 'light' ? light : dark,
@@ -91,7 +96,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setMode,
       toggle,
     }),
-    [mode, setMode, toggle],
+    [mode, setMode, toggle, dark, light],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

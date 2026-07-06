@@ -4,6 +4,8 @@ import {
   IsUUID,
   IsDateString,
   IsInt,
+  IsString,
+  MaxLength,
   Min,
   Max,
 } from 'class-validator';
@@ -14,6 +16,12 @@ export class QueryTransactionsDto {
   @IsOptional()
   @IsEnum(TransactionType)
   type?: TransactionType;
+
+  /** Free-text match against the transaction description (case-insensitive). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
 
   @IsOptional()
   @IsUUID()

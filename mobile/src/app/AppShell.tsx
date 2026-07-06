@@ -47,6 +47,8 @@ import { ProfileSheet } from './ProfileSheet';
 import { TabBar } from './TabBar';
 import { renderScreen } from './screens';
 import { useNav } from './navContext';
+import { usePushNotifications } from '../notifications/usePushNotifications';
+import { useAppLockSetup } from '../auth/useAppLockSetup';
 
 // .m-page-enter: 0.32s var(--ease)
 const IOS_ENTER_MS = 320;
@@ -98,6 +100,12 @@ export function AppShell() {
   const { t } = useTheme();
   const { top, stack, platform, fabOpen, setFabOpen } = useNav();
   const isAndroid = platform === 'android';
+  // Register for push + route notification taps into the nav stack. Mounted
+  // here because AppShell always renders inside <NavProvider>.
+  usePushNotifications();
+  // If the account expects an app lock but this device has no PIN/biometric
+  // configured (e.g. a returning user on a fresh install), prompt to set it up.
+  useAppLockSetup();
   // Include stack depth so two sequential pushes of the same kind+data still
   // re-trigger the enter animation, matching the prototype's
   // key={stack.length + '-' + top.kind} (MobileApp.jsx:321).

@@ -40,6 +40,7 @@
  */
 import { useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -69,10 +70,32 @@ interface Budget {
   c: string;
   allocated: number;
   spent: number;
+  categoryIds: string[];
 }
 
 // Renders empty while the api loads (or is unreachable) — no mock data.
 const EMPTY_BUDGETS: Budget[] = [];
+
+// ── Month helpers (mirrors the api layer, kept local to avoid exporting
+// internals) ──────────────────────────────────────────────────────────
+function monthKeyOf(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+function monthLabelOf(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleString('en', { month: 'long', year: 'numeric' });
+}
+function prevMonth(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return monthKeyOf(new Date(y, m - 2, 1));
+}
+function nextMonth(key: string): string {
+  const [y, m] = key.split('-').map(Number);
+  return monthKeyOf(new Date(y, m, 1));
+}
+const CURRENT_MONTH = monthKeyOf(new Date());
 
 // Ring geometry — MobileSecondary.jsx:34–41: r=40, strokeWidth=8,
 // circumference hardcoded in source as 251.3 (≈ 2*pi*40).
@@ -83,18 +106,28 @@ const RING_CIRCUMFERENCE = 251.3;
 
 export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { openAdd } = useNav();
+  const { openAdd, push } = useNav();
   const { toast, sheet, form } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: budgets } = useApiData(() => api.budgets.list(), EMPTY_BUDGETS);
+  const [viewMonth, setViewMonth] = useState(CURRENT_MONTH);
+  const { data: budgets } = useApiData(
+    () => api.budgets.list(viewMonth),
+    EMPTY_BUDGETS,
+    [viewMonth],
+  );
+  const { data: months } = useApiData(() => api.budgets.listMonths(), [] as string[]);
+
+  const isCurrentMonth = viewMonth === CURRENT_MONTH;
+  const earliestMonth = months.length ? months[0]! : CURRENT_MONTH;
+  const canGoBack = viewMonth > earliestMonth;
+  const canGoForward = viewMonth < CURRENT_MONTH;
 
   // Overall totals (MobileSecondary.jsx:15–17)
   const totalAlloc = budgets.reduce((s, b) => s + b.allocated, 0);
   const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
   const overallPct = totalAlloc > 0 ? Math.round((totalSpent / totalAlloc) * 100) : 0;
   const animPct = useCountUp(overallPct, 1100);
-  const monthLabel = new Date().toLocaleString('en', { month: 'long' });
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
@@ -123,13 +156,43 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
   };
 
   const openCreateSheet = () => {
+    // Once a budget exists for the month, its "add budget" entry is replaced
+    // by "Add category" — the budget itself is edited per-category (limits
+    // and removal live on each category's detail screen).
+    const hasBudget = budgets.length > 0;
     sheet({
-      title: 'Create',
+      title: hasBudget ? 'Add' : 'Create',
       options: [
-        { label: 'New budget', icon: '🎯', onPress: () => void newBudget() },
+        hasBudget
+          ? { label: 'Add category', icon: '➕', onPress: () => void newBudget() }
+          : { label: 'Set up budget', icon: '🎯', onPress: () => void setupMonth() },
         { label: 'Add transaction', icon: '💸', onPress: () => openAdd() },
       ],
     });
+  };
+
+  const openCategory = (b: Budget) => {
+    push({
+      kind: 'cat-detail',
+      data: {
+        name: b.name,
+        icon: b.icon,
+        color: b.c,
+        categoryIds: b.categoryIds,
+        month: viewMonth,
+        allocated: b.allocated,
+        spent: b.spent,
+      },
+    });
+  };
+
+  const setupMonth = async () => {
+    const copied = await api.budgets.setupFromPrevious();
+    if (copied) {
+      toast('Budget copied from last month', '🗓️');
+    } else {
+      newBudget();
+    }
   };
 
   const ringColor = overallPct >= 90 ? t.red : overallPct >= 75 ? t.amber : t.em;
@@ -144,12 +207,34 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
         right={
           <TopbarActions>
             <SearchButton />
-            <IconButton onPress={openCreateSheet}>
-              <MI.plus size={20} color={t.text1} />
-            </IconButton>
+            {isCurrentMonth ? (
+              <IconButton onPress={openCreateSheet}>
+                <MI.plus size={20} color={t.text1} />
+              </IconButton>
+            ) : null}
           </TopbarActions>
         }
       />
+
+      <View style={styles.monthSwitcher}>
+        {canGoBack ? (
+          <IconButton onPress={() => setViewMonth(prevMonth(viewMonth))}>
+            <MI.back size={20} color={t.text1} />
+          </IconButton>
+        ) : (
+          <View style={styles.switcherSpacer} />
+        )}
+        <Text style={[styles.monthSwitcherLabel, { color: t.text1, fontFamily: weight(700) }]}>
+          {monthLabelOf(viewMonth)}
+        </Text>
+        {canGoForward ? (
+          <IconButton onPress={() => setViewMonth(nextMonth(viewMonth))}>
+            <MI.arrow size={20} color={t.text1} />
+          </IconButton>
+        ) : (
+          <View style={styles.switcherSpacer} />
+        )}
+      </View>
 
       <ScrollView
         style={styles.body}
@@ -195,7 +280,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
             </View>
             <View style={styles.ringInfo}>
               <Text style={[styles.ringInfoTitle, { color: t.text3, fontFamily: weight(600) }]}>
-                {monthLabel} Budget
+                {monthLabelOf(viewMonth)}
               </Text>
               <View style={styles.ringInfoAmountRow}>
                 <Text style={[styles.ringInfoAmount, { color: t.text1, fontFamily: weight(700) }]}>
@@ -216,6 +301,22 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
         <View style={styles.sectionWrap}>
           <SectionHead title="Categories" link={String(budgets.length)} />
         </View>
+        {budgets.length === 0 ? (
+          <GlassCard contentStyle={styles.emptyCard}>
+            <Text style={[styles.emptyText, { color: t.text2, fontFamily: weight(600) }]}>
+              {isCurrentMonth
+                ? 'No budget set for this month yet.'
+                : `No budget was set for ${monthLabelOf(viewMonth)}.`}
+            </Text>
+            {isCurrentMonth ? (
+              <Pressable onPress={() => void setupMonth()} style={[styles.emptyBtn, { backgroundColor: t.em }]}>
+                <Text style={[styles.emptyBtnText, { color: t.bg1, fontFamily: weight(700) }]}>
+                  Set up budget
+                </Text>
+              </Pressable>
+            ) : null}
+          </GlassCard>
+        ) : null}
         <View style={styles.categoryList}>
           {budgets.map((b, i) => {
             const pct = Math.round((b.spent / b.allocated) * 100);
@@ -227,6 +328,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
             return (
               // animationDelay: `${0.05 + i*0.04}s` (MobileSecondary.jsx:68)
               <SpringIn key={b.name} delay={50 + i * 40}>
+                <Pressable onPress={() => openCategory(b)}>
                 <GlassCard contentStyle={styles.categoryCardContent}>
                   <View style={styles.categoryHeaderRow}>
                     <View style={[styles.categoryIconBox, { backgroundColor: b.c + '22' }]}>
@@ -259,6 +361,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
                     </Text>
                   ) : null}
                 </GlassCard>
+                </Pressable>
               </SpringIn>
             );
           })}
@@ -390,5 +493,38 @@ const styles = StyleSheet.create({
   overBudgetWarning: {
     fontSize: 11,
     marginTop: 8,
+  },
+
+  monthSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  monthSwitcherLabel: {
+    fontSize: 15,
+  },
+  switcherSpacer: {
+    width: 40,
+    height: 40,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 28,
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  emptyBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 99,
+  },
+  emptyBtnText: {
+    fontSize: 13,
   },
 });

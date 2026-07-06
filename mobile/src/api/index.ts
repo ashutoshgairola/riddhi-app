@@ -68,6 +68,7 @@ import type {
   NewHoldingInput,
   NewBudgetCategoryInput,
   PrefsPatch,
+  ScannedReceipt,
 } from './types';
 
 // ── Feature flag ──────────────────────────────────────────────────────
@@ -162,6 +163,8 @@ const DEFAULT_PREFS: ApiUserPreferences = {
   budgetAlertsEnabled: true,
   goalMilestonesEnabled: true,
   largeTxAlertsEnabled: true,
+  munshiSuggestionsEnabled: true,
+  monthlyReportEnabled: true,
   selectedBanks: [],
 };
 
@@ -177,6 +180,28 @@ export interface TxListParams {
   period?: TxPeriod;
   limit?: number;
   accountId?: string;
+  /** Restrict to a single transaction category (server-side). */
+  categoryId?: string;
+  /** Inclusive lower/upper date bounds (YYYY-MM-DD), server-side. Overrides
+   * `period` when set — used to scope a category to a single budget month. */
+  from?: string;
+  to?: string;
+  /** Free-text description match, resolved server-side across all history. */
+  search?: string;
+}
+
+// Local YYYY-MM-DD (avoids the UTC shift that toISOString() causes in
+// timezones ahead of UTC, which would push a 1st-of-month into the prior day).
+function ymd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Current calendar month as YYYY-MM (local).
+function currentMonthKey(): string {
+  return ymd(new Date()).slice(0, 7);
 }
 
 // ── api object ────────────────────────────────────────────────────────
@@ -186,11 +211,17 @@ export const api = {
       const qs = new URLSearchParams();
       if (params?.filter === 'inc') qs.set('type', 'income');
       if (params?.filter === 'exp') qs.set('type', 'expense');
-      if (params?.period) {
+      // Explicit from/to (a scoped month) wins over the relative `period`.
+      if (params?.from || params?.to) {
+        if (params.from) qs.set('from', params.from);
+        if (params.to) qs.set('to', params.to);
+      } else if (params?.period) {
         const from = backendPeriodFrom(params.period);
         if (from) qs.set('from', from);
       }
+      if (params?.categoryId) qs.set('categoryId', params.categoryId);
       if (params?.accountId) qs.set('accountId', params.accountId);
+      if (params?.search?.trim()) qs.set('search', params.search.trim());
       qs.set('limit', String(params?.limit ?? 100));
       const raw = await apiClient.get<ApiPaginatedTransactions>(`/transactions?${qs.toString()}`);
       const catMap = await fetchCategoryMap();
@@ -214,6 +245,7 @@ export const api = {
         type: input.type === 'inc' ? 'income' : 'expense',
         categoryId,
         notes: input.note,
+        ...(input.accountId ? { accountId: input.accountId } : {}),
       });
       bumpData();
       const catMap = await fetchCategoryMap();
@@ -292,16 +324,26 @@ export const api = {
   },
 
   budgets: {
-    async list(): Promise<BudgetCategoryView[]> {
-      const raw = await apiClient.get<ApiBudget[]>('/budgets?current=true');
+    /** Category views for a given month (defaults to the current month). */
+    async list(month: string = currentMonthKey()): Promise<BudgetCategoryView[]> {
+      const raw = await apiClient.get<ApiBudget[]>(`/budgets?month=${month}`);
       if (!raw.length) return [];
-      // Use the most recent budget's categories
       return toBudgetCategoryViews(raw[0]!);
     },
 
-    /** Current-month rollup for Home's hero; null when no budget exists. */
+    /** Ascending YYYY-MM keys for every month that has a budget. */
+    async listMonths(): Promise<string[]> {
+      const raw = await apiClient.get<ApiBudget[]>('/budgets');
+      return raw
+        .map((b) => b.startDate.slice(0, 7))
+        .sort();
+    },
+
+    /** Current-month rollup for Home's hero; null when none exists. */
     async currentSummary(): Promise<BudgetSummaryView | null> {
-      const raw = await apiClient.get<ApiBudget[]>('/budgets?current=true');
+      const raw = await apiClient.get<ApiBudget[]>(
+        `/budgets?month=${currentMonthKey()}`,
+      );
       if (!raw.length) return null;
       const budget = raw[0]!;
       const end = new Date(budget.endDate);
@@ -315,12 +357,13 @@ export const api = {
     },
 
     /**
-     * Adds (or re-allocates) one category budget in the current month's
-     * budget, creating the month budget if none exists yet. Backend budget
-     * updates replace `categories` wholesale, so existing rows are re-sent.
+     * Adds (or re-allocates) one category budget in the CURRENT month,
+     * creating the month's budget if none exists. Backend budget updates
+     * replace `categories` wholesale, so existing rows are re-sent.
      */
     async upsertCategory(input: NewBudgetCategoryInput): Promise<void> {
-      const current = await apiClient.get<ApiBudget[]>('/budgets?current=true');
+      const month = currentMonthKey();
+      const current = await apiClient.get<ApiBudget[]>(`/budgets?month=${month}`);
       const newCat = {
         name: input.name,
         allocated: input.allocated,
@@ -336,8 +379,8 @@ export const api = {
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         await apiClient.post('/budgets', {
           name: now.toLocaleString('en', { month: 'long', year: 'numeric' }),
-          startDate: start.toISOString().slice(0, 10),
-          endDate: end.toISOString().slice(0, 10),
+          startDate: ymd(start),
+          endDate: ymd(end),
           income: 0,
           categories: [newCat],
         });
@@ -357,6 +400,64 @@ export const api = {
         await apiClient.patch(`/budgets/${budget.id}`, { categories: [...kept, newCat] });
       }
       bumpData();
+    },
+
+    /**
+     * Drop one category line from the CURRENT month's budget (a no-op if the
+     * month has no budget or the category isn't in it). Backend budget
+     * updates replace `categories` wholesale, so the remaining rows are re-sent.
+     */
+    async removeCategory(name: string): Promise<void> {
+      const month = currentMonthKey();
+      const current = await apiClient.get<ApiBudget[]>(`/budgets?month=${month}`);
+      if (!current.length) return;
+      const budget = current[0]!;
+      const kept = budget.categories
+        .filter((c) => c.name.toLowerCase() !== name.toLowerCase())
+        .map((c) => ({
+          name: c.name,
+          allocated: c.allocated,
+          categoryIds: c.categoryIds,
+          icon: c.icon,
+          color: c.color,
+          rollover: c.rollover,
+          notes: c.notes,
+        }));
+      await apiClient.patch(`/budgets/${budget.id}`, { categories: kept });
+      bumpData();
+    },
+
+    /**
+     * Create the current month's budget by copying categories + allocations
+     * from the most recent prior month (spent resets, computed live).
+     * Returns false when there is no prior budget to copy.
+     */
+    async setupFromPrevious(): Promise<boolean> {
+      const month = currentMonthKey();
+      const all = await apiClient.get<ApiBudget[]>('/budgets'); // newest-first
+      const prior = all.find((b) => b.startDate.slice(0, 7) < month);
+      if (!prior) return false;
+
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      await apiClient.post('/budgets', {
+        name: now.toLocaleString('en', { month: 'long', year: 'numeric' }),
+        startDate: ymd(start),
+        endDate: ymd(end),
+        income: prior.income,
+        categories: prior.categories.map((c) => ({
+          name: c.name,
+          allocated: c.allocated,
+          categoryIds: c.categoryIds,
+          icon: c.icon,
+          color: c.color,
+          rollover: c.rollover,
+          notes: c.notes,
+        })),
+      });
+      bumpData();
+      return true;
     },
   },
 
@@ -498,6 +599,14 @@ export const api = {
       await apiClient.post('/notifications/read-all', {});
       bumpData();
     },
+
+    async registerDevice(expoPushToken: string, platform: 'ios' | 'android'): Promise<void> {
+      await apiClient.post('/notifications/register-device', { expoPushToken, platform });
+    },
+
+    async unregisterDevice(expoPushToken: string): Promise<void> {
+      await apiClient.post('/notifications/unregister-device', { expoPushToken });
+    },
   },
 
   categories: {
@@ -538,6 +647,19 @@ export const api = {
         patch,
       );
       return pickPrefs(raw);
+    },
+  },
+
+  receipts: {
+    /** Extracts a transaction from a receipt image via the backend vision model. */
+    async scan(
+      imageBase64: string,
+      mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' = 'image/jpeg',
+    ): Promise<ScannedReceipt> {
+      return apiClient.post<ScannedReceipt>('/receipts/scan', {
+        image: imageBase64,
+        mimeType,
+      });
     },
   },
 

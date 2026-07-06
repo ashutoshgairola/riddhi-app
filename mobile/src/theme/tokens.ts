@@ -167,7 +167,7 @@ export function weight(w: FontWeight): string {
 // .m-fab-action / .m-toast / .m-sheet-backdrop, lines 153–171,
 // 198–203, 255–269, 343–364, 376–400, 442–451, 687–700) ────────────
 export const dark: Tokens = {
-  bg: '#0e0b15',
+  bg: '#0b0812',
   bg1: '#17131f',
   bg2: '#1f1a2c',
   bg3: '#2a2339',
@@ -200,9 +200,11 @@ export const dark: Tokens = {
   glassHi: 'inset 0 1px 0 rgba(255,255,255,0.10)',
 
   // .m-page background: linear-gradient(180deg, #1d1733 0%, #14101f 46%, #0b0912 100%)
-  pageGradient: ['#1d1733', '#14101f', '#0b0912'],
-  // .m-page::before radial-gradient overlay colors (top-left, top-right, bottom-center)
-  pageGlow: ['rgba(150,120,240,0.22)', 'rgba(120,90,220,0.13)', 'rgba(110,80,200,0.10)'],
+  pageGradient: ['#181328', '#100c18', '#08060d'],
+  // .m-page::before radial-gradient overlay colors (top-left, top-right, bottom-center).
+  // The alpha here is the peak glow opacity; PageBackground lifts it into the
+  // SVG stop's stopOpacity (react-native-svg ignores alpha baked into stopColor).
+  pageGlow: ['rgba(150,120,240,0.28)', 'rgba(120,90,220,0.17)', 'rgba(110,80,200,0.13)'],
   // .m-card / .m-list-card box-shadow: var(--glass-hi) (no extra ambient shadow in dark)
   cardShadow: 'inset 0 1px 0 rgba(255,255,255,0.10)',
   // .m-tabbar background
@@ -273,8 +275,12 @@ export const light: Tokens = {
   // [data-theme="light"] .m-page background:
   // linear-gradient(180deg, #e7e0fb 0%, #f1edfb 48%, #e9e4f6 100%)
   pageGradient: ['#e7e0fb', '#f1edfb', '#e9e4f6'],
-  // [data-theme="light"] .m-page::before radial-gradient overlay colors
-  pageGlow: ['rgba(150,120,240,0.18)', 'rgba(140,110,230,0.12)', 'rgba(150,120,240,0.10)'],
+  // [data-theme="light"] .m-page::before radial-gradient overlay colors.
+  // Alpha = peak glow opacity (PageBackground lifts it into stopOpacity, since
+  // react-native-svg ignores alpha in stopColor). Bumped ~25% in step with the
+  // dark theme; the light ground itself is left as designed (darkening a
+  // near-white background would only muddy it).
+  pageGlow: ['rgba(126,96,220,0.23)', 'rgba(140,110,230,0.15)', 'rgba(150,120,240,0.13)'],
   // [data-theme="light"] .m-card, .m-list-card box-shadow:
   // 0 6px 22px rgba(80,60,160,0.08), var(--glass-hi)
   cardShadow: '0 6px 22px rgba(80,60,160,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',

@@ -18,12 +18,15 @@ import { ReportsModule } from './reports/reports.module';
 import { SmsSyncModule } from './sms-sync/sms-sync.module';
 import { AiChatModule } from './ai-chat/ai-chat.module';
 import { InsightsModule } from './insights/insights.module';
+import { MailModule } from './mail/mail.module';
+import { ReceiptsModule } from './receipts/receipts.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+    MailModule,
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -49,6 +52,7 @@ import { InsightsModule } from './insights/insights.module';
     SmsSyncModule,
     AiChatModule,
     InsightsModule,
+    ReceiptsModule,
   ],
   controllers: [HealthController],
 })

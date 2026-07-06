@@ -8,7 +8,8 @@
  * Field kinds:
  *  - text            plain TextInput
  *  - amount          numeric TextInput, validated > 0
- *  - date            text input validated as YYYY-MM-DD
+ *  - date            tap-to-open native date picker (spinner on iOS,
+ *                    system dialog on Android); value kept as YYYY-MM-DD
  *  - select          chip row (single choice)
  *  - bank            searchable bank picker (logo suggestions) that also
  *                    accepts any custom typed value
@@ -17,11 +18,12 @@
  * bottom of the content — the sheet is bottom-anchored, so extra content
  * height pushes the fields above the keyboard).
  */
-import { useEffect, useMemo, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BankLogo, hasBankLogo } from './BankLogo';
 import { BottomSheet } from './BottomSheet';
+import { CalendarPicker, type Anchor } from './CalendarPicker';
 import { Btn, Chip } from './ui';
 import { BANK_NAMES } from '../assets/bankLogos';
 import { useTheme } from '../theme/ThemeProvider';
@@ -39,6 +41,99 @@ const POPULAR_BANKS = [
   'Bank of Baroda',
   'Yes Bank',
 ].filter((n) => BANK_NAMES.includes(n));
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Parse a stored 'YYYY-MM-DD' as a *local* date (avoids the UTC-midnight day
+// shift you'd get from `new Date('YYYY-MM-DD')`). Returns null if malformed.
+function parseYMD(s: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// Format a Date back to the 'YYYY-MM-DD' the form stores, using local parts.
+function toYMD(d: Date): string {
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mo}-${day}`;
+}
+
+// Human-readable label for the field row, e.g. "6 Jul 2026". Null when empty.
+function displayDate(s: string): string | null {
+  const d = parseYMD(s);
+  return d ? `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : null;
+}
+
+/**
+ * Date field: a tappable row showing the picked date that opens a themed
+ * calendar popover (CalendarPicker) anchored to the row. Future dates are
+ * blocked. The value stays a 'YYYY-MM-DD' string so the rest of the form
+ * (validation, submit) is unchanged.
+ */
+function DateField({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  placeholder?: string;
+  onChange: (ymd: string) => void;
+}) {
+  const { t } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const rowRef = useRef<View>(null);
+  const current = parseYMD(value) ?? new Date();
+  const label = displayDate(value);
+
+  const openPicker = () => {
+    Keyboard.dismiss();
+    if (rowRef.current) {
+      rowRef.current.measureInWindow((x, y, w, h) => {
+        setAnchor({ x, y, w, h });
+        setOpen(true);
+      });
+    } else {
+      setAnchor(null);
+      setOpen(true);
+    }
+  };
+
+  return (
+    <View>
+      <Pressable
+        ref={rowRef}
+        onPress={openPicker}
+        style={[
+          styles.input,
+          styles.dateRow,
+          { backgroundColor: t.bg2, borderColor: open ? t.em : t.border },
+        ]}
+      >
+        <Text
+          style={[styles.dateText, { color: label ? t.text1 : t.text3, fontFamily: weight(600) }]}
+        >
+          {label ?? placeholder ?? 'Select date'}
+        </Text>
+        <Text style={styles.dateIcon}>📅</Text>
+      </Pressable>
+
+      <CalendarPicker
+        visible={open}
+        value={current}
+        maxDate={new Date()}
+        anchor={anchor}
+        onSelect={(d) => {
+          onChange(toYMD(d));
+          setOpen(false);
+        }}
+        onClose={() => setOpen(false)}
+      />
+    </View>
+  );
+}
 
 /**
  * Searchable bank input: filters the shipped bank list as you type and shows
@@ -252,11 +347,17 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
                 placeholder={f.placeholder}
                 onChange={(text) => setValues((v) => ({ ...v, [f.key]: text }))}
               />
+            ) : f.kind === 'date' ? (
+              <DateField
+                value={values[f.key] ?? ''}
+                placeholder={f.placeholder}
+                onChange={(ymd) => setValues((v) => ({ ...v, [f.key]: ymd }))}
+              />
             ) : (
               <TextInput
                 value={values[f.key] ?? ''}
                 onChangeText={(text) => setValues((v) => ({ ...v, [f.key]: text }))}
-                placeholder={f.placeholder ?? (f.kind === 'date' ? 'YYYY-MM-DD' : undefined)}
+                placeholder={f.placeholder}
                 placeholderTextColor={t.text3}
                 keyboardType={f.kind === 'amount' ? 'decimal-pad' : 'default'}
                 style={[
@@ -307,6 +408,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    fontSize: 15,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateText: {
+    fontSize: 15,
+  },
+  dateIcon: {
     fontSize: 15,
   },
   bankInputRow: {

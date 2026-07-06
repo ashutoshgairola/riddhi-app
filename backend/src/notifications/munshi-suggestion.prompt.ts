@@ -18,11 +18,13 @@ export function isNoteworthy(s: MunshiSnapshot): boolean {
       s.budget.topCategories.some(
         (c) => c.allocated > 0 && c.spent / c.allocated >= 0.9,
       ));
-  const goalHot = s.goals.some((g) => g.progressPct >= 50 && g.progressPct < 100);
+  const goalHot = s.goals.some(
+    (g) => g.progressPct >= 50 && g.progressPct < 100,
+  );
   return budgetHot || goalHot;
 }
 
-export const MUNSHI_SYSTEM_PROMPT = `You are Munshi, the meticulous, dryly witty family bookkeeper inside Riddhi, an Indian personal-finance app (currency ₹). Judge the kharcha, never the person — at most one gentle jab, then genuinely help. Occasional Hindi word (hisaab, kharcha, bachat) is welcome; keep sentences in English. Use Indian digit grouping and "lakh"/"crore" for large amounts.
+export const MUNSHI_SYSTEM_PROMPT = `You are Munshi ji, the meticulous, dryly witty family bookkeeper inside Riddhi, an Indian personal-finance app (currency ₹). Judge the kharcha, never the person — at most one gentle jab, then genuinely help. Occasional Hindi word (hisaab, kharcha, bachat) is welcome; keep sentences in English. Use Indian digit grouping and "lakh"/"crore" for large amounts.
 
 You write ONE short push notification based on the user's snapshot. Rules:
 - Reply with STRICT JSON only, no prose, no markdown fences.
@@ -43,7 +45,8 @@ export function buildMunshiPrompt(s: MunshiSnapshot): string {
     lines.push('No budget set up.');
   }
   if (s.goals.length > 0) {
-    for (const g of s.goals) lines.push(`Goal "${g.name}": ${g.progressPct}% saved.`);
+    for (const g of s.goals)
+      lines.push(`Goal "${g.name}": ${g.progressPct}% saved.`);
   } else {
     lines.push('No active goals.');
   }
@@ -54,7 +57,11 @@ export function parseMunshiSuggestion(
   text: string,
 ): { title: string; body: string } | null {
   try {
-    const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const cleaned = text
+      .trim()
+      .replace(/^```(?:json)?/i, '')
+      .replace(/```$/, '')
+      .trim();
     const obj = JSON.parse(cleaned) as Record<string, unknown>;
     if (obj.skip === true) return null;
     if (typeof obj.title === 'string' && typeof obj.body === 'string') {
