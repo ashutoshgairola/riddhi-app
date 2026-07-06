@@ -29,6 +29,10 @@ export class NotificationsRepository {
     return this.repo.findOne({ where: { id, userId } });
   }
 
+  create(data: Partial<Notification>): Notification {
+    return this.repo.create(data);
+  }
+
   save(notification: Notification): Promise<Notification> {
     return this.repo.save(notification);
   }
