@@ -61,7 +61,7 @@ export function OBStep({
   return (
     <View style={{ flex: 1 }}>
       <PageBackground />
-      <View style={styles.topbar}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>
         <IconButton onPress={onBack}>
           <MI.back size={20} color={t.text1} />
         </IconButton>

@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { User } from '../users/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -80,6 +80,46 @@ export class AuthService {
 
     const tokens = this.signTokens(user);
     return { ...tokens, user: this.safeUser(user) };
+  }
+
+  /**
+   * Issues a password-reset token (30-min expiry). Always resolves the same
+   * way whether or not the email exists, so the endpoint can't be used to
+   * enumerate accounts. No email service is wired yet — the token is logged
+   * server-side so a reset can be completed manually in dev.
+   */
+  async forgotPassword(email: string) {
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (user) {
+      const token = randomBytes(32).toString('hex');
+      user.resetTokenHash = createHash('sha256').update(token).digest('hex');
+      user.resetTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      await this.userRepo.save(user);
+      // TODO: send via email service; logged for manual dev use until then.
+      console.log(`[auth] password reset token for ${email}: ${token}`);
+    }
+    return { ok: true };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.resetTokenHash')
+      .where('user.resetTokenHash = :tokenHash', { tokenHash })
+      .getOne();
+    if (
+      !user ||
+      !user.resetTokenExpiresAt ||
+      user.resetTokenExpiresAt.getTime() < Date.now()
+    ) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetTokenHash = null;
+    user.resetTokenExpiresAt = null;
+    await this.userRepo.save(user);
+    return { ok: true };
   }
 
   async refresh(refreshToken: string) {

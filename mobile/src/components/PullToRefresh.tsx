@@ -79,9 +79,13 @@ export interface PullToRefreshProps {
    * `onScroll={e => setScrolled(e.target.scrollTop > 8)}` pattern (e.g.
    * MobileHome.jsx:95) for a topbar "scrolled" state. */
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** Pushes the spinner zone down — for screens whose topbar overlays the
+   * scroller (content scrolls under the glass), so the spinner shows up
+   * below the bar instead of behind it. */
+  topInset?: number;
 }
 
-export function PullToRefresh({ onRefresh, children, contentStyle, onScroll }: PullToRefreshProps) {
+export function PullToRefresh({ onRefresh, children, contentStyle, onScroll, topInset = 0 }: PullToRefreshProps) {
   const { t } = useTheme();
 
   // Latest vertical scroll offset of the inner ScrollView — the pan gesture
@@ -189,7 +193,7 @@ export function PullToRefresh({ onRefresh, children, contentStyle, onScroll }: P
   return (
     <GestureDetector gesture={pan}>
       <View style={styles.root}>
-        <Animated.View style={[styles.ptrZone, zoneAnimatedStyle]} pointerEvents="none">
+        <Animated.View style={[styles.ptrZone, { top: topInset }, zoneAnimatedStyle]} pointerEvents="none">
           <Animated.View
             style={[
               styles.spinner,

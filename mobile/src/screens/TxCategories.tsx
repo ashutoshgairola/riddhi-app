@@ -35,49 +35,65 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
 
 // ── Data (MobileScreens.jsx:478–488) ─────────────────────────────────
 interface Category {
-  id: number;
+  id: number | string;
   name: string;
   icon: string;
   color: string;
   txs: number;
   total: number;
   subs: string[];
+  isIncome: boolean;
 }
 
-const M_CATS: Category[] = [
-  { id: 1, name: 'Housing', icon: '🏠', color: '#8197c4', txs: 24, total: 28000, subs: ['Rent', 'Maintenance'] },
-  { id: 2, name: 'Food & Dining', icon: '🍽', color: '#c9a86a', txs: 48, total: 13200, subs: ['Groceries', 'Restaurants', 'Delivery'] },
-  { id: 3, name: 'Transport', icon: '🚇', color: '#9d8bd6', txs: 18, total: 7400, subs: ['Metro', 'Cab', 'Fuel'] },
-  { id: 4, name: 'Utilities', icon: '⚡', color: '#6fb3ad', txs: 8, total: 2900, subs: ['Electricity', 'Internet'] },
-  { id: 5, name: 'Entertainment', icon: '🎬', color: '#c97d8c', txs: 12, total: 2498, subs: ['Subscriptions', 'Events'] },
-  { id: 6, name: 'Healthcare', icon: '💊', color: '#ef4444', txs: 5, total: 820, subs: [] },
-  { id: 7, name: 'Shopping', icon: '🛍', color: '#c97d8c', txs: 14, total: 10820, subs: [] },
-  { id: 8, name: 'Education', icon: '🎓', color: '#6fb3ad', txs: 3, total: 5400, subs: [] },
-  { id: 9, name: 'Income', icon: '💼', color: '#7faf93', txs: 6, total: 153000, subs: ['Salary', 'Freelance'] },
-];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const M_CATS: Category[] = [];
 
 type FilterValue = 'all' | 'exp' | 'inc';
 
 export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
   const [tab, setTab] = useState<FilterValue>('all');
 
-  // Filter logic (MobileScreens.jsx:492) — verbatim.
+  const { data: cats } = useApiData(() => api.categories.list(), M_CATS);
+
+  // Filter by the category's real income/expense classification (derived
+  // server-side from its transactions), not a colour heuristic.
   const filtered =
-    tab === 'all' ? M_CATS : tab === 'inc' ? M_CATS.filter((c) => c.color === '#7faf93') : M_CATS.filter((c) => c.color !== '#7faf93');
+    tab === 'all' ? cats : tab === 'inc' ? cats.filter((c) => c.isIncome) : cats.filter((c) => !c.isIncome);
+
+  const newCategory = (kind: 'expense' | 'income') => {
+    form({
+      title: kind === 'income' ? 'New income category' : 'New expense category',
+      fields: [
+        { key: 'name', label: 'Name', placeholder: kind === 'income' ? 'Dividends' : 'Subscriptions' },
+        { key: 'icon', label: 'Emoji icon', optional: true, placeholder: '🏷' },
+      ],
+      submitLabel: 'Create category',
+      onSubmit: async (v) => {
+        await api.categories.create({
+          name: v['name']!,
+          icon: v['icon'] || (kind === 'income' ? '💰' : '🏷'),
+          color: kind === 'income' ? '#7faf93' : '#c9a86a',
+        });
+        toast(`Category created: ${v['name']}`, '🏷');
+      },
+    });
+  };
 
   const openNewCategorySheet = () => {
     sheet({
       title: 'New category',
       options: [
-        { label: 'Expense category', icon: '🏷', onPress: () => toast('Category created', '🏷') },
-        { label: 'Income category', icon: '💰', onPress: () => toast('Category created', '🏷') },
+        { label: 'Expense category', icon: '🏷', onPress: () => newCategory('expense') },
+        { label: 'Income category', icon: '💰', onPress: () => newCategory('income') },
       ],
     });
   };
@@ -108,7 +124,7 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
         {filtered.map((c, i) => (
           // animationDelay: `${0.04 + i*0.03}s` (MobileScreens.jsx:506)
           <SpringIn key={c.id} delay={40 + i * 30}>
-            <GlassCard style={styles.card}>
+            <GlassCard contentStyle={styles.cardContent}>
               <View style={styles.cardRow}>
                 <View style={[styles.iconBox, { backgroundColor: c.color + '22' }]}>
                   <Text style={styles.iconGlyph}>{c.icon}</Text>
@@ -149,7 +165,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 10,
   },
-  card: {
+  // Padding override (14 vs GlassCard's 18) — contentStyle so it replaces
+  // the overlay's padding instead of stacking on the outer wrapper.
+  cardContent: {
     padding: 14,
   },
   cardRow: {

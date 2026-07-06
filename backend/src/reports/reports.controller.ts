@@ -36,6 +36,11 @@ export class ReportsController {
     return this.reportsService.getCategories(user.userId, period);
   }
 
+  @Get('category-activity')
+  getCategoryActivity(@CurrentUser() user: { userId: string; email: string }) {
+    return this.reportsService.getCategoryActivity(user.userId);
+  }
+
   @Get('net-worth-trend')
   getNetWorthTrend(
     @CurrentUser() user: { userId: string; email: string },

@@ -65,6 +65,21 @@ export class UserPreferences {
   biometricEnabled: boolean;
 
   @Column({ type: 'boolean', default: false })
+  hideBalances: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  notificationsEnabled: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  budgetAlertsEnabled: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  goalMilestonesEnabled: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  largeTxAlertsEnabled: boolean;
+
+  @Column({ type: 'boolean', default: false })
   onboardingCompleted: boolean;
 
   @Column({ type: 'uuid', unique: true })

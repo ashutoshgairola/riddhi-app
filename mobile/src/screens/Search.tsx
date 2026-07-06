@@ -29,6 +29,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton, ListCard, ListRow, SectionHead } from '../components/ui';
 import { MI } from '../components/icons';
@@ -36,6 +37,9 @@ import { PageBackground } from '../components/PageBackground';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav, type ScreenEntry, type ScreenKind } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
+import type { TxView } from '../api/types';
 
 // ── Data (MobileScreens.jsx:728–737) ─────────────────────────────────
 interface SearchPage {
@@ -56,20 +60,20 @@ const PAGES: SearchPage[] = [
   { id: 'settings', l: 'Settings', i: '⚙', c: '#8a8299' },
 ];
 
-// ── Data (MobileScreens.jsx:738–743) ──────────────────────────────────
-const RECENT: { l: string; a: string; colorKey: 'em' | 'red' }[] = [
-  { l: 'Salary — April 2026', a: '+₹1,18,000', colorKey: 'em' },
-  { l: 'Rent — April', a: '-₹28,000', colorKey: 'red' },
-  { l: 'Swiggy Order', a: '-₹649', colorKey: 'red' },
-  { l: 'SIP — Nifty 50 ETF', a: '-₹10,000', colorKey: 'red' },
-];
-
 // Autofocus delay (MobileScreens.jsx:726).
 const AUTOFOCUS_DELAY_MS = 100;
 
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const EMPTY_TXNS: TxView[] = [];
+
+function fmtAmount(n: number): string {
+  return `${n > 0 ? '+' : '−'}₹${Math.abs(n).toLocaleString('en-IN')}`;
+}
+
 export function Search({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { pop, nav } = useNav();
+  const { pop, nav, push } = useNav();
+  const insets = useSafeAreaInsets();
   const [q, setQ] = useState('');
   const inputRef = useRef<TextInput>(null);
 
@@ -78,14 +82,47 @@ export function Search({ entry: _entry }: { entry: ScreenEntry }) {
     return () => clearTimeout(id);
   }, []);
 
-  // matches (MobileScreens.jsx:744) — verbatim.
-  const matches = q ? PAGES.filter((p) => p.l.toLowerCase().includes(q.toLowerCase())) : PAGES;
+  const { data: txns } = useApiData(() => api.transactions.list({ limit: 100 }), EMPTY_TXNS);
+
+  const ql = q.trim().toLowerCase();
+  // Page matches (nav destinations) + real transaction matches (by
+  // description or category). Recent = the latest transactions.
+  const matches = ql ? PAGES.filter((p) => p.l.toLowerCase().includes(ql)) : PAGES;
+  const txMatches = ql
+    ? txns.filter(
+        (tx) => tx.desc.toLowerCase().includes(ql) || tx.cat.toLowerCase().includes(ql),
+      )
+    : [];
+  const recentTxns = txns.slice(0, 5);
+
+  const openTx = (tx: TxView) => push({ kind: 'tx-detail', data: tx });
+
+  const renderTxRow = (tx: TxView, last: boolean) => (
+    <ListRow key={tx.id} last={last} onPress={() => openTx(tx)}>
+      <View style={[styles.txIconBox, { backgroundColor: tx.cCol + '22' }]}>
+        <Text style={styles.txIconGlyph}>{tx.icon}</Text>
+      </View>
+      <View style={styles.txTextBlock}>
+        <Text style={[styles.txDesc, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
+          {tx.desc}
+        </Text>
+        <Text style={[styles.txCat, { color: t.text3 }]} numberOfLines={1}>
+          {tx.cat}
+        </Text>
+      </View>
+      <Text
+        style={[styles.txAmount, { color: tx.amount > 0 ? t.em : t.red, fontFamily: weight(700) }]}
+      >
+        {fmtAmount(tx.amount)}
+      </Text>
+    </ListRow>
+  );
 
   return (
     <View style={styles.page}>
       <PageBackground />
 
-      <View style={styles.topbar}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>
         <IconButton onPress={pop}>
           <MI.back size={20} color={t.text1} />
         </IconButton>
@@ -109,29 +146,23 @@ export function Search({ entry: _entry }: { entry: ScreenEntry }) {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.scrollContent}>
-          {!q && (
+          {!q && recentTxns.length > 0 && (
             <>
               <SectionHead title="Recent" />
               <View style={styles.recentWrap}>
                 <ListCard>
-                  {RECENT.map((r, i) => (
-                    <ListRow key={i} last={i === RECENT.length - 1}>
-                      <View style={[styles.recentIconBox, { backgroundColor: t.bg3 }]}>
-                        <Text style={[styles.recentIconGlyph, { color: t.text3 }]}>↻</Text>
-                      </View>
-                      <Text style={[styles.recentLabel, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
-                        {r.l}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.recentAmount,
-                          { color: r.colorKey === 'em' ? t.em : t.red, fontFamily: weight(700) },
-                        ]}
-                      >
-                        {r.a}
-                      </Text>
-                    </ListRow>
-                  ))}
+                  {recentTxns.map((tx, i) => renderTxRow(tx, i === recentTxns.length - 1))}
+                </ListCard>
+              </View>
+            </>
+          )}
+
+          {q && txMatches.length > 0 && (
+            <>
+              <SectionHead title="Transactions" />
+              <View style={styles.recentWrap}>
+                <ListCard>
+                  {txMatches.map((tx, i) => renderTxRow(tx, i === txMatches.length - 1))}
                 </ListCard>
               </View>
             </>
@@ -198,21 +229,28 @@ const styles = StyleSheet.create({
   recentWrap: {
     marginBottom: 18,
   },
-  recentIconBox: {
+  txIconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recentIconGlyph: {
-    fontSize: 14,
+  txIconGlyph: {
+    fontSize: 17,
   },
-  recentLabel: {
+  txTextBlock: {
     flex: 1,
+    minWidth: 0,
+  },
+  txDesc: {
     fontSize: 14,
   },
-  recentAmount: {
+  txCat: {
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  txAmount: {
     fontSize: 13,
   },
   pageIconBox: {

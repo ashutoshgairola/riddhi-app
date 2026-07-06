@@ -50,15 +50,8 @@ interface Notification {
   type: NotifType;
 }
 
-const ALL_NOTIFS: Notification[] = [
-  { icon: '⚠️', title: 'Shopping budget exceeded', body: '₹10,820 spent of ₹10,000 budget. 108% used.', time: '2h ago', color: '#c97d8c', unread: true, type: 'budget' },
-  { icon: '🎯', title: 'Emergency Fund milestone', body: '60% complete — ₹1.85L saved so far!', time: '5h ago', color: '#7faf93', unread: true, type: 'goal' },
-  { icon: '💰', title: 'Large transaction detected', body: '₹28,000 debited — Rent April 2026.', time: 'Yesterday', color: '#c9a86a', unread: true, type: 'tx' },
-  { icon: '📊', title: 'March 2026 report ready', body: 'Net savings: ₹24,500. Tap to view.', time: '2 days ago', color: '#8197c4', unread: false, type: 'report' },
-  { icon: '🔒', title: 'New login detected', body: 'Chrome · MacOS · Bengaluru, India.', time: '3 days ago', color: '#8a8299', unread: false, type: 'security' },
-  { icon: '💸', title: 'SIP installment due', body: '₹10,000 — Nifty 50 ETF, 15 Apr.', time: '4 days ago', color: '#9d8bd6', unread: false, type: 'tx' },
-  { icon: '📈', title: 'Portfolio up 12.4%', body: 'Best performer: HDFC Bank (+7.4%).', time: '5 days ago', color: '#7faf93', unread: false, type: 'report' },
-];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const ALL_NOTIFS: Notification[] = [];
 
 type FilterValue = 'all' | 'unread' | NotifType;
 
@@ -88,7 +81,16 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
     sheet({
       title: 'Notifications',
       options: [
-        { label: 'Mark all as read', icon: '✓', onPress: () => toast('All marked read', '✓') },
+        {
+          label: 'Mark all as read',
+          icon: '✓',
+          onPress: () => {
+            api.notifications
+              .markAllRead()
+              .then(() => toast('All marked read', '✓'))
+              .catch(() => toast("Couldn't mark all read", '📡'));
+          },
+        },
         { label: 'Notification settings', icon: '⚙️', onPress: () => nav('settings') },
       ],
     });

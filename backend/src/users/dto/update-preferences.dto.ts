@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { Theme, StartOfWeek } from '../../common/enums';
 
 export class UpdatePreferencesDto {
@@ -24,4 +30,28 @@ export class UpdatePreferencesDto {
   @IsString()
   @MaxLength(10)
   language?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hideBalances?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  biometricEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notificationsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  budgetAlertsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  goalMilestonesEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  largeTxAlertsEnabled?: boolean;
 }

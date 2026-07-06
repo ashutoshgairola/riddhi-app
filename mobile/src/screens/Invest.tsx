@@ -64,38 +64,58 @@ interface Holding {
   color: string;
 }
 
-const MV_HOLDINGS: Holding[] = [
-  { name: 'Nifty 50 ETF', sym: 'NIFTYBEES', val: 145000, ret: 12.8, color: '#7faf93' },
-  { name: 'HDFC Bank', sym: 'HDFCBANK', val: 62000, ret: 7.4, color: '#8197c4' },
-  { name: 'Tata Motors', sym: 'TATAMOTORS', val: 38000, ret: -3.2, color: '#c97d8c' },
-  { name: 'Reliance', sym: 'RELIANCE', val: 48000, ret: 9.1, color: '#9d8bd6' },
-  { name: 'Gold ETF', sym: 'GOLDBEES', val: 25000, ret: 5.6, color: '#c9a86a' },
-];
-
-// MobileSecondary.jsx:175
-const DUMMY_CHART = [82, 85, 84, 88, 91, 89, 93, 98, 95, 102, 108, 112, 118];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const EMPTY_HOLDINGS: Holding[] = [];
 
 export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: holdings } = useApiData(() => api.investments.list(), MV_HOLDINGS);
+  const { data: holdings } = useApiData(() => api.investments.list(), EMPTY_HOLDINGS);
 
   const total = holdings.reduce((s, h) => s + h.val, 0);
+  // Invested principal per holding backed out of its return %, so the
+  // portfolio gain chip is derived instead of hardcoded.
+  const invested = holdings.reduce((s, h) => s + h.val / (1 + h.ret / 100), 0);
+  const gain = total - invested;
+  const gainPct = invested > 0 ? (gain / invested) * 100 : 0;
   const totalCount = useCountUp(total, 1200);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
   };
 
+  const addHolding = (kind: 'stock' | 'mutual_fund' | 'crypto', title: string) => {
+    form({
+      title,
+      fields: [
+        { key: 'name', label: 'Name', placeholder: kind === 'crypto' ? 'Bitcoin' : 'Nifty 50 ETF' },
+        { key: 'ticker', label: 'Ticker / symbol', optional: true },
+        { kind: 'amount', key: 'invested', label: 'Amount invested (₹)' },
+        { kind: 'amount', key: 'currentValue', label: 'Current value (₹)', optional: true },
+      ],
+      submitLabel: 'Add holding',
+      onSubmit: async (v) => {
+        await api.investments.create({
+          name: v['name']!,
+          ticker: v['ticker'] || undefined,
+          kind,
+          invested: Number(v['invested']),
+          currentValue: v['currentValue'] ? Number(v['currentValue']) : undefined,
+        });
+        toast(`Added ${v['name']}`, '📈');
+      },
+    });
+  };
+
   const openAddHoldingSheet = () => {
     sheet({
       title: 'Add holding',
       options: [
-        { label: 'Stocks / ETF', icon: '📈', onPress: () => toast('Holding added', '📈') },
-        { label: 'Mutual fund', icon: '🏦', onPress: () => toast('Holding added', '📈') },
-        { label: 'Crypto', icon: '🪙', onPress: () => toast('Holding added', '📈') },
+        { label: 'Stocks / ETF', icon: '📈', onPress: () => addHolding('stock', 'Add stock / ETF') },
+        { label: 'Mutual fund', icon: '🏦', onPress: () => addHolding('mutual_fund', 'Add mutual fund') },
+        { label: 'Crypto', icon: '🪙', onPress: () => addHolding('crypto', 'Add crypto') },
       ],
     });
   };
@@ -133,10 +153,10 @@ export function Invest({ entry: _entry }: { entry: ScreenEntry }) {
             <Text style={styles.heroLabel}>Portfolio Value</Text>
             <Text style={styles.heroValue}>₹{(totalCount / 100000).toFixed(2)}L</Text>
             <View style={styles.gainChip}>
-              <Text style={styles.gainChipText}>↑ ₹38,200 (12.4%)</Text>
-            </View>
-            <View style={styles.sparklineWrap}>
-              <MSparkline data={DUMMY_CHART} color="#7faf93" height={56} />
+              <Text style={styles.gainChipText}>
+                {gain >= 0 ? '↑' : '↓'} ₹{Math.abs(Math.round(gain)).toLocaleString('en-IN')} (
+                {Math.abs(gainPct).toFixed(1)}%)
+              </Text>
             </View>
           </LinearGradient>
         </SpringIn>

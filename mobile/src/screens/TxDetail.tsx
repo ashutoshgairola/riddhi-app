@@ -31,6 +31,7 @@
  */
 import { StyleSheet, Text, View } from 'react-native';
 
+import { api } from '../api';
 import { GlassCard } from '../components/Glass';
 import { Btn, IconButton, ListCard, ListRow } from '../components/ui';
 import { MI } from '../components/icons';
@@ -45,35 +46,97 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
   const tx = entry.data as SwipeTx;
   const { t } = useTheme();
   const { pop } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
 
-  const openMoreSheet = () => {
+  const editTx = async () => {
+    const cats = await api.categories.list();
+    form({
+      title: 'Edit transaction',
+      fields: [
+        { key: 'desc', label: 'Description', initial: tx.desc },
+        { kind: 'amount', key: 'amount', label: 'Amount (₹)', initial: String(Math.abs(tx.amount)) },
+        {
+          kind: 'select',
+          key: 'cat',
+          label: 'Category',
+          options: cats.map((c) => ({ label: `${c.icon} ${c.name}`, value: c.name })),
+          initial: tx.cat,
+        },
+        { kind: 'date', key: 'date', label: 'Date', initial: tx.date.slice(0, 10) },
+        { key: 'note', label: 'Note', optional: true, initial: tx.note ?? '' },
+      ],
+      submitLabel: 'Save changes',
+      onSubmit: async (v) => {
+        await api.transactions.update(tx.id, {
+          desc: v['desc']!,
+          amount: Number(v['amount']),
+          categoryName: v['cat']!,
+          date: v['date']!,
+          note: v['note'] ?? '',
+        });
+        toast('Transaction updated', '✏️');
+        pop(); // detail shows stale route data; the list re-renders fresh
+      },
+    });
+  };
+
+  const duplicateTx = async () => {
+    try {
+      await api.transactions.create({
+        desc: tx.desc,
+        amount: tx.amount,
+        type: tx.type,
+        categoryName: tx.cat,
+      });
+      toast('Transaction duplicated', '⧉');
+      pop();
+    } catch {
+      toast("Couldn't duplicate — try again", '📡');
+    }
+  };
+
+  const deleteTx = () => {
     sheet({
-      title: 'Transaction',
+      title: 'Delete this transaction?',
       options: [
-        { label: 'Edit', icon: '✏️', onPress: () => toast('Edit transaction') },
-        { label: 'Duplicate', icon: '⧉', onPress: () => toast('Transaction duplicated', '⧉') },
         {
           label: 'Delete',
           icon: '🗑',
           danger: true,
           onPress: () => {
-            toast('Transaction deleted');
-            pop();
+            api.transactions
+              .remove(tx.id)
+              .then(() => {
+                toast('Transaction deleted', '🗑');
+                pop();
+              })
+              .catch(() => toast("Couldn't delete — try again", '📡'));
           },
         },
+        { label: 'Cancel', onPress: () => {} },
       ],
     });
   };
 
-  // Detail rows (MobileScreens.jsx:811–818) — verbatim.
+  const openMoreSheet = () => {
+    sheet({
+      title: 'Transaction',
+      options: [
+        { label: 'Edit', icon: '✏️', onPress: () => void editTx() },
+        { label: 'Duplicate', icon: '⧉', onPress: () => void duplicateTx() },
+        { label: 'Delete', icon: '🗑', danger: true, onPress: deleteTx },
+      ],
+    });
+  };
+
+  // Detail rows (MobileScreens.jsx:811–818) — date/reference now derive
+  // from the actual transaction instead of the prototype's hardcoded text.
   const rows: { k: string; v: string; c?: string }[] = [
     { k: 'Category', v: tx.cat, c: tx.cCol },
-    { k: 'Date', v: '25 April 2026, 1:24 PM' },
-    { k: 'Account', v: 'HDFC Savings · ••••4521' },
+    { k: 'Date', v: tx.date.slice(0, 10) },
     { k: 'Type', v: tx.type === 'inc' ? 'Income' : 'Expense' },
     { k: 'Status', v: 'Completed', c: t.em },
-    { k: 'Reference', v: 'TXN20260425001824' },
+    { k: 'Reference', v: `TXN${String(tx.id).replace(/-/g, '').slice(0, 14).toUpperCase()}` },
   ];
 
   return (
@@ -109,19 +172,24 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
 
       <GlassCard style={styles.noteCard}>
         <Text style={[styles.noteLabel, { color: t.text3, fontFamily: weight(600) }]}>NOTE</Text>
-        <Text style={[styles.noteBody, { color: t.text2 }]}>No note. Tap to add one.</Text>
+        <Text style={[styles.noteBody, { color: tx.note ? t.text1 : t.text2 }]}>
+          {tx.note ? tx.note : 'No note. Tap Edit to add one.'}
+        </Text>
       </GlassCard>
 
-      {/* Static buttons, no handlers — MobileScreens.jsx:831–834 has no
-       * onClick on either button (only the more-sheet's Edit/Delete options
-       * are wired up). */}
       <View style={styles.actionsRow}>
-        <Btn variant="ghost" style={styles.actionBtn}>
-          ✎ Edit
-        </Btn>
-        <Btn variant="ghost" style={styles.actionBtn}>
-          <Text style={[styles.deleteLabel, { color: t.red, fontFamily: weight(600) }]}>Delete</Text>
-        </Btn>
+        {/* flex:1 wrappers constrain each button to half the row — Btn applies
+            `style` to its inner box, not the Pressable, so flex must live here. */}
+        <View style={styles.actionCol}>
+          <Btn variant="ghost" onPress={() => void editTx()}>
+            ✎ Edit
+          </Btn>
+        </View>
+        <View style={styles.actionCol}>
+          <Btn variant="ghost" onPress={deleteTx}>
+            <Text style={[styles.deleteLabel, { color: t.red, fontFamily: weight(600) }]}>Delete</Text>
+          </Btn>
+        </View>
       </View>
     </MPageShell>
   );
@@ -179,7 +247,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  actionBtn: {
+  actionCol: {
     flex: 1,
   },
   deleteLabel: {

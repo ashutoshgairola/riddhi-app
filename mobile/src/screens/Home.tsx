@@ -5,14 +5,13 @@
  *
  * Building blocks reused rather than reimplemented:
  *  - `PageBackground` for the `.m-page` gradient + glow.
- *  - `GlassView` (via the manually-composed topbar/hero/banner/card
- *    surfaces below) for the `.m-topbar.scrolled` / `.m-card-like` glass
- *    treatment — `Topbar`'s `left/title/right` 3-slot shape doesn't fit
- *    the source's 4-item `gap:12` row (avatar, flex-growing 2-line
- *    greeting, search button, bell button) without an extra unwanted
- *    spacer, so the row is composed directly here using the same
- *    `GlassView` primitive `Topbar` uses internally for its scrolled
- *    background — no glass/blur logic is duplicated.
+ *  - The topbar row is composed directly here (avatar, flex-growing 2-line
+ *    greeting, search button, bell button) — `Topbar`'s `left/title/right`
+ *    3-slot shape doesn't fit the source's 4-item `gap:12` row without an
+ *    extra unwanted spacer. The bar overlays the scroller (absolute, content
+ *    scrolls under it) and `TopbarChrome` fades the `.m-topbar.scrolled`
+ *    blur/tint/hairline in with scroll, mirroring the CSS 0.25s background
+ *    transition.
  *  - `IconButton` for search/bell.
  *  - `WeekChart` (src/components/charts.tsx) — already ports this
  *    screen's `WeekChart`/`smoothPath` verbatim; not re-ported here.
@@ -29,14 +28,18 @@
  *  - Hero card gradient/border/blur/shadow — MobileHome.jsx:98–125.
  *  - `fmt`/`fmtK` formatters — MobileHome.jsx:70–71.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Circle } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../auth/AuthProvider';
 import { GlassView } from '../components/Glass';
 import { IconButton } from '../components/ui';
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { PullToRefresh } from '../components/PullToRefresh';
@@ -48,17 +51,8 @@ import { radius, weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
-
-// ── Data (MobileHome.jsx:3–13) ───────────────────────────────────────
-const MH_WEEK = [
-  { d: 'Mon', v: 1200 },
-  { d: 'Tue', v: 3400 },
-  { d: 'Wed', v: 800 },
-  { d: 'Thu', v: 2600 },
-  { d: 'Fri', v: 1500 },
-  { d: 'Sat', v: 4200 },
-  { d: 'Sun', v: 1800 },
-];
+import type { NotificationView, WeekDataPoint } from '../api/types';
+import { AiInsightsStrip } from './home/AiInsightsStrip';
 
 interface RecentTx {
   icon: string;
@@ -69,20 +63,12 @@ interface RecentTx {
   type: 'exp' | 'inc';
 }
 
-const MH_RECENT: RecentTx[] = [
-  { icon: '🛒', desc: 'Swiggy Order', cat: 'Food', date: 'Today', amt: -649, type: 'exp' },
-  { icon: '💼', desc: 'Salary — April', cat: 'Income', date: 'Today', amt: 118000, type: 'inc' },
-  { icon: '⚡', desc: 'BESCOM Bill', cat: 'Utilities', date: 'Yesterday', amt: -1840, type: 'exp' },
-  { icon: '🚇', desc: 'Metro Card', cat: 'Transport', date: 'Apr 23', amt: -500, type: 'exp' },
-];
-
-// ── Budget constants (MobileHome.jsx:64–73) ──────────────────────────
-const BUDGET = 100000;
-const SPENT = 91000;
-const LEFT = BUDGET - SPENT;
-const DAYS_LEFT = 5;
-const DAILY = Math.round(LEFT / DAYS_LEFT);
-const PCT_USED = SPENT / BUDGET;
+// Empty-but-renderable fallbacks while the api loads (or is unreachable).
+const EMPTY_WEEK: WeekDataPoint[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
+  (d) => ({ d, v: 0 }),
+);
+const EMPTY_RECENT: RecentTx[] = [];
+const EMPTY_NOTIFS: NotificationView[] = [];
 
 function fmt(n: number): string {
   return '₹' + Math.abs(n).toLocaleString('en-IN');
@@ -91,9 +77,6 @@ function fmt(n: number): string {
 function fmtK(n: number): string {
   return n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : `₹${Math.round(n / 1000)}K`;
 }
-
-const PEAK_IDX = MH_WEEK.reduce((mi, d, i, a) => (d.v > a[mi].v ? i : mi), 0);
-const WEEK_TOTAL = MH_WEEK.reduce((s, d) => s + d.v, 0);
 
 // ── Section label (MobileHome.jsx Label, lines 75–80) ────────────────
 function Label({
@@ -124,36 +107,52 @@ function Label({
 export function Home({ entry: _entry }: { entry: ScreenEntry }) {
   const { t, mode } = useTheme();
   const { nav, setProfileOpen } = useNav();
+  const insets = useSafeAreaInsets();
+  const { prefs } = usePrefs();
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: recentTx } = useApiData(() => api.transactions.recent(), MH_RECENT);
+  // Hide-balances (Settings → Privacy & Security) masks every ₹ figure here.
+  const hide = prefs.hideBalances;
+  const masked = (formatted: string) => (hide ? MASKED_AMOUNT : formatted);
 
-  const dailyCount = useCountUp(DAILY, 1100);
+  const { data: recentTx } = useApiData(() => api.transactions.recent(), EMPTY_RECENT);
+  const { data: week } = useApiData(() => api.reports.weekSpend(), EMPTY_WEEK);
+  const { data: summary } = useApiData(() => api.budgets.currentSummary(), null);
+  const { data: notifs } = useApiData(() => api.notifications.list(), EMPTY_NOTIFS);
+  const hasUnread = notifs.some((n) => n.unread);
+
+  // "Safe to spend today" — current budget's remainder spread over the
+  // days left in its period; zeros until a budget exists.
+  const budgetTotal = summary?.allocated ?? 0;
+  const spent = summary?.spent ?? 0;
+  const left = Math.max(0, budgetTotal - spent);
+  const daysLeft = summary?.daysLeft ?? 1;
+  const daily = Math.round(left / daysLeft);
+  const pctUsed = budgetTotal > 0 ? Math.min(1, spent / budgetTotal) : 0;
+
+  const weekTotal = week.reduce((s, d) => s + d.v, 0);
+  const peakIdx = week.reduce((mi, d, i, a) => (d.v > a[mi]!.v ? i : mi), 0);
+
+  const dailyCount = useCountUp(daily, 1100);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
   };
 
+  // Deterministic bar height (safe area + 14 top pad + 44 avatar row +
+  // 12 bottom pad) so the scroller can reserve the space without onLayout.
+  const topbarHeight = insets.top + 14 + 44 + 12;
+
   return (
     <View style={styles.page}>
       <PageBackground />
 
-      {/* ── Topbar (MobileHome.jsx:84–92) ── */}
-      {scrolled ? (
-        <GlassView
-          style={[styles.topbar, styles.topbarScrolled, { borderBottomColor: t.topbarScrolledBorder }]}
-          radius={0}
-          padding={0}
-        >
-          <TopbarContent onProfile={() => setProfileOpen(true)} onSearch={() => nav('search')} onNotif={() => nav('notifs')} />
-        </GlassView>
-      ) : (
-        <View style={styles.topbar}>
-          <TopbarContent onProfile={() => setProfileOpen(true)} onSearch={() => nav('search')} onNotif={() => nav('notifs')} />
-        </View>
-      )}
-
-      <PullToRefresh onRefresh={() => {}} onScroll={handleScroll} contentStyle={styles.scrollContent}>
+      <PullToRefresh
+        onRefresh={() => {}}
+        onScroll={handleScroll}
+        topInset={topbarHeight}
+        contentStyle={[styles.scrollContent, { paddingTop: topbarHeight + 8 }]}
+      >
         {/* ── Signature hero card (MobileHome.jsx:98–125) ── */}
         <SpringIn style={[styles.hero, { borderColor: t.glassBrd2 }]}>
           <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
@@ -172,10 +171,15 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
             pointerEvents="none"
           >
             <Defs>
+              {/* Alpha must go in stopOpacity — react-native-svg does not
+                  reliably honour rgba() alpha inside stopColor, which rendered
+                  the blob near-solid. The extra mid stop + fade running to
+                  100% (vs the CSS's hard cut at 70%) stands in for the web's
+                  `filter: blur(10px)` softening. */}
               <SvgRadialGradient id="heroGlow" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
-                <Stop offset="0%" stopColor="rgba(182,164,243,0.4)" stopOpacity={1} />
-                <Stop offset="70%" stopColor="rgba(182,164,243,0)" stopOpacity={0} />
-                <Stop offset="100%" stopColor="rgba(182,164,243,0)" stopOpacity={0} />
+                <Stop offset="0%" stopColor="#b6a4f3" stopOpacity={0.35} />
+                <Stop offset="45%" stopColor="#b6a4f3" stopOpacity={0.16} />
+                <Stop offset="100%" stopColor="#b6a4f3" stopOpacity={0} />
               </SvgRadialGradient>
             </Defs>
             <Circle cx={110} cy={110} r={110} fill="url(#heroGlow)" />
@@ -189,7 +193,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
               </Text>
               <View style={[styles.daysChip, { backgroundColor: t.glassBg2, borderColor: t.glassBrd }]}>
                 <Text style={[styles.daysChipText, { color: t.text1, fontFamily: weight(700) }]}>
-                  {DAYS_LEFT} days left
+                  {daysLeft} days left
                 </Text>
               </View>
             </View>
@@ -197,12 +201,12 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
             <View style={styles.amountRow}>
               <Text style={[styles.amountRupee, { color: t.text2, fontFamily: weight(700) }]}>₹</Text>
               <Text style={[styles.amountValue, { color: t.text1, fontFamily: weight(800) }]}>
-                {Math.abs(dailyCount).toLocaleString('en-IN')}
+                {masked(Math.abs(dailyCount).toLocaleString('en-IN'))}
               </Text>
             </View>
 
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${PCT_USED * 100}%` }]}>
+              <View style={[styles.progressFill, { width: `${pctUsed * 100}%` }]}>
                 <LinearGradient
                   colors={[t.em, '#c8b8f7']}
                   start={{ x: 0, y: 0 }}
@@ -213,10 +217,10 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
             </View>
             <View style={styles.progressLabelsRow}>
               <Text style={[styles.progressLeft, { color: t.text1, fontFamily: weight(700) }]}>
-                {fmt(LEFT)} left
+                {masked(fmt(left))} left
               </Text>
               <Text style={[styles.progressSpent, { color: t.text2, fontFamily: weight(600) }]}>
-                {fmtK(SPENT)} of {fmtK(BUDGET)}
+                {hide ? MASKED_AMOUNT : `${fmtK(spent)} of ${fmtK(budgetTotal)}`}
               </Text>
             </View>
           </View>
@@ -241,12 +245,20 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
                   Spent this week
                 </Text>
                 <Text style={[styles.weekHeaderValue, { color: t.text1, fontFamily: weight(800) }]}>
-                  {fmt(WEEK_TOTAL)}
+                  {masked(fmt(weekTotal))}
                 </Text>
               </View>
-              <WeekChart data={MH_WEEK} peakIdx={PEAK_IDX} />
+              <WeekChart data={week} peakIdx={peakIdx} />
             </View>
           </GlassView>
+        </SpringIn>
+
+        {/* ── AI insights (rule-based cards deep-linking into chat) ── */}
+        <Label action="Ask Munshi →" onAction={() => nav('chat')}>
+          Munshi's insights
+        </Label>
+        <SpringIn delay={80}>
+          <AiInsightsStrip />
         </SpringIn>
 
         {/* ── Recent (MobileHome.jsx:154–168, animationDelay: .1s) ── */}
@@ -255,13 +267,47 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
         </Label>
         <SpringIn delay={100} style={styles.recentList}>
           {recentTx.map((tx, i) => (
-            <RecentRow key={i} tx={tx} onPress={() => nav('txns')} />
+            <RecentRow key={i} tx={tx} hideAmount={hide} onPress={() => nav('txns')} />
           ))}
         </SpringIn>
 
         <View style={{ height: 24 }} />
       </PullToRefresh>
+
+      {/* ── Topbar (MobileHome.jsx:84–92) — overlays the scroller so content
+          slides under the glass; the chrome fades in with scroll, mirroring
+          the CSS `transition: background .25s` on `.m-topbar.scrolled`. ── */}
+      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]} pointerEvents="box-none">
+        <TopbarChrome visible={scrolled} />
+        <TopbarContent onProfile={() => setProfileOpen(true)} onSearch={() => nav('search')} onNotif={() => nav('notifs')} notifDot={hasUnread} />
+      </View>
     </View>
+  );
+}
+
+/** `.m-topbar.scrolled` glass (mobile.css:198–203): blur + darker tint +
+ * bottom hairline only — not the 4-side GlassView card recipe. Fades
+ * in/out so the transition matches the web's 0.25s background fade. */
+function TopbarChrome({ visible }: { visible: boolean }) {
+  const { t, mode } = useTheme();
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withTiming(visible ? 1 : 0, { duration: 250 });
+  }, [visible, progress]);
+
+  const fade = useAnimatedStyle(() => ({ opacity: progress.value }));
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, fade]} pointerEvents="none">
+      <BlurView
+        intensity={mode === 'light' ? 40 : 45}
+        tint={mode === 'light' ? 'light' : 'dark'}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: t.topbarScrolledBg }]} />
+      <View style={[styles.topbarHairline, { backgroundColor: t.topbarScrolledBorder }]} />
+    </Animated.View>
   );
 }
 
@@ -269,27 +315,40 @@ function TopbarContent({
   onProfile,
   onSearch,
   onNotif,
+  notifDot,
 }: {
   onProfile: () => void;
   onSearch: () => void;
   onNotif: () => void;
+  /** True when any notification is unread — drives the bell's red dot. */
+  notifDot: boolean;
 }) {
   const { t } = useTheme();
+  const { user } = useAuth();
+  const displayName = user?.name ?? 'Riddhi Desai';
+  const initials = displayName
+    .split(/\s+/)
+    .map((w) => w.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   return (
     <View style={styles.topbarRow}>
       <Pressable onPress={onProfile} style={styles.avatarPressTarget}>
         <LinearGradient colors={[t.em, '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-          <Text style={styles.avatarLabel}>RD</Text>
+          <Text style={styles.avatarLabel}>{initials}</Text>
         </LinearGradient>
       </Pressable>
       <View style={styles.greetingBlock}>
-        <Text style={[styles.greetingLine, { color: t.text2, fontFamily: weight(500) }]}>Good morning</Text>
-        <Text style={[styles.greetingName, { color: t.text1, fontFamily: weight(700) }]}>Riddhi Desai</Text>
+        <Text style={[styles.greetingLine, { color: t.text2, fontFamily: weight(500) }]}>{greeting}</Text>
+        <Text style={[styles.greetingName, { color: t.text1, fontFamily: weight(700) }]}>{displayName}</Text>
       </View>
       <IconButton onPress={onSearch}>
         <MI.search size={20} color={t.text1} />
       </IconButton>
-      <IconButton onPress={onNotif} dot>
+      <IconButton onPress={onNotif} dot={notifDot}>
         <MI.bell size={20} color={t.text1} />
       </IconButton>
     </View>
@@ -306,19 +365,27 @@ function SyncBannerInner({ onPress }: { onPress: () => void }) {
         </View>
         <View style={styles.syncTextBlock}>
           <Text style={[styles.syncTitle, { color: t.text1, fontFamily: weight(700) }]}>
-            4 transactions from SMS
+            SMS auto-sync
           </Text>
           <Text style={[styles.syncSubtitle, { color: t.text3, fontFamily: weight(500) }]}>
-            Detected from bank messages
+            Log transactions from bank messages
           </Text>
         </View>
-        <Text style={[styles.syncReview, { color: t.em, fontFamily: weight(700) }]}>Review</Text>
+        <Text style={[styles.syncReview, { color: t.em, fontFamily: weight(700) }]}>Open</Text>
       </View>
     </Pressable>
   );
 }
 
-function RecentRow({ tx, onPress }: { tx: RecentTx; onPress: () => void }) {
+function RecentRow({
+  tx,
+  hideAmount = false,
+  onPress,
+}: {
+  tx: RecentTx;
+  hideAmount?: boolean;
+  onPress: () => void;
+}) {
   const { t } = useTheme();
   return (
     <Pressable onPress={onPress} style={styles.recentRowTouchable}>
@@ -340,8 +407,7 @@ function RecentRow({ tx, onPress }: { tx: RecentTx; onPress: () => void }) {
             { color: tx.type === 'inc' ? t.em : t.text1, fontFamily: weight(800) },
           ]}
         >
-          {tx.amt > 0 ? '+' : '−'}
-          {fmt(tx.amt)}
+          {hideAmount ? MASKED_AMOUNT : `${tx.amt > 0 ? '+' : '−'}${fmt(tx.amt)}`}
         </Text>
       </View>
     </Pressable>
@@ -353,17 +419,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Topbar
+  // Topbar — absolute so the scroller runs under it (liquid glass).
   topbar: {
-    position: 'relative',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     paddingTop: 14,
     paddingHorizontal: 18,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'transparent',
   },
-  topbarScrolled: {
-    borderBottomWidth: 1,
+  topbarHairline: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
   },
   topbarRow: {
     flexDirection: 'row',
@@ -398,9 +470,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Scroll content
+  // Scroll content — paddingTop is set inline (topbar height + 8, the
+  // web's 8px body padding) since the bar overlays the scroller.
   scrollContent: {
-    paddingTop: 8,
     paddingHorizontal: 18,
     paddingBottom: 28,
   },
@@ -461,10 +533,13 @@ const styles = StyleSheet.create({
     fontSize: 26,
     letterSpacing: -0.52,
   },
+  // The web's 0.9 leading (line-height: 49) clips glyph tops in RN, which
+  // crops the line box instead of letting it overflow; full-size line box,
+  // single line so the tight leading had no visual effect anyway.
   amountValue: {
     fontSize: 54,
     letterSpacing: -1.89,
-    lineHeight: 49,
+    lineHeight: 54,
   },
   progressTrack: {
     marginTop: 20,

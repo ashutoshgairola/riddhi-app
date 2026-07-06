@@ -157,6 +157,7 @@ export interface TxView {
   date: string; // ISO date
   amount: number; // signed: positive for income, negative for expense
   type: 'inc' | 'exp';
+  note?: string; // free-text note stored on the transaction
 }
 
 /** Recent transaction view — matches RecentTx in Home.tsx */
@@ -164,6 +165,7 @@ export interface RecentTxView {
   icon: string;
   desc: string;
   cat: string;
+  cCol: string; // hex category color
   date: string; // display string e.g. "Today", "Yesterday", "Apr 23"
   amt: number; // signed
   type: 'exp' | 'inc';
@@ -219,6 +221,17 @@ export interface CategoryView {
   txs: number;
   total: number;
   subs: string[];
+  /** True when the category's transactions are predominantly income. */
+  isIncome: boolean;
+}
+
+/** `GET /reports/category-activity` row — per-category all-time totals. */
+export interface ApiCategoryActivity {
+  categoryId: string;
+  count: number;
+  total: number;
+  incomeTotal: number;
+  expenseTotal: number;
 }
 
 /** Notification view — matches Notification in Notifications.tsx */
@@ -246,4 +259,123 @@ export interface ReportOverviewView {
 export interface WeekDataPoint {
   d: string; // day label e.g. "Mon"
   v: number; // spend value
+}
+
+// ── Mutation input types (view-level; adapters map to API DTOs) ───────
+
+/** Backend `GET /transactions` returns a paginated envelope. */
+export interface ApiPaginatedTransactions {
+  items: ApiTransaction[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface NewTxInput {
+  desc: string;
+  /** Signed: positive = income, negative = expense. */
+  amount: number;
+  type: 'inc' | 'exp';
+  categoryName: string;
+  /** ISO date; defaults to today. */
+  date?: string;
+  note?: string;
+}
+
+export interface UpdateTxInput {
+  desc?: string;
+  /** Signed, same convention as NewTxInput. */
+  amount?: number;
+  categoryName?: string;
+  date?: string;
+  note?: string;
+}
+
+export interface NewAccountInput {
+  name: string;
+  type: ApiAccount['type'];
+  balance: number;
+  institutionName?: string;
+}
+
+export interface NewGoalInput {
+  name: string;
+  type: 'savings' | 'debt';
+  target: number;
+  current?: number;
+  /** ISO date. */
+  targetDate: string;
+}
+
+export interface NewCategoryInput {
+  name: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface NewHoldingInput {
+  name: string;
+  ticker?: string;
+  kind: 'stock' | 'mutual_fund' | 'crypto';
+  /** Total amount invested (₹). */
+  invested: number;
+  /** Current value (₹); defaults to `invested`. */
+  currentValue?: number;
+}
+
+export interface NewBudgetCategoryInput {
+  name: string;
+  allocated: number;
+  icon?: string;
+  color?: string;
+}
+
+/** `GET/PATCH /users/me/preferences` (subset the app uses). */
+export interface ApiUserPreferences {
+  currency: string;
+  dateFormat: string;
+  language: string;
+  hideBalances: boolean;
+  biometricEnabled: boolean;
+  notificationsEnabled: boolean;
+  budgetAlertsEnabled: boolean;
+  goalMilestonesEnabled: boolean;
+  largeTxAlertsEnabled: boolean;
+  /** Bank names picked during onboarding — drives the Sync screen. */
+  selectedBanks: string[];
+}
+
+export type PrefsPatch = Partial<Omit<ApiUserPreferences, 'selectedBanks'>>;
+
+// ── Report view models ────────────────────────────────────────────────
+
+/** Current-month budget rollup for Home's "safe to spend" hero. */
+export interface BudgetSummaryView {
+  monthLabel: string; // e.g. "July"
+  allocated: number;
+  spent: number;
+  daysLeft: number; // ≥ 1
+}
+
+/** `GET /reports/income-vs-expense` mapped for MGroupedBars. */
+export interface IncomeExpenseSeriesView {
+  labels: string[]; // short month names
+  income: number[];
+  expense: number[];
+}
+
+/** One `GET /reports/categories` slice, mapped for MDonut / lists. */
+export interface CategorySliceView {
+  label: string;
+  value: number;
+  color: string;
+  pct: number; // 0–100
+}
+
+/** `GET /reports/net-worth-trend` mapped for sparklines. */
+export interface NetWorthTrendView {
+  points: number[];
+  current: number;
+  /** % change first → last point (0 when not computable). */
+  deltaPct: number;
 }

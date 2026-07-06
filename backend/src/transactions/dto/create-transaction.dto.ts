@@ -52,6 +52,11 @@ export class CreateTransactionDto {
   @IsUUID()
   accountId?: string;
 
+  /** Destination account for a `transfer` — credited when the source is debited. */
+  @IsOptional()
+  @IsUUID()
+  destinationAccountId?: string;
+
   @IsOptional()
   @IsEnum(TransactionStatus)
   status?: TransactionStatus;

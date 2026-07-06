@@ -38,6 +38,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useTheme } from '../theme/ThemeProvider';
 import { AddTxSheet } from './AddTxSheet';
 import { FabActions } from './FabActions';
 import { MFab, NavBar } from './NavBar';
@@ -94,6 +95,7 @@ function StackTransition({ transitionKey, children }: { transitionKey: string; c
 }
 
 export function AppShell() {
+  const { t } = useTheme();
   const { top, stack, platform, fabOpen, setFabOpen } = useNav();
   const isAndroid = platform === 'android';
   // Include stack depth so two sequential pushes of the same kind+data still
@@ -102,7 +104,10 @@ export function AppShell() {
   const transitionKey = `${stack.length}-${top.kind}-${JSON.stringify(top.data ?? null)}`;
 
   return (
-    <View style={styles.shell}>
+    // .m-shell has `background: var(--bg)` (mobile.css:145) — without it the
+    // translucent tab bar composites over the root view's default white and
+    // washes out to grey.
+    <View style={[styles.shell, { backgroundColor: t.bg }]}>
       <View style={styles.stage}>
         <StackTransition transitionKey={transitionKey}>{renderScreen(top)}</StackTransition>
       </View>
@@ -115,12 +120,6 @@ export function AppShell() {
           `.m-tabbar`/`.m-navbar`/`.m-mfab` in MobileApp.jsx:325–389). */}
       <FabActions />
 
-      {/* Add/More/Profile sheets — siblings of the tab bar, each reading
-          its own open flag + setter from useNav() (MobileApp.jsx:382–384). */}
-      <AddTxSheet />
-      <MoreSheet />
-      <ProfileSheet />
-
       {isAndroid ? (
         <>
           <MFab open={fabOpen} onPress={() => setFabOpen(!fabOpen)} />
@@ -129,6 +128,15 @@ export function AppShell() {
       ) : (
         <TabBar />
       )}
+
+      {/* Add/More/Profile sheets — rendered after the tab bar so they stack
+          on top of it, matching the web z-order (`.m-sheet-backdrop`/`.m-sheet`
+          are z-index 200/201 vs `.m-tabbar`'s 50 — mobile.css:257,382,392);
+          each reads its own open flag + setter from useNav()
+          (MobileApp.jsx:382–384). */}
+      <AddTxSheet />
+      <MoreSheet />
+      <ProfileSheet />
     </View>
   );
 }

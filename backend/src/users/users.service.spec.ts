@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { DataSource } from 'typeorm';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { GoalsService } from '../goals/goals.service';
@@ -35,6 +36,9 @@ describe('UsersService.completeOnboarding', () => {
         UsersService,
         { provide: UsersRepository, useValue: usersRepository },
         { provide: GoalsService, useValue: goalsService },
+        // completeOnboarding doesn't touch the DataSource (only deleteAccount
+        // does); a stub satisfies Nest DI.
+        { provide: DataSource, useValue: { transaction: jest.fn() } },
       ],
     }).compile();
     service = moduleRef.get(UsersService);

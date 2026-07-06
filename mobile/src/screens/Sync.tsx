@@ -41,7 +41,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 
+import { api } from '../api';
 import { GlassCard } from '../components/Glass';
+import { BankLogo } from '../components/BankLogo';
 import { IconButton, ListCard, ListRow, Toggle } from '../components/ui';
 import { MI } from '../components/icons';
 import { SpringIn } from '../components/SpringIn';
@@ -49,6 +51,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { useApiData } from '../api/useApi';
+import { usePrefs } from '../prefs/PrefsProvider';
 import { MPageShell } from './_MPageShell';
 import { DetectedCard } from './DetectedCard';
 
@@ -85,44 +89,20 @@ interface SyncBank {
   off?: boolean;
 }
 
-const SYNC_DETECTED: SyncDetected[] = [
-  {
-    id: 'd1',
-    raw: 'Sent Rs.649.00 from HDFC Bank A/c x4521 to SWIGGY via UPI on 25-04. Ref 412...',
-    bank: 'HDFC Bank', amount: -649, merchant: 'Swiggy', icon: '🛒',
-    cat: 'Food & Dining', catCol: '#c9a86a', account: 'HDFC •4521', time: '1:24 PM', conf: 0.97,
-  },
-  {
-    id: 'd2',
-    raw: 'Rs 1840.00 debited from A/c XX4521 on 24-Apr for BESCOM BILL PAYMENT. Avl Bal Rs 8...',
-    bank: 'HDFC Bank', amount: -1840, merchant: 'BESCOM Electricity', icon: '⚡',
-    cat: 'Utilities', catCol: '#6fb3ad', account: 'HDFC •4521', time: 'Yesterday', conf: 0.92,
-  },
-  {
-    id: 'd3',
-    raw: 'INR 118000.00 credited to A/c XX4521 on 25-Apr-26 by SALARY ACME CORP. Avl Bal...',
-    bank: 'HDFC Bank', amount: 118000, merchant: 'Salary — Acme Corp', icon: '💼',
-    cat: 'Income', catCol: '#7faf93', account: 'HDFC •4521', time: '9:00 AM', conf: 0.99,
-  },
-  {
-    id: 'd4',
-    raw: 'Your ICICI Bank Credit Card xx8830 used for Rs.2,499 at AMAZON on 23-Apr.',
-    bank: 'ICICI Bank', amount: -2499, merchant: 'Amazon', icon: '📦',
-    cat: 'Shopping', catCol: '#c97d8c', account: 'ICICI CC •8830', time: 'Apr 23', conf: 0.88,
-  },
-];
+// No SMS pipeline exists yet (Expo has no SMS access on iOS), so there is
+// no fake "detected" queue — the screen starts at its real empty state and
+// the confirm flow below stays wired for when detection lands.
+const NO_DETECTED: SyncDetected[] = [];
 
-const SYNC_RECENT: SyncRecent[] = [
-  { merchant: 'Uber', icon: '🚕', amount: -318, cat: 'Transport', catCol: '#9d8bd6', account: 'HDFC •4521', time: 'Apr 22' },
-  { merchant: 'Blinkit', icon: '🛍', amount: -540, cat: 'Groceries', catCol: '#7faf93', account: 'HDFC •4521', time: 'Apr 22' },
-  { merchant: 'Netflix', icon: '🎬', amount: -649, cat: 'Entertainment', catCol: '#c97d8c', account: 'ICICI CC •8830', time: 'Apr 21' },
-];
-
-const SYNC_BANKS: SyncBank[] = [
-  { name: 'HDFC Bank', col: '#004c8f', logo: 'H', count: 142 },
-  { name: 'ICICI Bank', col: '#ae282e', logo: 'I', count: 67 },
-  { name: 'Axis Bank', col: '#97144d', logo: 'A', count: 0, off: true },
-];
+// Brand colors for the banks picked during onboarding (prefs.selectedBanks).
+const BANK_COLORS: Record<string, string> = {
+  HDFC: '#004c8f',
+  ICICI: '#ae282e',
+  Axis: '#97144d',
+  SBI: '#2d6a4f',
+  Kotak: '#ed1c24',
+};
+const DEFAULT_BANK_COLOR = '#3b3563';
 
 const fmtR = (n: number) => '₹' + Math.abs(n).toLocaleString('en-IN');
 
@@ -130,21 +110,69 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
   const { toast, sheet } = useFeedback();
+  const { prefs } = usePrefs();
 
-  const [pending, setPending] = useState<SyncDetected[]>(SYNC_DETECTED);
+  const [pending, setPending] = useState<SyncDetected[]>(NO_DETECTED);
   const [autoSync, setAutoSync] = useState(true);
   const [justAdded, setJustAdded] = useState(0);
 
+  // Connected banks come from onboarding (prefs.selectedBanks); the last
+  // slot is always the dimmed "Add" affordance from the design.
+  const banks: SyncBank[] = [
+    ...prefs.selectedBanks.map((name) => ({
+      name,
+      col: BANK_COLORS[name.split(' ')[0]!] ?? DEFAULT_BANK_COLOR,
+      logo: name.charAt(0).toUpperCase(),
+      count: 0,
+    })),
+    { name: 'Add', col: DEFAULT_BANK_COLOR, logo: '+', count: 0, off: true },
+  ];
+
+  // "Auto-added" shows the latest real transactions.
+  const { data: recentTx } = useApiData(() => api.transactions.recent(), []);
+  const recent: SyncRecent[] = recentTx.map((tx) => ({
+    merchant: tx.desc,
+    icon: tx.icon,
+    amount: tx.amt,
+    cat: tx.cat,
+    catCol: tx.cCol,
+    account: tx.cat,
+    time: tx.date,
+  }));
+
+  /** Persists one detected SMS transaction through the api layer. */
+  const saveDetected = (tx: SyncDetected) =>
+    api.transactions.create({
+      desc: tx.merchant,
+      amount: tx.amount,
+      type: tx.amount > 0 ? 'inc' : 'exp',
+      categoryName: tx.cat,
+    });
+
   const confirm = (id: string) => {
-    setPending((p) => p.filter((tx) => tx.id !== id));
-    setJustAdded((n) => n + 1);
+    const tx = pending.find((p) => p.id === id);
+    setPending((p) => p.filter((t2) => t2.id !== id));
+    if (!tx) return;
+    saveDetected(tx)
+      .then(() => setJustAdded((n) => n + 1))
+      .catch(() => {
+        toast("Couldn't add that transaction", '📡');
+        setPending((p) => [tx, ...p]);
+      });
   };
   const dismiss = (id: string) => {
+    // Dismissing an SMS suggestion is local-only by design — nothing to persist.
     setPending((p) => p.filter((tx) => tx.id !== id));
   };
   const addAll = () => {
-    setJustAdded((n) => n + pending.length);
+    const batch = pending;
     setPending([]);
+    Promise.all(batch.map(saveDetected))
+      .then(() => setJustAdded((n) => n + batch.length))
+      .catch(() => {
+        toast("Couldn't add all transactions", '📡');
+        setPending(batch);
+      });
   };
 
   const openMoreSheet = () => {
@@ -153,7 +181,14 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       options: [
         { label: 'Sync now', icon: '🔄', onPress: () => toast('Syncing messages…', '🔄') },
         { label: 'Manage banks', icon: '🏦', onPress: () => toast('Manage connected banks') },
-        { label: 'Pause auto-sync', icon: '⏸', onPress: () => toast('Auto-sync paused') },
+        {
+          label: autoSync ? 'Pause auto-sync' : 'Resume auto-sync',
+          icon: autoSync ? '⏸' : '▶️',
+          onPress: () => {
+            setAutoSync(!autoSync);
+            toast(autoSync ? 'Auto-sync paused' : 'Auto-sync resumed');
+          },
+        },
       ],
     });
   };
@@ -186,7 +221,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             <View style={styles.statusText}>
               <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>SMS auto-sync</Text>
               <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
-                {autoSync ? 'Listening · last synced 2 min ago' : 'Paused'}
+                {autoSync ? 'Listening for bank SMS' : 'Paused'}
               </Text>
             </View>
             <Toggle on={autoSync} onChange={setAutoSync} />
@@ -194,11 +229,9 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
 
           {/* connected banks (MobileSync.jsx:142–149) */}
           <View style={[styles.banksRow, { borderTopColor: t.border }]}>
-            {SYNC_BANKS.map((b) => (
+            {banks.map((b) => (
               <View key={b.name} style={[styles.bankCol, { opacity: b.off ? 0.4 : 1 }]}>
-                <View style={[styles.bankLogoBox, { backgroundColor: b.col }]}>
-                  <Text style={[styles.bankLogoText, { fontFamily: weight(700) }]}>{b.logo}</Text>
-                </View>
+                <BankLogo name={b.name} size={34} radius={10} fallbackColor={b.col} fallbackText={b.logo} />
                 <Text style={[styles.bankLabel, { color: t.text3, fontFamily: weight(600) }]}>
                   {b.off ? 'Add' : b.name.split(' ')[0]}
                 </Text>
@@ -232,7 +265,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         </SpringIn>
       ) : (
         <SpringIn>
-          <GlassCard style={styles.emptyCard}>
+          <GlassCard contentStyle={styles.emptyCardContent}>
             <View style={[styles.emptyIconBox, { backgroundColor: t.emDim }]}>
               <MI.check size={24} color={t.em} strokeWidth={2.4} />
             </View>
@@ -254,8 +287,8 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       {/* animationDelay: .1s (MobileSync.jsx:181) */}
       <SpringIn delay={100}>
         <ListCard>
-          {SYNC_RECENT.map((tx, i) => (
-            <ListRow key={i} last={i === SYNC_RECENT.length - 1}>
+          {recent.map((tx, i) => (
+            <ListRow key={i} last={i === recent.length - 1}>
               <View style={[styles.recentIconBox, { backgroundColor: tx.catCol + '22' }]}>
                 <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
               </View>
@@ -344,17 +377,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  bankLogoBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bankLogoText: {
-    color: '#fff',
-    fontSize: 15,
-  },
   bankLabel: {
     fontSize: 10,
   },
@@ -377,7 +399,10 @@ const styles = StyleSheet.create({
   sectionMeta: {
     fontSize: 11.5,
   },
-  emptyCard: {
+  // Content layout + padding override — must be contentStyle to reach the
+  // card's inner overlay (on `style` the centering never applies and the
+  // paddings stack outside GlassCard's own 18px).
+  emptyCardContent: {
     paddingVertical: 28,
     paddingHorizontal: 20,
     alignItems: 'center',

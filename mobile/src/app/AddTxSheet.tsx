@@ -32,10 +32,12 @@ import {
 import Svg, { Line, Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 
+import { api } from '../api';
 import { BottomSheet } from '../components/BottomSheet';
 import { MSeg } from '../components/MSeg';
 import { Btn } from '../components/ui';
 import { MI } from '../components/icons';
+import { useFeedback } from '../feedback/FeedbackProvider';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
 import { useNav } from './navContext';
@@ -108,12 +110,14 @@ function press(a: string, k: string): string {
 export function AddTxSheet() {
   const { t } = useTheme();
   const { addOpen, setAddOpen } = useNav();
+  const { toast } = useFeedback();
 
   const [type, setType] = useState<TxType>('expense');
   const [amount, setAmount] = useState('');
   const [cat, setCat] = useState('Food');
   const [note, setNote] = useState('');
   const [receipt, setReceipt] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // typeColor (MobileApp.jsx:86).
   const typeColor: Record<TxType, string> = { income: t.em, expense: t.text1, transfer: t.blue };
@@ -150,6 +154,30 @@ export function AddTxSheet() {
   };
 
   const saveLabel = type === 'income' ? 'income' : type === 'transfer' ? 'transfer' : 'expense';
+
+  const save = async () => {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0 || saving) return;
+    setSaving(true);
+    try {
+      // Transfers are stored as expenses under their transfer category
+      // (Self/Savings/Invest) — the backend's `transfer` type needs a
+      // counter-account picker this quick-add sheet doesn't have.
+      await api.transactions.create({
+        desc: note.trim() || cat,
+        amount: value,
+        type: type === 'income' ? 'inc' : 'exp',
+        categoryName: cat,
+        note: note.trim() || undefined,
+      });
+      toast(`Saved ${saveLabel} · ₹${value.toLocaleString('en-IN')}`, '✓');
+      setAddOpen(false);
+    } catch {
+      toast("Couldn't save — try again", '📡');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <BottomSheet open={addOpen} onClose={onClose} title="Add">
@@ -229,7 +257,7 @@ export function AddTxSheet() {
               Receipt attached
             </Text>
             <Text style={[styles.receiptSubtitle, { color: t.em, fontFamily: weight(500) }]}>
-              Riddhi will read the amount & merchant
+              Munshi will read the amount & merchant
             </Text>
           </View>
           <Pressable
@@ -274,11 +302,11 @@ export function AddTxSheet() {
       {/* save */}
       <Btn
         variant="em"
-        onPress={onClose}
-        disabled={amount === ''}
+        onPress={() => void save()}
+        disabled={amount === '' || saving}
         style={styles.saveBtn}
       >
-        {`Save ${saveLabel}`}
+        {saving ? 'Saving…' : `Save ${saveLabel}`}
       </Btn>
     </BottomSheet>
   );

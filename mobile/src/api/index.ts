@@ -1,24 +1,28 @@
 /**
- * api — mock-first client layer.
+ * api — the app's single data layer, fully backed by the NestJS backend
+ * (EXPO_PUBLIC_API_URL). Screens render api data via `useApiData`, always
+ * passing an *empty* fallback (no mock datasets exist anymore) so an
+ * unreachable backend degrades to honest empty states.
  *
- * USE_BACKEND = false (default): every method resolves immediately with the
- * same mock data the screens already render, keeping all screens working with
- * no changes. Set USE_BACKEND = true (in a later task) to route through the
- * live apiClient instead.
+ * Every mutation fires `bumpData()` (refresh.ts) so all mounted screens
+ * refetch and reflect the change immediately.
  *
- * Screen-facing API:
- *   api.transactions.list(params?)
- *   api.transactions.recent()
- *   api.accounts.list()
- *   api.budgets.list()
- *   api.goals.list()
- *   api.investments.list()
- *   api.reports.overview(period?)
- *   api.notifications.list()
- *   api.categories.list()
+ * Screen-facing surface:
+ *   transactions: list / recent / create / update / remove
+ *   accounts:     list / create / update / remove
+ *   budgets:      list / currentSummary / upsertCategory
+ *   goals:        list / create
+ *   investments:  list / create
+ *   categories:   list / create
+ *   notifications:list / markAllRead
+ *   reports:      overview / weekSpend / incomeVsExpense / categories /
+ *                 netWorthTrend
+ *   prefs:        get / update
+ *   users:        updateProfile / deleteAccount
  */
 
 import { apiClient, setAuthToken as _setAuthToken } from './client';
+import { bumpData } from './refresh';
 import {
   toTxView,
   toRecentTxView,
@@ -35,9 +39,13 @@ import type {
   RecentTxView,
   AccountView,
   BudgetCategoryView,
+  BudgetSummaryView,
   GoalView,
   HoldingView,
   CategoryView,
+  CategorySliceView,
+  IncomeExpenseSeriesView,
+  NetWorthTrendView,
   NotificationView,
   ReportOverviewView,
   WeekDataPoint,
@@ -49,11 +57,23 @@ import type {
   ApiInvestment,
   ApiNotification,
   ApiReportOverview,
+  ApiCategoryActivity,
+  ApiPaginatedTransactions,
+  ApiUserPreferences,
+  NewTxInput,
+  UpdateTxInput,
+  NewAccountInput,
+  NewGoalInput,
+  NewCategoryInput,
+  NewHoldingInput,
+  NewBudgetCategoryInput,
+  PrefsPatch,
 } from './types';
 
 // ── Feature flag ──────────────────────────────────────────────────────
-/** When false (default) every api.* method returns mock data. */
-export const USE_BACKEND = false;
+/** The app is backend-only now; Login still branches on this, so it
+ * stays exported. */
+export const USE_BACKEND = true;
 
 /** Re-export so screens can call api.setAuthToken(token). */
 export const setAuthToken = _setAuthToken;
@@ -61,205 +81,473 @@ export const setAuthToken = _setAuthToken;
 export { authApi } from './auth';
 export type { ApiUser, AuthResponse, AuthTokens, OnboardingPayload } from './auth';
 
-// ── Canonical mock data ───────────────────────────────────────────────
-// These mirror the inline consts in the screen files verbatim so that the
-// api layer and screens are in sync even before screens are updated (Task 5.3).
+// ── Helpers ───────────────────────────────────────────────────────────
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
-const MOCK_TRANSACTIONS: TxView[] = [
-  { id: 1, icon: '💼', desc: 'Salary — April 2026', cat: 'Income', cCol: '#7faf93', date: '2026-04-25', amount: 118000, type: 'inc' },
-  { id: 3, icon: '🛒', desc: 'Swiggy Order', cat: 'Food & Dining', cCol: '#c9a86a', date: '2026-04-25', amount: -649, type: 'exp' },
-  { id: 2, icon: '🏠', desc: 'Rent — April', cat: 'Housing', cCol: '#8197c4', date: '2026-04-24', amount: -28000, type: 'exp' },
-  { id: 4, icon: '⚡', desc: 'BESCOM Electricity', cat: 'Utilities', cCol: '#6fb3ad', date: '2026-04-24', amount: -1840, type: 'exp' },
-  { id: 5, icon: '🚇', desc: 'Metro Smart Card', cat: 'Transport', cCol: '#9d8bd6', date: '2026-04-23', amount: -500, type: 'exp' },
-  { id: 6, icon: '📱', desc: 'Netflix', cat: 'Entertainment', cCol: '#c97d8c', date: '2026-04-22', amount: -649, type: 'exp' },
-  { id: 7, icon: '🛍', desc: 'Myntra Shopping', cat: 'Shopping', cCol: '#c97d8c', date: '2026-04-21', amount: -3200, type: 'exp' },
-  { id: 8, icon: '💊', desc: 'Apollo Pharmacy', cat: 'Healthcare', cCol: '#ef4444', date: '2026-04-19', amount: -820, type: 'exp' },
-  { id: 9, icon: '📈', desc: 'SIP — Nifty 50 ETF', cat: 'Investments', cCol: '#7faf93', date: '2026-04-15', amount: -10000, type: 'exp' },
-  { id: 13, icon: '💰', desc: 'Freelance Project', cat: 'Income', cCol: '#7faf93', date: '2026-04-08', amount: 35000, type: 'inc' },
-  { id: 14, icon: '⛽', desc: 'BPCL Fuel', cat: 'Transport', cCol: '#9d8bd6', date: '2026-04-07', amount: -2400, type: 'exp' },
-];
+/** "Today" / "Yesterday" / "23 Apr" for Home's recent list. */
+function displayDate(iso: string): string {
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
+  if (iso === today.toISOString().slice(0, 10)) return 'Today';
+  if (iso === yesterday.toISOString().slice(0, 10)) return 'Yesterday';
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getDate()} ${d.toLocaleString('en', { month: 'short' })}`;
+}
 
-const MOCK_RECENT: RecentTxView[] = [
-  { icon: '🛒', desc: 'Swiggy Order', cat: 'Food', date: 'Today', amt: -649, type: 'exp' },
-  { icon: '💼', desc: 'Salary — April', cat: 'Income', date: 'Today', amt: 118000, type: 'inc' },
-  { icon: '⚡', desc: 'BESCOM Bill', cat: 'Utilities', date: 'Yesterday', amt: -1840, type: 'exp' },
-  { icon: '🚇', desc: 'Metro Card', cat: 'Transport', date: 'Apr 23', amt: -500, type: 'exp' },
-];
+function backendPeriodFrom(period: TxPeriod): string | null {
+  if (period === 'all') return null;
+  const days = period === 'week' ? 7 : period === 'month' ? 31 : 92;
+  return new Date(Date.now() - days * 24 * 3600 * 1000).toISOString().slice(0, 10);
+}
 
-const MOCK_WEEK: WeekDataPoint[] = [
-  { d: 'Mon', v: 1200 },
-  { d: 'Tue', v: 3400 },
-  { d: 'Wed', v: 800 },
-  { d: 'Thu', v: 2600 },
-  { d: 'Fri', v: 1500 },
-  { d: 'Sat', v: 4200 },
-  { d: 'Sun', v: 1800 },
-];
+/** Reports endpoints accept '1m' | '3m' | '6m' | '1y' — map the UI's 'all'. */
+function reportPeriod(period?: string): string {
+  if (!period || period === 'all') return '1y';
+  return period;
+}
 
-const MOCK_ACCOUNTS: AccountView[] = [
-  { id: 1, name: 'HDFC Savings', type: 'savings', sub: '•••• 4521', bal: 824500, gradient: ['#2b3f63', '#1b2942'], logo: 'H', bank: 'HDFC Bank', change: 12400 },
-  { id: 2, name: 'ICICI Credit', type: 'credit', sub: '•••• 8807', bal: -12340, gradient: ['#5e3038', '#3a2026'], logo: 'I', bank: 'ICICI Bank', change: -3200 },
-  { id: 3, name: 'Zerodha', type: 'investment', sub: 'Investment', bal: 318000, gradient: ['#2a5446', '#18342b'], logo: 'Z', bank: 'Zerodha', change: 18200 },
-  { id: 4, name: 'Paytm Wallet', type: 'wallet', sub: '+91 ••• 4321', bal: 4520, gradient: ['#235058', '#163138'], logo: 'P', bank: 'Paytm', change: -800 },
-  { id: 5, name: 'Axis Salary', type: 'savings', sub: '•••• 2204', bal: 142000, gradient: ['#3b3563', '#241f40'], logo: 'A', bank: 'Axis Bank', change: 9500 },
-  { id: 6, name: 'SBI Joint', type: 'savings', sub: '•••• 9912', bal: 68000, gradient: ['#4d3d26', '#2f2619'], logo: 'S', bank: 'SBI', change: -1100 },
-];
+/** "2026-07" → "Jul" */
+function shortMonth(yyyyMm: string): string {
+  const d = new Date(yyyyMm + '-01T00:00:00');
+  return d.toLocaleString('en', { month: 'short' });
+}
 
-const MOCK_BUDGET_CATEGORIES: BudgetCategoryView[] = [
-  { name: 'Housing', icon: '🏠', c: '#8197c4', allocated: 30000, spent: 28000 },
-  { name: 'Food & Dining', icon: '🍽', c: '#c9a86a', allocated: 15000, spent: 13200 },
-  { name: 'Transport', icon: '🚇', c: '#9d8bd6', allocated: 8000, spent: 7400 },
-  { name: 'Shopping', icon: '🛍', c: '#c97d8c', allocated: 10000, spent: 10820 },
-  { name: 'Utilities', icon: '⚡', c: '#6fb3ad', allocated: 5000, spent: 2900 },
-  { name: 'Healthcare', icon: '💊', c: '#ef4444', allocated: 4000, spent: 820 },
-  { name: 'Entertainment', icon: '🎬', c: '#c97d8c', allocated: 3000, spent: 2498 },
-];
+async function fetchCategoryMap(): Promise<Map<string, ApiCategory>> {
+  const cats = await apiClient.get<ApiCategory[]>('/categories');
+  return new Map(cats.map((c) => [c.id, c]));
+}
 
-const MOCK_GOALS: GoalView[] = [
-  { name: 'Emergency Fund', emoji: '🐖', color: '#7faf93', current: 185000, target: 300000, date: 'Dec 2026' },
-  { name: 'Goa Trip', emoji: '✈️', color: '#6fb3ad', current: 32000, target: 50000, date: 'Jun 2026' },
-  { name: 'MacBook Pro', emoji: '💻', color: '#9d8bd6', current: 68000, target: 200000, date: 'Mar 2027' },
-  { name: 'House Down Pay', emoji: '🏡', color: '#c9a86a', current: 120000, target: 1500000, date: 'Dec 2028' },
-];
+/** Category name → id, creating the category if missing. */
+async function resolveCategoryId(name: string): Promise<string> {
+  const cats = await apiClient.get<ApiCategory[]>('/categories');
+  const found = cats.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
+  if (found) return found.id;
+  const created = await apiClient.post<ApiCategory>('/categories', { name: name.trim() });
+  return created.id;
+}
 
-const MOCK_HOLDINGS: HoldingView[] = [
-  { name: 'Nifty 50 ETF', sym: 'NIFTYBEES', val: 145000, ret: 12.8, color: '#7faf93' },
-  { name: 'HDFC Bank', sym: 'HDFCBANK', val: 62000, ret: 7.4, color: '#8197c4' },
-  { name: 'Tata Motors', sym: 'TATAMOTORS', val: 38000, ret: -3.2, color: '#c97d8c' },
-  { name: 'Reliance', sym: 'RELIANCE', val: 48000, ret: 9.1, color: '#9d8bd6' },
-  { name: 'Gold ETF', sym: 'GOLDBEES', val: 25000, ret: 5.6, color: '#c9a86a' },
-];
+/** `GET /transactions` returns `{items,...}`; tolerate bare arrays too. */
+function txItems(raw: ApiPaginatedTransactions | ApiTransaction[]): ApiTransaction[] {
+  return Array.isArray(raw) ? raw : raw.items;
+}
 
-const MOCK_CATEGORIES: CategoryView[] = [
-  { id: 1, name: 'Housing', icon: '🏠', color: '#8197c4', txs: 24, total: 28000, subs: ['Rent', 'Maintenance'] },
-  { id: 2, name: 'Food & Dining', icon: '🍽', color: '#c9a86a', txs: 48, total: 13200, subs: ['Groceries', 'Restaurants', 'Delivery'] },
-  { id: 3, name: 'Transport', icon: '🚇', color: '#9d8bd6', txs: 18, total: 7400, subs: ['Metro', 'Cab', 'Fuel'] },
-  { id: 4, name: 'Utilities', icon: '⚡', color: '#6fb3ad', txs: 8, total: 2900, subs: ['Electricity', 'Internet'] },
-  { id: 5, name: 'Entertainment', icon: '🎬', color: '#c97d8c', txs: 12, total: 2498, subs: ['Subscriptions', 'Events'] },
-  { id: 6, name: 'Healthcare', icon: '💊', color: '#ef4444', txs: 5, total: 820, subs: [] },
-  { id: 7, name: 'Shopping', icon: '🛍', color: '#c97d8c', txs: 14, total: 10820, subs: [] },
-  { id: 8, name: 'Education', icon: '🎓', color: '#6fb3ad', txs: 3, total: 5400, subs: [] },
-  { id: 9, name: 'Income', icon: '💼', color: '#7faf93', txs: 6, total: 153000, subs: ['Salary', 'Freelance'] },
-];
-
-const MOCK_NOTIFICATIONS: NotificationView[] = [
-  { icon: '⚠️', title: 'Shopping budget exceeded', body: '₹10,820 spent of ₹10,000 budget. 108% used.', time: '2h ago', color: '#c97d8c', unread: true, type: 'budget' },
-  { icon: '🎯', title: 'Emergency Fund milestone', body: '60% complete — ₹1.85L saved so far!', time: '5h ago', color: '#7faf93', unread: true, type: 'goal' },
-  { icon: '💰', title: 'Large transaction detected', body: '₹28,000 debited — Rent April 2026.', time: 'Yesterday', color: '#c9a86a', unread: true, type: 'tx' },
-  { icon: '📊', title: 'March 2026 report ready', body: 'Net savings: ₹24,500. Tap to view.', time: '2 days ago', color: '#8197c4', unread: false, type: 'report' },
-  { icon: '🔒', title: 'New login detected', body: 'Chrome · MacOS · Bengaluru, India.', time: '3 days ago', color: '#8a8299', unread: false, type: 'security' },
-  { icon: '💸', title: 'SIP installment due', body: '₹10,000 — Nifty 50 ETF, 15 Apr.', time: '4 days ago', color: '#9d8bd6', unread: false, type: 'tx' },
-  { icon: '📈', title: 'Portfolio up 12.4%', body: 'Best performer: HDFC Bank (+7.4%).', time: '5 days ago', color: '#7faf93', unread: false, type: 'report' },
-];
-
-const MOCK_REPORT_OVERVIEW: ReportOverviewView = {
-  netIncome: 27000,
-  savingsRate: 22.9,
-  totalIncome: 153000,
-  totalExpenses: 118000,
+// Account card gradients keyed by account type (design palette pairs).
+const ACCOUNT_GRADIENTS: Record<string, [string, string]> = {
+  savings: ['#2b3f63', '#1b2942'],
+  checking: ['#2b3f63', '#1b2942'],
+  credit: ['#5e3038', '#3a2026'],
+  loan: ['#5e3038', '#3a2026'],
+  investment: ['#2a5446', '#18342b'],
+  cash: ['#235058', '#163138'],
+  wallet: ['#235058', '#163138'],
+  other: ['#3b3563', '#241f40'],
 };
 
-// ── Helper ────────────────────────────────────────────────────────────
-function mockResolve<T>(data: T): Promise<T> {
-  return Promise.resolve(data);
+// Fallback palette for report slices whose category has no stored color.
+const SLICE_COLORS = ['#8197c4', '#c9a86a', '#c97d8c', '#9d8bd6', '#6fb3ad', '#ef4444', '#7faf93'];
+
+// Per-holding accent colors (investments have no stored color), assigned by
+// list position so the portfolio isn't a wall of one green.
+const HOLDING_COLORS = ['#7faf93', '#8197c4', '#c9a86a', '#9d8bd6', '#6fb3ad', '#c97d8c'];
+
+const DEFAULT_PREFS: ApiUserPreferences = {
+  currency: 'INR',
+  dateFormat: 'DD MMM YYYY',
+  language: 'en',
+  hideBalances: false,
+  biometricEnabled: true,
+  notificationsEnabled: true,
+  budgetAlertsEnabled: true,
+  goalMilestonesEnabled: true,
+  largeTxAlertsEnabled: true,
+  selectedBanks: [],
+};
+
+function pickPrefs(raw: Partial<ApiUserPreferences> | null | undefined): ApiUserPreferences {
+  return { ...DEFAULT_PREFS, ...(raw ?? {}) };
 }
 
 // ── Transaction params ────────────────────────────────────────────────
+export type TxPeriod = 'week' | 'month' | '3m' | 'all';
+
 export interface TxListParams {
   filter?: 'all' | 'inc' | 'exp';
-  period?: string;
+  period?: TxPeriod;
   limit?: number;
+  accountId?: string;
 }
 
 // ── api object ────────────────────────────────────────────────────────
 export const api = {
   transactions: {
     async list(params?: TxListParams): Promise<TxView[]> {
-      if (!USE_BACKEND) {
-        const data = params?.filter && params.filter !== 'all'
-          ? MOCK_TRANSACTIONS.filter((tx) => tx.type === params.filter)
-          : MOCK_TRANSACTIONS;
-        return mockResolve(data);
+      const qs = new URLSearchParams();
+      if (params?.filter === 'inc') qs.set('type', 'income');
+      if (params?.filter === 'exp') qs.set('type', 'expense');
+      if (params?.period) {
+        const from = backendPeriodFrom(params.period);
+        if (from) qs.set('from', from);
       }
-      const qs = params
-        ? '?' + new URLSearchParams(params as Record<string, string>).toString()
-        : '';
-      const raw = await apiClient.get<ApiTransaction[]>(`/transactions${qs}`);
-      const cats = await apiClient.get<ApiCategory[]>('/categories');
-      const catMap = new Map(cats.map((c) => [c.id, c]));
-      return raw.map((tx) => toTxView(tx, catMap.get(tx.categoryId)));
+      if (params?.accountId) qs.set('accountId', params.accountId);
+      qs.set('limit', String(params?.limit ?? 100));
+      const raw = await apiClient.get<ApiPaginatedTransactions>(`/transactions?${qs.toString()}`);
+      const catMap = await fetchCategoryMap();
+      return txItems(raw).map((tx) => toTxView(tx, catMap.get(tx.categoryId)));
     },
 
     async recent(): Promise<RecentTxView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_RECENT);
-      const raw = await apiClient.get<ApiTransaction[]>('/transactions?limit=4&sort=date_desc');
-      const cats = await apiClient.get<ApiCategory[]>('/categories');
-      const catMap = new Map(cats.map((c) => [c.id, c]));
-      return raw.map((tx) => toRecentTxView(tx, catMap.get(tx.categoryId)));
+      const raw = await apiClient.get<ApiPaginatedTransactions>('/transactions?limit=4');
+      const catMap = await fetchCategoryMap();
+      return txItems(raw).map((tx) =>
+        toRecentTxView(tx, catMap.get(tx.categoryId), displayDate(tx.date.slice(0, 10))),
+      );
+    },
+
+    async create(input: NewTxInput): Promise<TxView> {
+      const categoryId = await resolveCategoryId(input.categoryName);
+      const created = await apiClient.post<ApiTransaction>('/transactions', {
+        date: input.date ?? todayIso(),
+        description: input.desc,
+        amount: Math.abs(input.amount),
+        type: input.type === 'inc' ? 'income' : 'expense',
+        categoryId,
+        notes: input.note,
+      });
+      bumpData();
+      const catMap = await fetchCategoryMap();
+      return toTxView(created, catMap.get(created.categoryId));
+    },
+
+    async update(id: TxView['id'], patch: UpdateTxInput): Promise<void> {
+      const body: Record<string, unknown> = {};
+      if (patch.desc !== undefined) body['description'] = patch.desc;
+      if (patch.date !== undefined) body['date'] = patch.date;
+      if (patch.amount !== undefined) body['amount'] = Math.abs(patch.amount);
+      if (patch.categoryName !== undefined) {
+        body['categoryId'] = await resolveCategoryId(patch.categoryName);
+      }
+      if (patch.note !== undefined) body['notes'] = patch.note;
+      await apiClient.patch(`/transactions/${id}`, body);
+      bumpData();
+    },
+
+    async remove(id: TxView['id']): Promise<void> {
+      await apiClient.delete(`/transactions/${id}`);
+      bumpData();
     },
   },
 
   accounts: {
     async list(): Promise<AccountView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_ACCOUNTS);
       const raw = await apiClient.get<ApiAccount[]>('/accounts');
-      return raw.map((a) => toAccountView(a));
+      // Recent per-account movement (last 30 days) for the card's change chip.
+      // Only transactions that carry an accountId contribute; accounts with no
+      // recent activity report 0 and the UI hides the chip (no fake "↓ ₹0").
+      // This enrichment is decorative — if it fails (e.g. a bad request), the
+      // accounts must still render, so its failure is swallowed to change=0
+      // rather than rejecting the whole list.
+      const from = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const changeByAccount = new Map<string, number>();
+      try {
+        // limit is capped at 100 by the API (QueryTransactionsDto @Max(100)).
+        const txRaw = await apiClient.get<ApiPaginatedTransactions>(
+          `/transactions?from=${from}&limit=100`,
+        );
+        for (const tx of txItems(txRaw)) {
+          if (!tx.accountId) continue;
+          const delta = tx.type === 'income' ? tx.amount : -tx.amount;
+          changeByAccount.set(tx.accountId, (changeByAccount.get(tx.accountId) ?? 0) + delta);
+        }
+      } catch {
+        // Leave changeByAccount empty; every account reports change=0.
+      }
+      return raw.map((a) =>
+        toAccountView(
+          a,
+          ACCOUNT_GRADIENTS[a.type] ?? ACCOUNT_GRADIENTS['other'],
+          changeByAccount.get(a.id) ?? 0,
+        ),
+      );
+    },
+
+    async create(input: NewAccountInput): Promise<void> {
+      await apiClient.post('/accounts', input);
+      bumpData();
+    },
+
+    async update(
+      id: AccountView['id'],
+      patch: { name?: string; institutionName?: string },
+    ): Promise<void> {
+      await apiClient.patch(`/accounts/${id}`, patch);
+      bumpData();
+    },
+
+    async remove(id: AccountView['id']): Promise<void> {
+      await apiClient.delete(`/accounts/${id}`);
+      bumpData();
     },
   },
 
   budgets: {
     async list(): Promise<BudgetCategoryView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_BUDGET_CATEGORIES);
       const raw = await apiClient.get<ApiBudget[]>('/budgets?current=true');
       if (!raw.length) return [];
       // Use the most recent budget's categories
       return toBudgetCategoryViews(raw[0]!);
     },
+
+    /** Current-month rollup for Home's hero; null when no budget exists. */
+    async currentSummary(): Promise<BudgetSummaryView | null> {
+      const raw = await apiClient.get<ApiBudget[]>('/budgets?current=true');
+      if (!raw.length) return null;
+      const budget = raw[0]!;
+      const end = new Date(budget.endDate);
+      const msLeft = end.getTime() - Date.now();
+      return {
+        monthLabel: new Date(budget.startDate).toLocaleString('en', { month: 'long' }),
+        allocated: budget.totalAllocated,
+        spent: budget.totalSpent,
+        daysLeft: Math.max(1, Math.ceil(msLeft / (24 * 3600 * 1000))),
+      };
+    },
+
+    /**
+     * Adds (or re-allocates) one category budget in the current month's
+     * budget, creating the month budget if none exists yet. Backend budget
+     * updates replace `categories` wholesale, so existing rows are re-sent.
+     */
+    async upsertCategory(input: NewBudgetCategoryInput): Promise<void> {
+      const current = await apiClient.get<ApiBudget[]>('/budgets?current=true');
+      const newCat = {
+        name: input.name,
+        allocated: input.allocated,
+        // Link the matching transaction category — `spent` is computed from
+        // transactions in these categories, so an empty list never tracks.
+        categoryIds: [await resolveCategoryId(input.name)],
+        icon: input.icon,
+        color: input.color,
+      };
+      if (!current.length) {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        await apiClient.post('/budgets', {
+          name: now.toLocaleString('en', { month: 'long', year: 'numeric' }),
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          income: 0,
+          categories: [newCat],
+        });
+      } else {
+        const budget = current[0]!;
+        const kept = budget.categories
+          .filter((c) => c.name.toLowerCase() !== input.name.toLowerCase())
+          .map((c) => ({
+            name: c.name,
+            allocated: c.allocated,
+            categoryIds: c.categoryIds,
+            icon: c.icon,
+            color: c.color,
+            rollover: c.rollover,
+            notes: c.notes,
+          }));
+        await apiClient.patch(`/budgets/${budget.id}`, { categories: [...kept, newCat] });
+      }
+      bumpData();
+    },
   },
 
   goals: {
     async list(): Promise<GoalView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_GOALS);
       const raw = await apiClient.get<ApiGoal[]>('/goals');
       return raw.map(toGoalView);
+    },
+
+    async create(input: NewGoalInput): Promise<void> {
+      await apiClient.post('/goals', {
+        name: input.name,
+        type: input.type,
+        targetAmount: input.target,
+        currentAmount: input.current ?? 0,
+        startDate: todayIso(),
+        targetDate: input.targetDate,
+      });
+      bumpData();
     },
   },
 
   investments: {
     async list(): Promise<HoldingView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_HOLDINGS);
       const raw = await apiClient.get<ApiInvestment[]>('/investments');
-      return raw.map(toHoldingView);
+      return raw.map((inv, i) => ({
+        ...toHoldingView(inv),
+        color: HOLDING_COLORS[i % HOLDING_COLORS.length]!,
+      }));
+    },
+
+    async create(input: NewHoldingInput): Promise<void> {
+      const value = input.currentValue ?? input.invested;
+      // Investments require an account (FK RESTRICT) — reuse the user's
+      // investment account or create a portfolio account on first holding.
+      const accounts = await apiClient.get<ApiAccount[]>('/accounts');
+      let portfolio = accounts.find((a) => a.type === 'investment');
+      if (!portfolio) {
+        portfolio = await apiClient.post<ApiAccount>('/accounts', {
+          name: 'Investment Portfolio',
+          type: 'investment',
+          balance: 0,
+        });
+      }
+      await apiClient.post('/investments', {
+        name: input.name,
+        ticker: input.ticker,
+        assetClass: input.kind === 'crypto' ? 'alternatives' : 'stocks',
+        type:
+          input.kind === 'stock'
+            ? 'individual_stock'
+            : input.kind === 'mutual_fund'
+              ? 'mutual_fund'
+              : 'crypto',
+        shares: 1,
+        purchasePrice: input.invested,
+        currentPrice: value,
+        purchaseDate: todayIso(),
+        accountId: portfolio.id,
+      });
+      bumpData();
     },
   },
 
   reports: {
-    async overview(_period?: string): Promise<ReportOverviewView> {
-      if (!USE_BACKEND) return mockResolve(MOCK_REPORT_OVERVIEW);
-      const qs = _period ? `?period=${encodeURIComponent(_period)}` : '';
-      const raw = await apiClient.get<ApiReportOverview>(`/reports/overview${qs}`);
+    async overview(period?: string): Promise<ReportOverviewView> {
+      const raw = await apiClient.get<ApiReportOverview>(
+        `/reports/overview?period=${reportPeriod(period)}`,
+      );
       return toReportOverviewView(raw);
     },
 
+    /**
+     * This week's spend per weekday (Mon–Sun of the current week),
+     * aggregated client-side from transactions — no dedicated endpoint.
+     */
     async weekSpend(): Promise<WeekDataPoint[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_WEEK);
-      return apiClient.get<WeekDataPoint[]>('/reports/week-spend');
+      const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const now = new Date();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const from = monday.toISOString().slice(0, 10);
+      const raw = await apiClient.get<ApiPaginatedTransactions>(
+        `/transactions?type=expense&from=${from}&limit=100`,
+      );
+      const byDay = new Array(7).fill(0) as number[];
+      for (const tx of txItems(raw)) {
+        const d = new Date(tx.date);
+        byDay[(d.getDay() + 6) % 7] += Math.abs(tx.amount);
+      }
+      return labels.map((d, i) => ({ d, v: byDay[i]! }));
+    },
+
+    async incomeVsExpense(period?: string): Promise<IncomeExpenseSeriesView> {
+      const raw = await apiClient.get<{ month: string; income: number; expense: number }[]>(
+        `/reports/income-vs-expense?period=${reportPeriod(period)}`,
+      );
+      return {
+        labels: raw.map((r) => shortMonth(r.month)),
+        income: raw.map((r) => r.income),
+        expense: raw.map((r) => r.expense),
+      };
+    },
+
+    async categories(period?: string): Promise<CategorySliceView[]> {
+      const raw = await apiClient.get<
+        { categoryId: string; name: string; color: string | null; value: number; sharePct: number }[]
+      >(`/reports/categories?period=${reportPeriod(period)}`);
+      return raw.map((r, i) => ({
+        label: r.name,
+        value: r.value,
+        color: r.color ?? SLICE_COLORS[i % SLICE_COLORS.length]!,
+        pct: Math.round(r.sharePct),
+      }));
+    },
+
+    async netWorthTrend(period?: string): Promise<NetWorthTrendView> {
+      const raw = await apiClient.get<{ month: string; netWorth: number }[]>(
+        `/reports/net-worth-trend?period=${reportPeriod(period)}`,
+      );
+      const points = raw.map((r) => r.netWorth);
+      const first = points[0] ?? 0;
+      const last = points[points.length - 1] ?? 0;
+      return {
+        points,
+        current: last,
+        deltaPct: first !== 0 ? ((last - first) / Math.abs(first)) * 100 : 0,
+      };
     },
   },
 
   notifications: {
     async list(): Promise<NotificationView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_NOTIFICATIONS);
       const raw = await apiClient.get<ApiNotification[]>('/notifications');
       return raw.map(toNotificationView);
+    },
+
+    async markAllRead(): Promise<void> {
+      await apiClient.post('/notifications/read-all', {});
+      bumpData();
     },
   },
 
   categories: {
     async list(): Promise<CategoryView[]> {
-      if (!USE_BACKEND) return mockResolve(MOCK_CATEGORIES);
-      const raw = await apiClient.get<ApiCategory[]>('/categories');
-      return raw.map((c) => toCategoryView(c));
+      const [raw, activity] = await Promise.all([
+        apiClient.get<ApiCategory[]>('/categories'),
+        // Best-effort: category counts/totals are enrichment — if the stats
+        // endpoint is unavailable, still return the categories (0 activity).
+        apiClient
+          .get<ApiCategoryActivity[]>('/reports/category-activity')
+          .catch(() => [] as ApiCategoryActivity[]),
+      ]);
+      const byId = new Map(activity.map((a) => [a.categoryId, a]));
+      return raw.map((c) => {
+        const a = byId.get(c.id);
+        const isIncome = a ? a.incomeTotal > a.expenseTotal : false;
+        // Show the dominant side's throughput as the category's total.
+        const total = a ? (isIncome ? a.incomeTotal : a.expenseTotal) : 0;
+        return toCategoryView(c, a?.count ?? 0, total, [], isIncome);
+      });
+    },
+
+    async create(input: NewCategoryInput): Promise<void> {
+      await apiClient.post('/categories', input);
+      bumpData();
+    },
+  },
+
+  prefs: {
+    async get(): Promise<ApiUserPreferences> {
+      const raw = await apiClient.get<Partial<ApiUserPreferences>>('/users/me/preferences');
+      return pickPrefs(raw);
+    },
+
+    async update(patch: PrefsPatch): Promise<ApiUserPreferences> {
+      const raw = await apiClient.patch<Partial<ApiUserPreferences>>(
+        '/users/me/preferences',
+        patch,
+      );
+      return pickPrefs(raw);
+    },
+  },
+
+  users: {
+    async updateProfile(patch: { name?: string }): Promise<void> {
+      await apiClient.patch('/users/me', patch);
+    },
+
+    async deleteAccount(): Promise<void> {
+      await apiClient.delete('/users/me');
     },
   },
 };

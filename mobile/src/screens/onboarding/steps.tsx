@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Polyline, Rect } from 'react-native-svg';
 
 import { useBiometricLabel } from '../../auth/biometricLabel';
+import { BankLogo } from '../../components/BankLogo';
 import { Chip, Toggle } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
@@ -144,9 +145,7 @@ export function OBAccounts({ value, onChange }: { value: string[]; onChange: (v:
                   { backgroundColor: on ? t.emDim : t.glassBg, borderColor: on ? t.emGlow : t.glassBrd },
                 ]}
               >
-                <View style={[styles.bankLogo, { backgroundColor: b.col }]}>
-                  <Text style={{ fontSize: 15, color: '#fff', fontFamily: weight(700) }}>{b.logo}</Text>
-                </View>
+                <BankLogo name={b.n} size={36} radius={10} fallbackColor={b.col} fallbackText={b.logo} />
                 <Text style={{ flex: 1, fontSize: 13, color: t.text1, fontFamily: weight(700) }} numberOfLines={1}>
                   {b.n}
                 </Text>
@@ -410,13 +409,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: radius.lg,
     borderWidth: 1,
-  },
-  bankLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   bankCheck: {
     width: 18,

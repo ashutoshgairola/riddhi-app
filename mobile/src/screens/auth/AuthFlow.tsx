@@ -18,6 +18,9 @@ const ENTER_MS = 320;
 export function AuthFlow() {
   const [screen, setScreen] = useState<AuthScreen>('welcome');
   const progress = useSharedValue(1);
+  // Read on the JS thread; Dimensions.get is a host function and must not be
+  // called inside the worklet (throws on the UI runtime → SIGABRT in Expo Go).
+  const screenWidth = Dimensions.get('window').width;
 
   useEffect(() => {
     progress.value = 0;
@@ -26,7 +29,7 @@ export function AuthFlow() {
 
   const enterStyle = useAnimatedStyle(() => ({
     opacity: 0.4 + 0.6 * progress.value,
-    transform: [{ translateX: (1 - progress.value) * Dimensions.get('window').width }],
+    transform: [{ translateX: (1 - progress.value) * screenWidth }],
   }));
 
   const render = () => {

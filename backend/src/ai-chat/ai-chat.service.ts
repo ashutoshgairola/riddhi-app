@@ -1,40 +1,69 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import Anthropic from '@anthropic-ai/sdk';
 import { BudgetsService } from '../budgets/budgets.service';
 import { GoalsService } from '../goals/goals.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CategoriesService } from '../categories/categories.service';
-import { TransactionType, GoalStatus } from '../common/enums';
-import { ChatRequestDto } from './dto/chat.dto';
+import { AccountsService } from '../accounts/accounts.service';
+import { InvestmentsService } from '../investments/investments.service';
+import { ReportsService } from '../reports/reports.service';
+import { GoalStatus } from '../common/enums';
 import {
-  buildSystemPrompt,
+  buildDynamicPrompt,
   ChatPromptContext,
   PromptBudgetContext,
   PromptGoalContext,
+  STATIC_SYSTEM_PROMPT,
 } from './prompt';
+import { ChatStreamEmitter, ChatStreamEvent } from './stream-events';
+import { ConfirmationWidget, Widget } from './widgets';
+import { ChatThread } from './entities/chat-thread.entity';
+import { ChatMessage } from './entities/chat-message.entity';
+import {
+  PendingAction,
+  PendingActionStatus,
+  PENDING_ACTION_TTL_MS,
+} from './entities/pending-action.entity';
+import { rebuildHistory } from './history';
+import { TOOL_REGISTRY, TOOLS_BY_NAME, resolveRisk, ToolCtx } from './tools';
 
-const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 1024;
+export const ANTHROPIC_CLIENT = 'ANTHROPIC_CLIENT';
+
+const MAX_TOKENS = 4096;
+const MAX_AGENT_ITERATIONS = 10;
 const GRACEFUL_REPLY =
   "I'm having trouble reaching my brain right now, but I've noted what you said. Try again in a moment, or add the entry manually for now.";
 
-export interface ExtractedTransaction {
-  merchant: string;
-  amount: number;
-  category: string;
-  time: string;
+// ── Chat surface types ───────────────────────────────────────────────────────
+
+export interface TurnResult {
+  threadId: string;
+  messageId: string;
 }
 
-export interface ChatResult {
-  reply: string;
-  transaction: ExtractedTransaction | null;
+export interface BufferedBlock {
+  type: 'text' | 'widget' | 'confirmation';
+  text?: string;
+  widget?: Widget;
+}
+
+export interface ActionResolution {
+  status: PendingActionStatus;
+  widgets: Widget[];
 }
 
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
-  private readonly client: Anthropic | null;
 
   constructor(
     private readonly configService: ConfigService,
@@ -42,162 +71,497 @@ export class AiChatService {
     private readonly goalsService: GoalsService,
     private readonly transactionsService: TransactionsService,
     private readonly categoriesService: CategoriesService,
-  ) {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
-    this.client = apiKey ? new Anthropic({ apiKey }) : null;
-    if (!this.client) {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — /ai-chat will respond with graceful fallbacks only.',
-      );
-    }
+    private readonly accountsService: AccountsService,
+    private readonly investmentsService: InvestmentsService,
+    private readonly reportsService: ReportsService,
+    @Inject(ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
+    @InjectRepository(ChatThread)
+    private readonly threadRepo: Repository<ChatThread>,
+    @InjectRepository(ChatMessage)
+    private readonly messageRepo: Repository<ChatMessage>,
+    @InjectRepository(PendingAction)
+    private readonly actionRepo: Repository<PendingAction>,
+  ) {}
+
+  private get model(): string {
+    return this.configService.get<string>('AI_MODEL') ?? 'claude-opus-4-8';
   }
 
-  async chat(userId: string, dto: ChatRequestDto): Promise<ChatResult> {
-    if (!this.client) {
-      return { reply: GRACEFUL_REPLY, transaction: null };
-    }
-
-    let result: ChatResult;
-    try {
-      const promptContext = await this.buildPromptContext(userId);
-      const systemPrompt = buildSystemPrompt(promptContext);
-
-      const response = await this.client.messages.create({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: systemPrompt,
-        messages: dto.messages.map((m) => ({
-          role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
-          content: m.text,
-        })),
-      });
-
-      const textBlock = response.content.find((b) => b.type === 'text');
-      if (!textBlock || textBlock.type !== 'text') {
-        throw new Error('No text content in Anthropic response');
-      }
-
-      result = this.parseAndValidate(textBlock.text);
-    } catch (err) {
-      this.logger.error(
-        `AI chat call failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return { reply: GRACEFUL_REPLY, transaction: null };
-    }
-
-    if (result.transaction) {
-      try {
-        await this.persistTransaction(userId, result.transaction);
-      } catch (err) {
-        this.logger.error(
-          `Failed to persist AI-extracted transaction: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        // Don't fail the whole request just because persistence failed —
-        // the user still gets the conversational reply.
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Slices the JSON object out of the model's raw text (between the first
-   * `{` and last `}`), parses it, and validates the shape matches the
-   * {reply, transaction} contract.
-   */
-  private parseAndValidate(raw: string): ChatResult {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
-    if (start === -1 || end === -1 || end < start) {
-      throw new Error('No JSON object found in model response');
-    }
-
-    const parsed: unknown = JSON.parse(raw.slice(start, end + 1));
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      typeof (parsed as { reply?: unknown }).reply !== 'string'
-    ) {
-      throw new Error('Malformed response: missing "reply" string');
-    }
-
-    const obj = parsed as { reply: string; transaction?: unknown };
-    const tx = obj.transaction;
-
-    if (tx === null || tx === undefined) {
-      return { reply: obj.reply, transaction: null };
-    }
-
-    if (
-      typeof tx !== 'object' ||
-      typeof (tx as { merchant?: unknown }).merchant !== 'string' ||
-      typeof (tx as { amount?: unknown }).amount !== 'number' ||
-      typeof (tx as { category?: unknown }).category !== 'string' ||
-      typeof (tx as { time?: unknown }).time !== 'string'
-    ) {
-      throw new Error('Malformed response: invalid "transaction" shape');
-    }
-
-    const t = tx as ExtractedTransaction;
+  private toolCtx(userId: string): ToolCtx {
     return {
-      reply: obj.reply,
-      transaction: {
-        merchant: t.merchant,
-        amount: t.amount,
-        category: t.category,
-        time: t.time,
+      userId,
+      svc: {
+        tx: this.transactionsService,
+        budgets: this.budgetsService,
+        goals: this.goalsService,
+        accounts: this.accountsService,
+        categories: this.categoriesService,
+        investments: this.investmentsService,
+        reports: this.reportsService,
       },
     };
   }
 
-  /** Maps sign -> type, name -> categoryId (find-or-fallback), and persists via TransactionsService. */
-  private async persistTransaction(
-    userId: string,
-    tx: ExtractedTransaction,
-  ): Promise<void> {
-    const type =
-      tx.amount >= 0 ? TransactionType.INCOME : TransactionType.EXPENSE;
-    const amount = Math.abs(tx.amount);
+  // ── Agent turn ─────────────────────────────────────────────────────────────
 
-    const categoryId = await this.resolveCategoryId(userId, tx.category);
-    if (!categoryId) {
-      this.logger.warn(
-        `Skipping persistence of AI-extracted transaction — no category available for user ${userId}`,
+  /**
+   * Runs one user turn through the tool-use agent loop, emitting stream
+   * events as they happen. All state (thread, messages, pending actions) is
+   * persisted as the turn progresses, so a dropped connection loses nothing.
+   */
+  async runTurn(
+    userId: string,
+    threadId: string | null,
+    message: string,
+    emit: ChatStreamEmitter,
+  ): Promise<TurnResult> {
+    const thread = await this.findOrCreateThread(userId, threadId, message);
+
+    const userRow = await this.messageRepo.save(
+      this.messageRepo.create({
+        threadId: thread.id,
+        role: 'user',
+        blocks: [{ type: 'text', text: message }],
+      }),
+    );
+    thread.lastMessageAt = new Date();
+    await this.threadRepo.save(thread);
+
+    emit({ type: 'message_start', threadId: thread.id, messageId: userRow.id });
+
+    if (!this.client) {
+      emit({ type: 'text_delta', delta: GRACEFUL_REPLY });
+      await this.messageRepo.save(
+        this.messageRepo.create({
+          threadId: thread.id,
+          role: 'assistant',
+          blocks: [{ type: 'text', text: GRACEFUL_REPLY }],
+        }),
       );
-      return;
+      emit({ type: 'message_end', messageId: userRow.id, stopReason: 'error' });
+      return { threadId: thread.id, messageId: userRow.id };
     }
 
-    await this.transactionsService.create(userId, {
-      date: new Date().toISOString(),
-      description: tx.merchant,
-      amount,
-      type,
-      categoryId,
-    });
+    try {
+      await this.agentLoop(userId, thread.id, emit);
+      emit({
+        type: 'message_end',
+        messageId: userRow.id,
+        stopReason: 'end_turn',
+      });
+    } catch (err) {
+      this.logger.error(
+        `Agent turn failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      emit({
+        type: 'error',
+        message: 'Something went wrong talking to the assistant.',
+        retryable: true,
+      });
+    }
+
+    return { threadId: thread.id, messageId: userRow.id };
   }
 
-  /** Finds the user's TransactionCategory matching the AI-suggested category name (case-insensitive), else falls back to any existing category. */
-  private async resolveCategoryId(
+  private async agentLoop(
     userId: string,
-    categoryName: string,
-  ): Promise<string | null> {
-    const categories = await this.categoriesService.findAll(userId);
-    if (categories.length === 0) return null;
+    threadId: string,
+    emit: ChatStreamEmitter,
+  ): Promise<void> {
+    const client = this.client!;
+    const promptContext = await this.buildPromptContext(userId);
+    const rows = await this.messageRepo.find({
+      where: { threadId },
+      order: { createdAt: 'ASC' },
+    });
+    const messages = rebuildHistory(rows);
 
-    const match = categories.find(
-      (c) => c.name.toLowerCase() === categoryName.toLowerCase(),
+    // Strict mode is budgeted by the API (max 20 strict tools AND max 24
+    // optional params across them). Spend it on the delete tools — one
+    // required id, zero optionals, and the worst place for a malformed
+    // input. Everything else relies on handler-side coercion + service
+    // validation.
+    const tools = TOOL_REGISTRY.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.inputSchema,
+      strict: /^delete_/.test(t.name),
+    })) as unknown as Anthropic.Tool[];
+
+    const system = [
+      {
+        type: 'text' as const,
+        text: STATIC_SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' as const },
+      },
+      { type: 'text' as const, text: buildDynamicPrompt(promptContext) },
+    ];
+
+    for (let iteration = 0; iteration < MAX_AGENT_ITERATIONS; iteration++) {
+      const stream = client.messages.stream({
+        model: this.model,
+        max_tokens: MAX_TOKENS,
+        thinking: { type: 'adaptive' },
+        system,
+        tools,
+        messages,
+      });
+
+      stream.on('text', (delta) => emit({ type: 'text_delta', delta }));
+
+      const response = await stream.finalMessage();
+
+      messages.push({
+        role: 'assistant',
+        content: response.content,
+      });
+      const assistantRow = await this.messageRepo.save(
+        this.messageRepo.create({
+          threadId,
+          role: 'assistant',
+          blocks: response.content as unknown[],
+        }),
+      );
+
+      if (response.stop_reason === 'pause_turn') {
+        continue;
+      }
+
+      if (response.stop_reason !== 'tool_use') {
+        return;
+      }
+
+      const toolUses = response.content.filter(
+        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+      );
+      const renderBlocks: unknown[] = [];
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+      for (const toolUse of toolUses) {
+        const result = await this.executeToolUse(
+          userId,
+          threadId,
+          toolUse,
+          emit,
+          renderBlocks,
+        );
+        toolResults.push(result);
+      }
+
+      // All tool_results go back in ONE user message (parallel-tool-use rule).
+      messages.push({ role: 'user', content: toolResults });
+      await this.messageRepo.save(
+        this.messageRepo.create({
+          threadId,
+          role: 'tool',
+          blocks: toolResults as unknown[],
+        }),
+      );
+
+      // Attach render-only blocks to the assistant row so thread hydration
+      // replays widgets in place; rebuildHistory strips them for the model.
+      if (renderBlocks.length > 0) {
+        assistantRow.blocks = [...assistantRow.blocks, ...renderBlocks];
+        await this.messageRepo.save(assistantRow);
+      }
+    }
+
+    this.logger.warn(
+      `Agent loop hit MAX_AGENT_ITERATIONS for thread ${threadId}`,
     );
-    return (match ?? categories[0]).id;
   }
+
+  private async executeToolUse(
+    userId: string,
+    threadId: string,
+    toolUse: Anthropic.ToolUseBlock,
+    emit: ChatStreamEmitter,
+    renderBlocks: unknown[],
+  ): Promise<Anthropic.ToolResultBlockParam> {
+    const tool = TOOLS_BY_NAME.get(toolUse.name);
+    const input = (toolUse.input ?? {}) as Record<string, unknown>;
+
+    if (!tool) {
+      return {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: `Unknown tool "${toolUse.name}".`,
+        is_error: true,
+      };
+    }
+
+    emit({
+      type: 'tool_start',
+      toolUseId: toolUse.id,
+      name: tool.name,
+      label: tool.label,
+    });
+
+    if (resolveRisk(tool, input) === 'confirm') {
+      const summary = tool.confirmSummary?.(input) ?? {
+        title: `Confirm ${tool.name}?`,
+        summary: `Run ${tool.name} with the shown values.`,
+        fields: [],
+      };
+      const action = await this.actionRepo.save(
+        this.actionRepo.create({
+          userId,
+          threadId,
+          toolName: tool.name,
+          input,
+          summary: summary.summary,
+        }),
+      );
+      const widget: ConfirmationWidget = {
+        kind: 'confirmation',
+        actionId: action.id,
+        title: summary.title,
+        summary: summary.summary,
+        fields: summary.fields,
+        status: 'pending',
+      };
+      renderBlocks.push({ type: 'confirmation', widget });
+      emit({ type: 'confirmation_required', widget });
+      emit({
+        type: 'tool_end',
+        toolUseId: toolUse.id,
+        name: tool.name,
+        ok: true,
+      });
+      return {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: JSON.stringify({
+          status: 'pending_confirmation',
+          actionId: action.id,
+          note: 'Do not retry this tool; tell the user to use the confirmation card.',
+        }),
+      };
+    }
+
+    try {
+      const result = await tool.handler(this.toolCtx(userId), input);
+      for (const widget of result.widgets ?? []) {
+        renderBlocks.push({ type: 'widget', widget });
+        emit({ type: 'widget', widget });
+      }
+      emit({
+        type: 'tool_end',
+        toolUseId: toolUse.id,
+        name: tool.name,
+        ok: true,
+      });
+      return {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: JSON.stringify(result.data ?? null),
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Tool ${tool.name} failed: ${msg}`);
+      emit({
+        type: 'tool_end',
+        toolUseId: toolUse.id,
+        name: tool.name,
+        ok: false,
+      });
+      return {
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: msg,
+        is_error: true,
+      };
+    }
+  }
+
+  /** Non-streaming fallback: same turn, events buffered into blocks. */
+  async runTurnBuffered(
+    userId: string,
+    threadId: string | null,
+    message: string,
+  ): Promise<{ threadId: string; messageId: string; blocks: BufferedBlock[] }> {
+    const blocks: BufferedBlock[] = [];
+    const push = (event: ChatStreamEvent): void => {
+      switch (event.type) {
+        case 'text_delta': {
+          const last = blocks[blocks.length - 1];
+          if (last?.type === 'text')
+            last.text = (last.text ?? '') + event.delta;
+          else blocks.push({ type: 'text', text: event.delta });
+          break;
+        }
+        case 'widget':
+          blocks.push({ type: 'widget', widget: event.widget });
+          break;
+        case 'confirmation_required':
+          blocks.push({ type: 'confirmation', widget: event.widget });
+          break;
+      }
+    };
+    const result = await this.runTurn(userId, threadId, message, push);
+    return { ...result, blocks };
+  }
+
+  // ── Threads ────────────────────────────────────────────────────────────────
+
+  private async findOrCreateThread(
+    userId: string,
+    threadId: string | null,
+    firstMessage: string,
+  ): Promise<ChatThread> {
+    if (threadId) {
+      const thread = await this.threadRepo.findOne({
+        where: { id: threadId, userId },
+      });
+      if (!thread) throw new NotFoundException('Thread not found');
+      return thread;
+    }
+    return this.threadRepo.save(
+      this.threadRepo.create({
+        userId,
+        title: firstMessage.slice(0, 60),
+        lastMessageAt: new Date(),
+      }),
+    );
+  }
+
+  async listThreads(
+    userId: string,
+  ): Promise<Pick<ChatThread, 'id' | 'title' | 'lastMessageAt'>[]> {
+    const threads = await this.threadRepo.find({
+      where: { userId },
+      order: { lastMessageAt: 'DESC' },
+      take: 50,
+    });
+    return threads.map(({ id, title, lastMessageAt }) => ({
+      id,
+      title,
+      lastMessageAt,
+    }));
+  }
+
+  async getThread(
+    userId: string,
+    threadId: string,
+  ): Promise<{
+    id: string;
+    title: string;
+    messages: { id: string; role: string; blocks: unknown[] }[];
+  }> {
+    const thread = await this.threadRepo.findOne({
+      where: { id: threadId, userId },
+    });
+    if (!thread) throw new NotFoundException('Thread not found');
+    const rows = await this.messageRepo.find({
+      where: { threadId },
+      order: { createdAt: 'ASC' },
+    });
+    return {
+      id: thread.id,
+      title: thread.title,
+      messages: rows
+        .filter((r) => r.role === 'user' || r.role === 'assistant')
+        .map((r) => ({ id: r.id, role: r.role, blocks: r.blocks })),
+    };
+  }
+
+  async deleteThread(userId: string, threadId: string): Promise<void> {
+    const thread = await this.threadRepo.findOne({
+      where: { id: threadId, userId },
+    });
+    if (!thread) throw new NotFoundException('Thread not found');
+    await this.threadRepo.remove(thread);
+  }
+
+  // ── Pending actions (confirm / cancel) ─────────────────────────────────────
+
+  async confirmAction(
+    userId: string,
+    actionId: string,
+  ): Promise<ActionResolution> {
+    const action = await this.loadPendingAction(userId, actionId);
+
+    const tool = TOOLS_BY_NAME.get(action.toolName);
+    if (!tool) {
+      throw new BadRequestException('Tool no longer exists');
+    }
+
+    const result = await tool.handler(this.toolCtx(userId), action.input);
+
+    action.status = PendingActionStatus.EXECUTED;
+    action.resultData = result.data ?? null;
+    action.resolvedAt = new Date();
+    await this.actionRepo.save(action);
+
+    await this.persistEventRow(
+      action.threadId,
+      `The user confirmed: ${action.summary} Result: ${result.summary ?? 'done'}.`,
+    );
+
+    return { status: action.status, widgets: result.widgets ?? [] };
+  }
+
+  async cancelAction(
+    userId: string,
+    actionId: string,
+  ): Promise<ActionResolution> {
+    const action = await this.loadPendingAction(userId, actionId);
+
+    action.status = PendingActionStatus.CANCELLED;
+    action.resolvedAt = new Date();
+    await this.actionRepo.save(action);
+
+    await this.persistEventRow(
+      action.threadId,
+      `The user cancelled: ${action.summary} Nothing was changed.`,
+    );
+
+    return { status: action.status, widgets: [] };
+  }
+
+  private async loadPendingAction(
+    userId: string,
+    actionId: string,
+  ): Promise<PendingAction> {
+    const action = await this.actionRepo.findOne({
+      where: { id: actionId, userId },
+    });
+    if (!action) throw new NotFoundException('Action not found');
+    if (action.status !== PendingActionStatus.PENDING) {
+      throw new BadRequestException(`Action already ${action.status}`);
+    }
+    if (Date.now() - action.createdAt.getTime() > PENDING_ACTION_TTL_MS) {
+      action.status = PendingActionStatus.EXPIRED;
+      action.resolvedAt = new Date();
+      await this.actionRepo.save(action);
+      throw new BadRequestException('Action expired — ask me again.');
+    }
+    return action;
+  }
+
+  private async persistEventRow(threadId: string, text: string): Promise<void> {
+    await this.messageRepo.save(
+      this.messageRepo.create({
+        threadId,
+        role: 'event',
+        blocks: [{ type: 'event_note', text }],
+      }),
+    );
+  }
+
+  // ── Shared prompt context ──────────────────────────────────────────────────
 
   private async buildPromptContext(userId: string): Promise<ChatPromptContext> {
-    const [budgets, goals] = await Promise.all([
+    const [budgets, goals, categories] = await Promise.all([
       this.budgetsService
         .findAll(userId)
         .catch(() => [] as Awaited<ReturnType<BudgetsService['findAll']>>),
       this.goalsService
         .findAll(userId)
         .catch(() => [] as Awaited<ReturnType<GoalsService['findAll']>>),
+      this.categoriesService
+        .findAll(userId)
+        .catch(() => [] as Awaited<ReturnType<CategoriesService['findAll']>>),
     ]);
 
     const budget: PromptBudgetContext | null = budgets[0]
@@ -227,12 +591,10 @@ export class AiChatService {
         progressPct: g.progressPct,
       }));
 
-    return { budget, goals: activeGoals };
-  }
-
-  /** Exposed for verification/reporting: builds the exact system prompt for a user with live numbers. */
-  async debugBuildSystemPrompt(userId: string): Promise<string> {
-    const ctx = await this.buildPromptContext(userId);
-    return buildSystemPrompt(ctx);
+    return {
+      budget,
+      goals: activeGoals,
+      categoryNames: categories.map((c) => c.name),
+    };
   }
 }

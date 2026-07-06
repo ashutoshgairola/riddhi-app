@@ -23,7 +23,7 @@ interface MoreItem {
 
 // items (MobileApp.jsx:13–23).
 const ITEMS: MoreItem[] = [
-  { id: 'chat', l: 'Ask Riddhi', i: '💬', c: '#9d8bd6', d: 'Chat to log & plan' },
+  { id: 'chat', l: 'Ask Munshi', i: '💬', c: '#9d8bd6', d: 'Chat to log & plan' },
   { id: 'sync', l: 'Auto-sync', i: '🔄', c: '#7faf93', d: 'SMS transaction sync' },
   { id: 'goals', l: 'Goals', i: '⊙', c: '#9d8bd6', d: 'Savings & milestones' },
   { id: 'invest', l: 'Investments', i: '▲', c: '#7faf93', d: 'Portfolio & holdings' },

@@ -15,6 +15,34 @@ import { QueryTransactionsDto } from './dto/query-transactions.dto';
 import { Transaction } from './transaction.entity';
 import { TransactionType, TransactionStatus } from '../common/enums';
 import { Account } from '../accounts/account.entity';
+import type { EntityManager } from 'typeorm';
+
+/**
+ * Per-account balance movement for a transaction, before signing for
+ * apply/reverse. Income credits the source; expense debits it; a transfer
+ * debits the source and credits the destination by the same amount so it
+ * conserves money (net-worth neutral).
+ */
+export function transactionBalanceDeltas(
+  type: TransactionType,
+  amount: number,
+): { source: number; destination: number } {
+  switch (type) {
+    case TransactionType.INCOME:
+      return { source: amount, destination: 0 };
+    case TransactionType.TRANSFER:
+      return { source: -amount, destination: amount };
+    default: // EXPENSE
+      return { source: -amount, destination: 0 };
+  }
+}
+
+interface BalanceEffect {
+  accountId: string | null;
+  destinationAccountId: string | null;
+  amount: number;
+  type: TransactionType;
+}
 
 @Injectable()
 export class TransactionsService {
@@ -50,6 +78,17 @@ export class TransactionsService {
         );
       }
     }
+    if (dto.destinationAccountId) {
+      const dest = await this.accountsService.findOne(
+        dto.destinationAccountId,
+        userId,
+      );
+      if (!dest) {
+        throw new BadRequestException(
+          'Destination account not found or does not belong to user',
+        );
+      }
+    }
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -66,30 +105,25 @@ export class TransactionsService {
         attachments: dto.attachments ?? [],
         isRecurring: dto.isRecurring ?? false,
         recurringDetails: dto.recurringDetails ?? null,
-        notes: dto.notes ?? null,
         accountId: dto.accountId ?? null,
+        destinationAccountId: dto.destinationAccountId ?? null,
+        notes: dto.notes ?? null,
       });
 
       const saved = await queryRunner.manager.save(tx);
 
-      // Update account balance within the same DB transaction
-      if (dto.accountId) {
-        const account = await queryRunner.manager.findOne(Account, {
-          where: { id: dto.accountId, userId },
-        });
-        if (!account) {
-          throw new BadRequestException(
-            'Account not found or not owned by user',
-          );
-        }
-        account.balance = this.applyBalanceDelta(
-          account.balance,
-          dto.amount,
-          dto.type,
-        );
-        account.lastUpdated = new Date();
-        await queryRunner.manager.save(account);
-      }
+      // Update account balances within the same DB transaction
+      await this.applyBalances(
+        queryRunner.manager,
+        userId,
+        {
+          accountId: dto.accountId ?? null,
+          destinationAccountId: dto.destinationAccountId ?? null,
+          amount: dto.amount,
+          type: dto.type,
+        },
+        1,
+      );
 
       await queryRunner.commitTransaction();
       return saved;
@@ -108,16 +142,33 @@ export class TransactionsService {
   ): Promise<Transaction> {
     const tx = await this.findOne(id, userId);
 
-    const oldAccountId = tx.accountId;
-    const oldAmount = tx.amount;
-    const oldType = tx.type;
+    const oldEffect: BalanceEffect = {
+      accountId: tx.accountId,
+      destinationAccountId: tx.destinationAccountId,
+      amount: tx.amount,
+      type: tx.type,
+    };
 
-    // Validate new account if provided
+    // Validate new accounts if provided
     if (dto.accountId !== undefined && dto.accountId !== null) {
       const account = await this.accountsService.findOne(dto.accountId, userId);
       if (!account) {
         throw new BadRequestException(
           'Account not found or does not belong to user',
+        );
+      }
+    }
+    if (
+      dto.destinationAccountId !== undefined &&
+      dto.destinationAccountId !== null
+    ) {
+      const dest = await this.accountsService.findOne(
+        dto.destinationAccountId,
+        userId,
+      );
+      if (!dest) {
+        throw new BadRequestException(
+          'Destination account not found or does not belong to user',
         );
       }
     }
@@ -129,55 +180,38 @@ export class TransactionsService {
     try {
       // Determine new effective values
       const newAccountId =
-        dto.accountId !== undefined ? (dto.accountId ?? null) : oldAccountId;
-      const newAmount = dto.amount !== undefined ? dto.amount : oldAmount;
-      const newType = dto.type !== undefined ? dto.type : oldType;
+        dto.accountId !== undefined ? (dto.accountId ?? null) : tx.accountId;
+      const newDestinationAccountId =
+        dto.destinationAccountId !== undefined
+          ? (dto.destinationAccountId ?? null)
+          : tx.destinationAccountId;
+      const newAmount = dto.amount !== undefined ? dto.amount : tx.amount;
+      const newType = dto.type !== undefined ? dto.type : tx.type;
 
-      // Reverse old balance effect
-      if (oldAccountId) {
-        const oldAccount = await queryRunner.manager.findOne(Account, {
-          where: { id: oldAccountId, userId },
-        });
-        if (!oldAccount) {
-          throw new BadRequestException(
-            'Account not found or not owned by user',
-          );
-        }
-        oldAccount.balance = this.reverseBalanceDelta(
-          oldAccount.balance,
-          oldAmount,
-          oldType,
-        );
-        oldAccount.lastUpdated = new Date();
-        await queryRunner.manager.save(oldAccount);
-      }
+      // Reverse the old balance effect
+      await this.applyBalances(queryRunner.manager, userId, oldEffect, -1);
 
       // Apply updates to transaction
       Object.assign(tx, {
         ...dto,
         date: dto.date ? new Date(dto.date) : tx.date,
         accountId: newAccountId,
+        destinationAccountId: newDestinationAccountId,
       });
       const saved = await queryRunner.manager.save(tx);
 
-      // Apply new balance effect
-      if (newAccountId) {
-        const newAccount = await queryRunner.manager.findOne(Account, {
-          where: { id: newAccountId, userId },
-        });
-        if (!newAccount) {
-          throw new BadRequestException(
-            'Account not found or not owned by user',
-          );
-        }
-        newAccount.balance = this.applyBalanceDelta(
-          newAccount.balance,
-          newAmount,
-          newType,
-        );
-        newAccount.lastUpdated = new Date();
-        await queryRunner.manager.save(newAccount);
-      }
+      // Apply the new balance effect
+      await this.applyBalances(
+        queryRunner.manager,
+        userId,
+        {
+          accountId: newAccountId,
+          destinationAccountId: newDestinationAccountId,
+          amount: newAmount,
+          type: newType,
+        },
+        1,
+      );
 
       await queryRunner.commitTransaction();
       return saved;
@@ -198,23 +232,17 @@ export class TransactionsService {
 
     try {
       // Reverse balance effect before deleting
-      if (tx.accountId) {
-        const account = await queryRunner.manager.findOne(Account, {
-          where: { id: tx.accountId, userId },
-        });
-        if (!account) {
-          throw new BadRequestException(
-            'Account not found or not owned by user',
-          );
-        }
-        account.balance = this.reverseBalanceDelta(
-          account.balance,
-          tx.amount,
-          tx.type,
-        );
-        account.lastUpdated = new Date();
-        await queryRunner.manager.save(account);
-      }
+      await this.applyBalances(
+        queryRunner.manager,
+        userId,
+        {
+          accountId: tx.accountId,
+          destinationAccountId: tx.destinationAccountId,
+          amount: tx.amount,
+          type: tx.type,
+        },
+        -1,
+      );
 
       await queryRunner.manager.remove(tx);
       await queryRunner.commitTransaction();
@@ -227,26 +255,55 @@ export class TransactionsService {
   }
 
   /**
-   * Apply balance delta: income → +amount, expense/transfer → -amount
+   * Apply (sign=1) or reverse (sign=-1) a transaction's effect on account
+   * balances. A transfer moves money only when it has both a source and a
+   * destination account; otherwise it leaves balances untouched so money is
+   * never created or destroyed.
    */
-  private applyBalanceDelta(
-    currentBalance: number,
-    amount: number,
-    type: TransactionType,
-  ): number {
-    const delta = type === TransactionType.INCOME ? amount : -amount;
-    return Math.round((currentBalance + delta) * 100) / 100;
+  private async applyBalances(
+    manager: EntityManager,
+    userId: string,
+    effect: BalanceEffect,
+    sign: 1 | -1,
+  ): Promise<void> {
+    const { accountId, destinationAccountId, amount, type } = effect;
+
+    if (
+      type === TransactionType.TRANSFER &&
+      (!accountId || !destinationAccountId)
+    ) {
+      return;
+    }
+
+    const { source, destination } = transactionBalanceDeltas(type, amount);
+    if (accountId) {
+      await this.adjustAccount(manager, userId, accountId, source * sign);
+    }
+    if (destinationAccountId) {
+      await this.adjustAccount(
+        manager,
+        userId,
+        destinationAccountId,
+        destination * sign,
+      );
+    }
   }
 
-  /**
-   * Reverse a previously applied balance delta (inverse of applyBalanceDelta)
-   */
-  private reverseBalanceDelta(
-    currentBalance: number,
-    amount: number,
-    type: TransactionType,
-  ): number {
-    const delta = type === TransactionType.INCOME ? -amount : amount;
-    return Math.round((currentBalance + delta) * 100) / 100;
+  private async adjustAccount(
+    manager: EntityManager,
+    userId: string,
+    accountId: string,
+    delta: number,
+  ): Promise<void> {
+    if (delta === 0) return;
+    const account = await manager.findOne(Account, {
+      where: { id: accountId, userId },
+    });
+    if (!account) {
+      throw new BadRequestException('Account not found or not owned by user');
+    }
+    account.balance = Math.round((account.balance + delta) * 100) / 100;
+    account.lastUpdated = new Date();
+    await manager.save(account);
   }
 }

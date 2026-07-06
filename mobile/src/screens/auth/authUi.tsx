@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '../../components/ui';
 import { MI } from '../../components/icons';
@@ -54,11 +55,15 @@ export function PressableScale({
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
+  // Style must live on the Pressable itself: it is the flex child, so layout
+  // props like flexBasis from callers are ignored on any inner wrapper.
   return (
-    <Pressable onPress={onPress} disabled={disabled}>
-      {({ pressed }) => (
-        <View style={[style, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}>{children}</View>
-      )}
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [style, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+    >
+      {children}
     </Pressable>
   );
 }
@@ -92,6 +97,16 @@ export function AppleG({ size = 17, color }: { size?: number; color?: string }) 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color ?? t.text1}>
       <Path d="M17.05 12.53c-.02-2.02 1.65-2.99 1.72-3.04-.94-1.37-2.4-1.56-2.92-1.58-1.24-.13-2.42.73-3.05.73-.63 0-1.6-.71-2.63-.69-1.35.02-2.6.79-3.29 2-1.4 2.43-.36 6.03 1.01 8 .67.96 1.47 2.04 2.51 2 1.01-.04 1.39-.65 2.61-.65 1.22 0 1.56.65 2.63.63 1.09-.02 1.77-.98 2.44-1.95.77-1.12 1.09-2.2 1.1-2.26-.02-.01-2.11-.81-2.13-3.2zM15.05 6.3c.56-.68.94-1.62.84-2.56-.81.03-1.79.54-2.37 1.21-.52.6-.97 1.56-.85 2.48.9.07 1.82-.46 2.38-1.13z" />
+    </Svg>
+  );
+}
+
+// ── Face-ID glyph (MobileAuth.jsx:177) ──────────────────────────────
+export function FaceIdGlyph({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z" />
+      <Path d="M4 11v2a8 8 0 0 0 16 0v-2" />
     </Svg>
   );
 }
@@ -203,11 +218,12 @@ export function PasswordField({
 // ── AuthShell (MobileAuth.jsx:71-86) ────────────────────────────────
 export function AuthShell({ onBack, children }: { onBack?: () => void; children: ReactNode }) {
   const { t } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
       <PageBackground />
       {onBack ? (
-        <View style={styles.topbar}>
+        <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>
           <IconButton onPress={onBack}>
             <MI.back size={20} color={t.text1} />
           </IconButton>
@@ -219,9 +235,9 @@ export function AuthShell({ onBack, children }: { onBack?: () => void; children:
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingTop: onBack ? 8 : 30,
+          paddingTop: onBack ? 8 : insets.top + 30,
           paddingHorizontal: 26,
-          paddingBottom: onBack ? 30 : 30,
+          paddingBottom: insets.bottom + 30,
         }}
       >
         {children}

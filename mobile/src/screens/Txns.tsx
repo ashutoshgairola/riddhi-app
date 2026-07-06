@@ -44,24 +44,12 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
-import { api } from '../api';
+import { api, type TxPeriod } from '../api';
 import { useApiData } from '../api/useApi';
 import { SwipeRow, type SwipeTx } from './SwipeRow';
 
-// ── Data (MobileTxns.jsx:3–15) ───────────────────────────────────────
-const MT_DATA: SwipeTx[] = [
-  { id: 1, icon: '💼', desc: 'Salary — April 2026', cat: 'Income', cCol: '#7faf93', date: '2026-04-25', amount: 118000, type: 'inc' },
-  { id: 3, icon: '🛒', desc: 'Swiggy Order', cat: 'Food & Dining', cCol: '#c9a86a', date: '2026-04-25', amount: -649, type: 'exp' },
-  { id: 2, icon: '🏠', desc: 'Rent — April', cat: 'Housing', cCol: '#8197c4', date: '2026-04-24', amount: -28000, type: 'exp' },
-  { id: 4, icon: '⚡', desc: 'BESCOM Electricity', cat: 'Utilities', cCol: '#6fb3ad', date: '2026-04-24', amount: -1840, type: 'exp' },
-  { id: 5, icon: '🚇', desc: 'Metro Smart Card', cat: 'Transport', cCol: '#9d8bd6', date: '2026-04-23', amount: -500, type: 'exp' },
-  { id: 6, icon: '📱', desc: 'Netflix', cat: 'Entertainment', cCol: '#c97d8c', date: '2026-04-22', amount: -649, type: 'exp' },
-  { id: 7, icon: '🛍', desc: 'Myntra Shopping', cat: 'Shopping', cCol: '#c97d8c', date: '2026-04-21', amount: -3200, type: 'exp' },
-  { id: 8, icon: '💊', desc: 'Apollo Pharmacy', cat: 'Healthcare', cCol: '#ef4444', date: '2026-04-19', amount: -820, type: 'exp' },
-  { id: 9, icon: '📈', desc: 'SIP — Nifty 50 ETF', cat: 'Investments', cCol: '#7faf93', date: '2026-04-15', amount: -10000, type: 'exp' },
-  { id: 13, icon: '💰', desc: 'Freelance Project', cat: 'Income', cCol: '#7faf93', date: '2026-04-08', amount: 35000, type: 'inc' },
-  { id: 14, icon: '⛽', desc: 'BPCL Fuel', cat: 'Transport', cCol: '#9d8bd6', date: '2026-04-07', amount: -2400, type: 'exp' },
-];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const EMPTY_TXNS: SwipeTx[] = [];
 
 interface TxGroup {
   label: string;
@@ -74,7 +62,7 @@ function groupTxByDate(txs: SwipeTx[]): TxGroup[] {
   const groups: Record<string, TxGroup> = {};
   txs.forEach((tx) => {
     const d = new Date(tx.date);
-    const today = new Date('2026-04-25');
+    const today = new Date(new Date().toISOString().slice(0, 10));
     const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
     let label: string;
     if (diff === 0) label = 'Today';
@@ -92,14 +80,22 @@ function fmt(n: number): string {
 
 type FilterValue = 'all' | 'inc' | 'exp';
 
+const PERIODS: { value: TxPeriod; label: string; icon: string }[] = [
+  { value: 'week', label: 'This week', icon: '📅' },
+  { value: 'month', label: 'This month', icon: '🗓' },
+  { value: '3m', label: 'Last 3 months', icon: '📆' },
+  { value: 'all', label: 'All time', icon: '∞' },
+];
+
 export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { nav } = useNav();
+  const { nav, push } = useNav();
   const { toast, sheet } = useFeedback();
   const [filter, setFilter] = useState<FilterValue>('all');
+  const [period, setPeriod] = useState<TxPeriod>('all');
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: txData } = useApiData(() => api.transactions.list(), MT_DATA);
+  const { data: txData } = useApiData(() => api.transactions.list({ period }), EMPTY_TXNS, [period]);
 
   const filtered = txData.filter((tx) => filter === 'all' || tx.type === filter);
   const totalInc = filtered.filter((t2) => t2.type === 'inc').reduce((s, t2) => s + t2.amount, 0);
@@ -113,13 +109,25 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
   const openFilterSheet = () => {
     sheet({
       title: 'Filter by period',
-      options: [
-        { label: 'This week', icon: '📅', onPress: () => toast('Showing this week') },
-        { label: 'This month', icon: '🗓', onPress: () => toast('Showing this month') },
-        { label: 'Last 3 months', icon: '📆', onPress: () => toast('Showing last 3 months') },
-        { label: 'All time', icon: '∞', onPress: () => toast('Showing all time') },
-      ],
+      options: PERIODS.map((p) => ({
+        label: p.label + (p.value === period ? ' · current' : ''),
+        icon: p.icon,
+        onPress: () => setPeriod(p.value),
+      })),
     });
+  };
+
+  const deleteTx = (tx: SwipeTx) => {
+    api.transactions
+      .remove(tx.id)
+      .then(() => toast('Transaction deleted', '🗑'))
+      .catch(() => toast("Couldn't delete — try again", '📡'));
+  };
+
+  const editTx = (tx: SwipeTx) => {
+    // Swipe-right edit lands on the detail screen, which hosts the full
+    // edit form (same one as its ✎ Edit button).
+    push({ kind: 'tx-detail', data: tx });
   };
 
   return (
@@ -150,13 +158,13 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
       >
         {/* Summary row — MobileTxns.jsx:112–121 */}
         <SpringIn style={styles.summaryRow}>
-          <GlassCard style={styles.summaryCard}>
+          <GlassCard style={styles.summaryCard} contentStyle={styles.summaryCardContent}>
             <Text style={[styles.summaryLabel, { color: t.text3 }]}>Income</Text>
             <Text style={[styles.summaryValue, { color: t.em, fontFamily: weight(700) }]}>
               +{fmt(totalInc)}
             </Text>
           </GlassCard>
-          <GlassCard style={styles.summaryCard}>
+          <GlassCard style={styles.summaryCard} contentStyle={styles.summaryCardContent}>
             <Text style={[styles.summaryLabel, { color: t.text3 }]}>Expenses</Text>
             <Text style={[styles.summaryValue, { color: t.red, fontFamily: weight(700) }]}>
               -{fmt(totalExp)}
@@ -190,7 +198,7 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
             </View>
             <ListCard>
               {group.txs.map((tx) => (
-                <SwipeRow key={tx.id} tx={tx} fmt={fmt} />
+                <SwipeRow key={tx.id} tx={tx} fmt={fmt} onDelete={deleteTx} onEdit={editTx} />
               ))}
             </ListCard>
           </SpringIn>
@@ -230,6 +238,10 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
+  },
+  // Padding override (14 vs GlassCard's 18) — contentStyle so it replaces
+  // the overlay's padding instead of stacking on the outer wrapper.
+  summaryCardContent: {
     padding: 14,
   },
   summaryLabel: {

@@ -36,6 +36,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BankLogo } from '../components/BankLogo';
 import { IconButton, SectionHead } from '../components/ui';
 import { MI } from '../components/icons';
 import { SpringIn } from '../components/SpringIn';
@@ -63,14 +64,8 @@ export interface Account {
   change: number;
 }
 
-export const M_ACCOUNTS_FULL: Account[] = [
-  { id: 1, name: 'HDFC Savings', type: 'savings', sub: '•••• 4521', bal: 824500, gradient: ['#2b3f63', '#1b2942'], logo: 'H', bank: 'HDFC Bank', change: 12400 },
-  { id: 2, name: 'ICICI Credit', type: 'credit', sub: '•••• 8807', bal: -12340, gradient: ['#5e3038', '#3a2026'], logo: 'I', bank: 'ICICI Bank', change: -3200 },
-  { id: 3, name: 'Zerodha', type: 'investment', sub: 'Investment', bal: 318000, gradient: ['#2a5446', '#18342b'], logo: 'Z', bank: 'Zerodha', change: 18200 },
-  { id: 4, name: 'Paytm Wallet', type: 'wallet', sub: '+91 ••• 4321', bal: 4520, gradient: ['#235058', '#163138'], logo: 'P', bank: 'Paytm', change: -800 },
-  { id: 5, name: 'Axis Salary', type: 'savings', sub: '•••• 2204', bal: 142000, gradient: ['#3b3563', '#241f40'], logo: 'A', bank: 'Axis Bank', change: 9500 },
-  { id: 6, name: 'SBI Joint', type: 'savings', sub: '•••• 9912', bal: 68000, gradient: ['#4d3d26', '#2f2619'], logo: 'S', bank: 'SBI', change: -1100 },
-];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const EMPTY_ACCOUNTS: Account[] = [];
 
 // Balance formatting (MobileScreens.jsx:401–403): abs >= 100000 -> L (2dp),
 // else grouped (en-IN), with a leading '-' for negative balances.
@@ -83,22 +78,49 @@ function fmtBalance(bal: number): string {
 export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, push } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
 
-  const { data: accounts } = useApiData(() => api.accounts.list(), M_ACCOUNTS_FULL);
+  const { data: accounts } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
 
   const total = accounts.reduce((s, a) => s + a.bal, 0);
   const totalCount = useCountUp(total, 1100);
   const totalAssets = accounts.filter((a) => a.bal > 0).reduce((s, a) => s + a.bal, 0);
   const totalLiab = Math.abs(accounts.filter((a) => a.bal < 0).reduce((s, a) => s + a.bal, 0));
 
+  const addAccount = (type: 'savings' | 'credit' | 'cash', title: string) => {
+    form({
+      title,
+      fields: [
+        { key: 'name', label: 'Account name', placeholder: type === 'credit' ? 'ICICI Credit' : 'HDFC Savings' },
+        { kind: 'bank', key: 'institutionName', label: 'Bank / provider', placeholder: 'Search or type a bank…', optional: true },
+        {
+          kind: 'amount',
+          key: 'balance',
+          label: type === 'credit' ? 'Outstanding (₹)' : 'Current balance (₹)',
+        },
+      ],
+      submitLabel: 'Add account',
+      onSubmit: async (v) => {
+        const balance = Number(v['balance']);
+        await api.accounts.create({
+          name: v['name']!,
+          type,
+          // Credit accounts carry negative balances (amounts owed).
+          balance: type === 'credit' ? -Math.abs(balance) : balance,
+          institutionName: v['institutionName'] || undefined,
+        });
+        toast(`Added ${v['name']}`, '🏦');
+      },
+    });
+  };
+
   const openAddAccountSheet = () => {
     sheet({
       title: 'Add account',
       options: [
-        { label: 'Bank account', icon: '🏦', onPress: () => toast('Account added', '🏦') },
-        { label: 'Credit card', icon: '💳', onPress: () => toast('Card added', '💳') },
-        { label: 'Wallet', icon: '👛', onPress: () => toast('Wallet added', '👛') },
+        { label: 'Bank account', icon: '🏦', onPress: () => addAccount('savings', 'Add bank account') },
+        { label: 'Credit card', icon: '💳', onPress: () => addAccount('credit', 'Add credit card') },
+        { label: 'Wallet', icon: '👛', onPress: () => addAccount('cash', 'Add wallet') },
       ],
     });
   };
@@ -156,20 +178,19 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
                 >
                   <View style={styles.accountGlowBlob} pointerEvents="none" />
                   <View style={styles.accountRow}>
-                    <View style={styles.accountLogoBox}>
-                      <Text style={styles.accountLogoText}>{a.logo}</Text>
-                    </View>
+                    <BankLogo name={a.bank} size={42} radius={12} fallbackText={a.logo} />
                     <View style={styles.accountTextBlock}>
                       <Text style={styles.accountName}>{a.name}</Text>
-                      <Text style={styles.accountSub}>
-                        {a.sub} · {a.type}
-                      </Text>
+                      <Text style={styles.accountSub}>{a.sub}</Text>
                     </View>
                     <View style={styles.accountRight}>
                       <Text style={styles.accountBal}>{fmtBalance(a.bal)}</Text>
-                      <Text style={styles.accountChange}>
-                        {a.change > 0 ? '↑ +' : '↓ '}₹{Math.abs(a.change).toLocaleString('en-IN')}
-                      </Text>
+                      {a.change !== 0 ? (
+                        <Text style={styles.accountChange}>
+                          {a.change > 0 ? '↑ +' : '↓ '}₹{Math.abs(a.change).toLocaleString('en-IN')}
+                          <Text style={styles.accountChangeSub}> · 30d</Text>
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 </LinearGradient>
@@ -257,20 +278,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  accountLogoBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountLogoText: {
-    fontFamily: weight(700),
-    fontWeight: '700',
-    fontSize: 17,
-    color: '#fff',
-  },
   accountTextBlock: {
     flex: 1,
     minWidth: 0,
@@ -304,5 +311,9 @@ const styles = StyleSheet.create({
     fontFamily: weight(600),
     fontWeight: '600',
     color: '#fff',
+  },
+  accountChangeSub: {
+    fontWeight: '500',
+    opacity: 0.8,
   },
 });

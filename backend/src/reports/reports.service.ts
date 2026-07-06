@@ -3,8 +3,112 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
 import { Account } from '../accounts/account.entity';
+import { TransactionCategory } from '../categories/category.entity';
 import { TransactionType } from '../common/enums';
 import { PeriodKey } from './dto/period.dto';
+
+/**
+ * Start date for a period, N months/years before `now`.
+ *
+ * Uses day-1 pivoting so month subtraction never overflows: naive
+ * `setMonth(getMonth() - 1)` on e.g. Mar 31 rolls forward to early March
+ * (Feb has no 31st). We pivot to the 1st, shift the month/year, then clamp
+ * the day to that month's length.
+ */
+export function periodStartDate(period: PeriodKey, now: Date = new Date()): Date {
+  const start = new Date(now);
+  const day = start.getDate();
+  start.setDate(1); // pivot to avoid month-length overflow
+  switch (period) {
+    case '1m':
+      start.setMonth(start.getMonth() - 1);
+      break;
+    case '3m':
+      start.setMonth(start.getMonth() - 3);
+      break;
+    case '6m':
+      start.setMonth(start.getMonth() - 6);
+      break;
+    case '1y':
+      start.setFullYear(start.getFullYear() - 1);
+      break;
+  }
+  const lastDayOfMonth = new Date(
+    start.getFullYear(),
+    start.getMonth() + 1,
+    0,
+  ).getDate();
+  start.setDate(Math.min(day, lastDayOfMonth));
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+export interface CategorySlice {
+  categoryId: string;
+  name: string;
+  color: string | null;
+  value: number;
+  sharePct: number;
+}
+
+export interface CategoryActivity {
+  categoryId: string;
+  count: number;
+  total: number;
+  incomeTotal: number;
+  expenseTotal: number;
+}
+
+/**
+ * Roll per-category expense totals up to their top-level parent so the
+ * spending breakdown shows one slice per top-level category (subcategory
+ * spend is folded into its ancestor rather than shown as a separate slice).
+ */
+export function rollUpCategorySpend(
+  rows: Array<{ categoryId: string; total: number }>,
+  categories: Array<{
+    id: string;
+    parentId: string | null;
+    name: string;
+    color: string | null;
+  }>,
+): CategorySlice[] {
+  const byId = new Map(categories.map((c) => [c.id, c]));
+
+  const topLevelId = (id: string): string => {
+    let cur = byId.get(id);
+    const seen = new Set<string>();
+    while (cur && cur.parentId && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      cur = byId.get(cur.parentId);
+    }
+    return cur ? cur.id : id;
+  };
+
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    const top = topLevelId(row.categoryId);
+    totals.set(top, (totals.get(top) ?? 0) + row.total);
+  }
+
+  const grandTotal = Array.from(totals.values()).reduce((s, v) => s + v, 0);
+
+  return Array.from(totals.entries())
+    .map(([id, value]) => {
+      const cat = byId.get(id);
+      return {
+        categoryId: id,
+        name: cat?.name ?? '',
+        color: cat?.color ?? null,
+        value,
+        sharePct:
+          grandTotal > 0
+            ? Math.round((value / grandTotal) * 10000) / 100
+            : 0,
+      };
+    })
+    .sort((a, b) => b.value - a.value);
+}
 
 @Injectable()
 export class ReportsService {
@@ -14,6 +118,9 @@ export class ReportsService {
 
     @InjectRepository(Account)
     private readonly accountRepo: Repository<Account>,
+
+    @InjectRepository(TransactionCategory)
+    private readonly categoryRepo: Repository<TransactionCategory>,
   ) {}
 
   /**
@@ -21,24 +128,7 @@ export class ReportsService {
    * Since seed data is April 2026 and today is mid-2026, a 1y window covers it.
    */
   private getStartDate(period: PeriodKey): Date {
-    const now = new Date();
-    const start = new Date(now);
-    switch (period) {
-      case '1m':
-        start.setMonth(start.getMonth() - 1);
-        break;
-      case '3m':
-        start.setMonth(start.getMonth() - 3);
-        break;
-      case '6m':
-        start.setMonth(start.getMonth() - 6);
-        break;
-      case '1y':
-        start.setFullYear(start.getFullYear() - 1);
-        break;
-    }
-    start.setHours(0, 0, 0, 0);
-    return start;
+    return periodStartDate(period);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -134,57 +224,86 @@ export class ReportsService {
   async getCategories(
     userId: string,
     period: PeriodKey,
-  ): Promise<
-    Array<{
-      categoryId: string;
-      name: string;
-      color: string | null;
-      value: number;
-      sharePct: number;
-    }>
-  > {
+  ): Promise<CategorySlice[]> {
     const startDate = this.getStartDate(period);
 
-    const rows = await this.txRepo
+    const rawRows = await this.txRepo
       .createQueryBuilder('tx')
-      .innerJoin('tx.category', 'cat')
       .select('tx.categoryId', 'categoryId')
-      .addSelect('cat.name', 'name')
-      .addSelect('cat.color', 'color')
       .addSelect('SUM(tx.amount)', 'total')
       .where('tx.userId = :userId', { userId })
       .andWhere('tx.date >= :startDate', { startDate })
       .andWhere('tx.type = :type', { type: TransactionType.EXPENSE })
       .groupBy('tx.categoryId')
-      .addGroupBy('cat.name')
-      .addGroupBy('cat.color')
-      .orderBy('SUM(tx.amount)', 'DESC')
+      .getRawMany<{ categoryId: string; total: string }>();
+
+    const rows = rawRows.map((r) => ({
+      categoryId: r.categoryId,
+      total: parseFloat(r.total) || 0,
+    }));
+
+    // Roll subcategory spend up to its top-level parent for the breakdown.
+    const categories = await this.categoryRepo.find({
+      where: { userId },
+      select: ['id', 'parentId', 'name', 'color'],
+    });
+
+    return rollUpCategorySpend(rows, categories);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Category activity (all-time count + total per category)
+  //
+  // Powers the Categories screen, which lists every category with its
+  // transaction count and total throughput. Unlike getCategories (expenses,
+  // period-scoped, rolled up to parents), this is all-time and keeps income
+  // and expense totals separate so a category can be classified by its
+  // dominant transaction type instead of a colour heuristic.
+  // ────────────────────────────────────────────────────────────────────────────
+
+  async getCategoryActivity(userId: string): Promise<CategoryActivity[]> {
+    const rows = await this.txRepo
+      .createQueryBuilder('tx')
+      .select('tx.categoryId', 'categoryId')
+      .addSelect('tx.type', 'type')
+      .addSelect('SUM(tx.amount)', 'total')
+      .addSelect('COUNT(*)', 'count')
+      .where('tx.userId = :userId', { userId })
+      .andWhere('tx.type IN (:...types)', {
+        types: [TransactionType.INCOME, TransactionType.EXPENSE],
+      })
+      .groupBy('tx.categoryId')
+      .addGroupBy('tx.type')
       .getRawMany<{
         categoryId: string;
-        name: string;
-        color: string | null;
+        type: string;
         total: string;
+        count: string;
       }>();
 
-    const totalExpenses = rows.reduce(
-      (sum, r) => sum + (parseFloat(r.total) || 0),
-      0,
-    );
+    const byCategory = new Map<string, CategoryActivity>();
+    for (const row of rows) {
+      if (!row.categoryId) continue;
+      let entry = byCategory.get(row.categoryId);
+      if (!entry) {
+        entry = {
+          categoryId: row.categoryId,
+          count: 0,
+          total: 0,
+          incomeTotal: 0,
+          expenseTotal: 0,
+        };
+        byCategory.set(row.categoryId, entry);
+      }
+      const val = parseFloat(row.total) || 0;
+      const count = parseInt(row.count, 10) || 0;
+      entry.count += count;
+      entry.total += val;
+      if (row.type === TransactionType.INCOME) entry.incomeTotal += val;
+      else entry.expenseTotal += val;
+    }
 
-    return rows.map((r) => {
-      const value = parseFloat(r.total) || 0;
-      const sharePct =
-        totalExpenses > 0
-          ? Math.round((value / totalExpenses) * 10000) / 100
-          : 0;
-      return {
-        categoryId: r.categoryId,
-        name: r.name,
-        color: r.color,
-        value,
-        sharePct,
-      };
-    });
+    return Array.from(byCategory.values());
   }
 
   // ────────────────────────────────────────────────────────────────────────────

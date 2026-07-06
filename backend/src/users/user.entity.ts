@@ -24,6 +24,13 @@ export class User {
   @Column({ type: 'boolean', default: true })
   isFirstLogin: boolean;
 
+  // Password-reset flow: only a SHA-256 hash of the emailed token is stored.
+  @Column({ type: 'varchar', length: 128, nullable: true, select: false })
+  resetTokenHash: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  resetTokenExpiresAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

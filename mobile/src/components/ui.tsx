@@ -26,6 +26,8 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassView } from './Glass';
 import { useTheme } from '../theme/ThemeProvider';
@@ -45,6 +47,9 @@ export interface TopbarProps {
 
 export function Topbar({ title, left, right, scrolled = false }: TopbarProps) {
   const { t, mode } = useTheme();
+  // The web prototype rendered inside an iOS frame mock that owned the
+  // status bar; on device the bar must clear the real status bar/notch.
+  const insets = useSafeAreaInsets();
 
   const content = (
     <View style={styles.topbarRow}>
@@ -61,18 +66,33 @@ export function Topbar({ title, left, right, scrolled = false }: TopbarProps) {
   );
 
   if (!scrolled) {
-    return <View style={styles.topbar}>{content}</View>;
+    return <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>{content}</View>;
   }
 
+  // `.m-topbar.scrolled` (mobile.css:198–203) is NOT the glass-card recipe:
+  // it wants only a bottom hairline and its own darker tint — GlassView's
+  // 4-side border + top highlight read as a boxed band here. Compose the
+  // blur + tint directly instead.
   return (
-    <GlassView
-      style={[styles.topbar, styles.topbarScrolled, { borderBottomColor: t.topbarScrolledBorder }]}
-      intensity={mode === 'light' ? 40 : 30}
-      radius={0}
-      padding={0}
+    <View
+      style={[
+        styles.topbar,
+        styles.topbarScrolled,
+        { paddingTop: insets.top + 14, borderBottomColor: t.topbarScrolledBorder },
+      ]}
     >
+      <BlurView
+        intensity={mode === 'light' ? 40 : 30}
+        tint={mode === 'light' ? 'light' : 'dark'}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View
+        style={[StyleSheet.absoluteFill, { backgroundColor: t.topbarScrolledBg }]}
+        pointerEvents="none"
+      />
       {content}
-    </GlassView>
+    </View>
   );
 }
 
@@ -97,10 +117,14 @@ export function IconButton({ children, onPress, dot = false, size = 40 }: IconBu
     <Pressable onPress={onPress} style={[styles.iconBtnWrap, { width: size, height: size }]}>
       {({ pressed }) => (
         <GlassView
-          style={[
-            styles.iconBtn,
-            { width: size, height: size, transform: [{ scale: pressed ? 0.92 : 1 }] },
-          ]}
+          // No alignItems/justifyContent here: on the wrapper they'd shrink
+          // the tinted overlay to the icon's width (a vertical "pill" of
+          // glass tint). `iconBtnInner` centers the icon instead.
+          style={{ width: size, height: size, transform: [{ scale: pressed ? 0.92 : 1 }] }}
+          // Overlay doesn't flex-fill by default (see Glass.tsx); the wrapper
+          // is fixed-size here, so flex-fill the content box it leaves inside
+          // its 1px border (a fixed size x size would overflow it by 2px).
+          contentStyle={{ flex: 1 }}
           intensity={mode === 'light' ? 40 : 30}
           radius={ICONBTN_RADIUS}
           padding={0}
@@ -415,10 +439,6 @@ const styles = StyleSheet.create({
   // IconButton
   iconBtnWrap: {
     flexShrink: 0,
-  },
-  iconBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   iconBtnInner: {
     width: '100%',

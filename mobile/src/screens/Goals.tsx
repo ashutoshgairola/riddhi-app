@@ -35,13 +35,13 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
-import { GlassCard } from '../components/Glass';
+import { GlassView } from '../components/Glass';
 import { IconButton, ProgressBar, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { radius, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import type { ScreenEntry } from '../app/navContext';
 import { api } from '../api';
@@ -57,12 +57,8 @@ interface Goal {
   date: string;
 }
 
-const MG_GOALS: Goal[] = [
-  { name: 'Emergency Fund', emoji: '🐖', color: '#7faf93', current: 185000, target: 300000, date: 'Dec 2026' },
-  { name: 'Goa Trip', emoji: '✈️', color: '#6fb3ad', current: 32000, target: 50000, date: 'Jun 2026' },
-  { name: 'MacBook Pro', emoji: '💻', color: '#9d8bd6', current: 68000, target: 200000, date: 'Mar 2027' },
-  { name: 'House Down Pay', emoji: '🏡', color: '#c9a86a', current: 120000, target: 1500000, date: 'Dec 2028' },
-];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const EMPTY_GOALS: Goal[] = [];
 
 // Current/target formatting (MobileSecondary.jsx:146–151) — note the
 // differing decimal precision between current (2dp) and target (1dp).
@@ -76,21 +72,54 @@ function fmtTarget(n: number): string {
 
 export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: goals } = useApiData(() => api.goals.list(), MG_GOALS);
+  const { data: goals } = useApiData(() => api.goals.list(), EMPTY_GOALS);
+
+  const totalSaved = goals.reduce((s, g) => s + g.current, 0);
+  const subtitle = `${goals.length} active goal${goals.length === 1 ? '' : 's'} · ₹${fmtCurrent(totalSaved)} saved`;
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
+  };
+
+  const newGoal = (type: 'savings' | 'debt') => {
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    form({
+      title: type === 'debt' ? 'New debt payoff goal' : 'New savings goal',
+      fields: [
+        { key: 'name', label: 'Goal name', placeholder: type === 'debt' ? 'Credit card payoff' : 'Emergency fund' },
+        { kind: 'amount', key: 'target', label: 'Target amount (₹)' },
+        { kind: 'amount', key: 'current', label: 'Saved so far (₹)', optional: true },
+        {
+          kind: 'date',
+          key: 'targetDate',
+          label: 'Target date',
+          initial: nextYear.toISOString().slice(0, 10),
+        },
+      ],
+      submitLabel: 'Create goal',
+      onSubmit: async (v) => {
+        await api.goals.create({
+          name: v['name']!,
+          type,
+          target: Number(v['target']),
+          current: v['current'] ? Number(v['current']) : 0,
+          targetDate: v['targetDate']!,
+        });
+        toast(`Goal created: ${v['name']}`, '🎯');
+      },
+    });
   };
 
   const openNewGoalSheet = () => {
     sheet({
       title: 'New goal',
       options: [
-        { label: 'Savings goal', icon: '🎯', onPress: () => toast('Goal created', '🎯') },
-        { label: 'Debt payoff', icon: '💳', onPress: () => toast('Goal created', '🎯') },
+        { label: 'Savings goal', icon: '🎯', onPress: () => newGoal('savings') },
+        { label: 'Debt payoff', icon: '💳', onPress: () => newGoal('debt') },
       ],
     });
   };
@@ -117,7 +146,7 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
         showsVerticalScrollIndicator={false}
       >
         <SpringIn>
-          <Text style={[styles.subtitle, { color: t.text2 }]}>4 active goals · ₹4.05L saved</Text>
+          <Text style={[styles.subtitle, { color: t.text2 }]}>{subtitle}</Text>
         </SpringIn>
 
         <View style={styles.goalList}>
@@ -126,8 +155,14 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
             return (
               // animationDelay: `${0.05 + i*0.05}s` (MobileSecondary.jsx:130)
               <SpringIn key={g.name} delay={50 + i * 50}>
-                <GlassCard style={styles.goalCard}>
+                {/* GlassView (not GlassCard) so the accent bar can sit flush
+                    at the card's top edge: Yoga offsets absolutely-positioned
+                    children by the parent's padding, so inside GlassCard's
+                    18px-padded overlay the bar would float 18px down/in. The
+                    18px card padding moves to an inner wrapper instead. */}
+                <GlassView style={styles.goalCard} intensity={40} radius={radius.xl} padding={0}>
                   <View style={[styles.accentBar, { backgroundColor: g.color }]} />
+                  <View style={styles.goalCardBody}>
                   <View style={styles.goalHeaderRow}>
                     <View style={[styles.goalIconBox, { backgroundColor: g.color + '22' }]}>
                       <Text style={styles.goalIconGlyph}>{g.emoji}</Text>
@@ -151,7 +186,8 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
                       of ₹{fmtTarget(g.target)}
                     </Text>
                   </View>
-                </GlassCard>
+                  </View>
+                </GlassView>
               </SpringIn>
             );
           })}
@@ -183,9 +219,13 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   goalCard: {
-    padding: 18,
     position: 'relative',
     overflow: 'hidden',
+  },
+  // `.m-card`'s 18px padding, on an inner wrapper so `accentBar` (an
+  // absolute sibling) stays flush with the card edge.
+  goalCardBody: {
+    padding: 18,
   },
   accentBar: {
     position: 'absolute',

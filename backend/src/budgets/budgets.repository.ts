@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Budget } from './budget.entity';
 import { Transaction } from '../transactions/transaction.entity';
+import { TransactionCategory } from '../categories/category.entity';
 import { TransactionType } from '../common/enums';
 
 @Injectable()
@@ -12,7 +13,22 @@ export class BudgetsRepository {
     private readonly budgetRepo: Repository<Budget>,
     @InjectRepository(Transaction)
     private readonly txRepo: Repository<Transaction>,
+    @InjectRepository(TransactionCategory)
+    private readonly categoryRepo: Repository<TransactionCategory>,
   ) {}
+
+  /**
+   * Flat list of the user's categories with their parent link — used to roll
+   * child-category spend up under a parent-linked budget category.
+   */
+  fetchUserCategories(
+    userId: string,
+  ): Promise<Array<{ id: string; parentId: string | null }>> {
+    return this.categoryRepo.find({
+      where: { userId },
+      select: ['id', 'parentId'],
+    });
+  }
 
   findAllByUser(userId: string): Promise<Budget[]> {
     return this.budgetRepo.find({

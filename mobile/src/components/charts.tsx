@@ -190,7 +190,10 @@ export function WeekChart({ data, peakIdx }: WeekChartProps) {
     pad = 16;
 
   const { line, area, px, py, xs, len } = useMemo(() => {
-    const max = Math.max(...data.map((d) => d.v));
+    // `|| 1` guards the all-zero week (empty-state fallback): max would be 0
+    // and 0/0 = NaN, which crashes RNSVGPathParser natively (InvalidNumber).
+    // Same idiom as MSparkline's `rng` above.
+    const max = Math.max(...data.map((d) => d.v)) || 1;
     const xsLocal = data.map((_, i) => pad + (i / (data.length - 1)) * (W - pad * 2));
     const ysLocal = data.map((d) => H - 26 - (d.v / max) * (H - 50));
     const pts: [number, number][] = xsLocal.map((x, i) => [x, ysLocal[i]]);

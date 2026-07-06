@@ -61,6 +61,14 @@ export class Transaction {
   @JoinColumn({ name: 'accountId' })
   account: Account | null;
 
+  /** Destination account for a `transfer`: credited when the source is debited. */
+  @Column({ type: 'uuid', nullable: true })
+  destinationAccountId: string | null;
+
+  @ManyToOne(() => Account, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'destinationAccountId' })
+  destinationAccount: Account | null;
+
   @Column({
     type: 'enum',
     enum: TransactionStatus,

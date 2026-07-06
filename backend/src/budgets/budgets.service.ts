@@ -104,10 +104,41 @@ export class BudgetsService {
   async computeBudget(budget: Budget, userId: string): Promise<ComputedBudget> {
     const categories = budget.categories ?? [];
 
-    // Collect the union of all categoryIds across all budget categories.
+    // Map each category to its direct children so spend booked on a
+    // subcategory rolls up under a budget category that links only the parent.
+    const userCategories =
+      await this.budgetsRepository.fetchUserCategories(userId);
+    const childrenByParent = new Map<string, string[]>();
+    for (const c of userCategories) {
+      if (c.parentId) {
+        const siblings = childrenByParent.get(c.parentId) ?? [];
+        siblings.push(c.id);
+        childrenByParent.set(c.parentId, siblings);
+      }
+    }
+
+    // Expand a set of linked ids to include all descendant category ids.
+    const expandIds = (ids: string[]): string[] => {
+      const out = new Set<string>();
+      const stack = [...ids];
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (out.has(id)) continue;
+        out.add(id);
+        for (const child of childrenByParent.get(id) ?? []) stack.push(child);
+      }
+      return Array.from(out);
+    };
+
+    // Per budget category: the linked ids plus their descendants.
     // Filter empty strings: simple-array round-trips [] as [''] from the DB.
+    const expandedByCategory = categories.map((c) =>
+      expandIds((c.categoryIds ?? []).filter(Boolean)),
+    );
+
+    // Collect the union of expanded ids across all budget categories.
     const allCategoryIds = Array.from(
-      new Set(categories.flatMap((c) => (c.categoryIds ?? []).filter(Boolean))),
+      new Set(expandedByCategory.flat()),
     );
 
     // One query to get all relevant expenses
@@ -118,11 +149,12 @@ export class BudgetsService {
       allCategoryIds,
     );
 
-    // Sum per budget category; filter empty strings for the same reason.
+    // Sum per budget category over its expanded id set. Keep the originally
+    // linked ids (not the expanded set) on the returned category.
     const categoriesWithSpent: BudgetCategoryWithSpent[] = categories.map(
-      (cat) => {
+      (cat, i) => {
         const cleanIds = (cat.categoryIds ?? []).filter(Boolean);
-        const spent = cleanIds.reduce(
+        const spent = expandedByCategory[i].reduce(
           (sum, cid) => sum + (spentMap.get(cid) ?? 0),
           0,
         );

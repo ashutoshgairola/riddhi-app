@@ -55,32 +55,18 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
-import { api } from '../api';
+import { api, type TxPeriod } from '../api';
+import { shareTxCsv } from '../lib/exportCsv';
 import { useApiData } from '../api/useApi';
-import type { ReportOverviewView } from '../api/types';
-
-// ── Data (MobileScreens.jsx:26–29) ───────────────────────────────────
-const REP_OVERVIEW = [82, 85, 84, 88, 91, 89, 93, 98, 95, 102, 108, 112];
-const REP_INC = [110, 108, 115, 118, 116, 122, 118, 118];
-const REP_EXP = [86, 91, 88, 95, 91, 102, 98, 91];
-const REP_LABELS = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
-
-// ── catData (MobileScreens.jsx:83–90) ────────────────────────────────
-interface CatDatum {
-  label: string;
-  value: number;
-  color: string;
-}
-
-const CAT_DATA: CatDatum[] = [
-  { label: 'Housing', value: 28000, color: '#8197c4' },
-  { label: 'Food', value: 13200, color: '#c9a86a' },
-  { label: 'Shopping', value: 10820, color: '#c97d8c' },
-  { label: 'Transport', value: 7400, color: '#9d8bd6' },
-  { label: 'Entertainment', value: 2498, color: '#6fb3ad' },
-  { label: 'Healthcare', value: 820, color: '#ef4444' },
-];
-const TOTAL_CAT = CAT_DATA.reduce((s, d) => s + d.value, 0);
+import type {
+  AccountView,
+  CategorySliceView,
+  GoalView,
+  IncomeExpenseSeriesView,
+  NetWorthTrendView,
+  ReportOverviewView,
+  TxView,
+} from '../api/types';
 
 // ── Tabs (MobileScreens.jsx:93–99) ───────────────────────────────────
 type TabId = 'overview' | 'income' | 'expense' | 'savings' | 'wealth';
@@ -95,42 +81,34 @@ const TABS: { id: TabId; label: string }[] = [
 
 type PeriodValue = '1m' | '3m' | '6m' | '1y' | 'all';
 
-// Income "By Source" (MobileScreens.jsx:226–230)
-const INCOME_SOURCES = [
-  { src: 'Salary', amt: 590000, pct: 85, c: '#7faf93' },
-  { src: 'Freelance', amt: 75000, pct: 11, c: '#8197c4' },
-  { src: 'Investments', amt: 18500, pct: 3, c: '#c9a86a' },
-  { src: 'Other', amt: 8500, pct: 1, c: '#9d8bd6' },
-];
-
-// Savings "Goal Progress" (MobileScreens.jsx:286–291)
-const SAVINGS_GOALS = [
-  { n: 'Emergency Fund', pct: 62, c: '#7faf93' },
-  { n: 'Goa Trip', pct: 64, c: '#6fb3ad' },
-  { n: 'MacBook Pro', pct: 34, c: '#9d8bd6' },
-  { n: 'House Down Pay', pct: 8, c: '#c9a86a' },
-];
-
-// Savings sparkline (MobileScreens.jsx:281)
-const SAVINGS_RATE_SPARK = [18, 21, 19, 24, 22, 25, 23];
-
-// Wealth "Asset Allocation" (MobileScreens.jsx:316–320)
-const ASSET_ALLOCATION = [
-  { n: 'Cash & Bank', v: '₹8.3L', pct: 62, c: '#8197c4' },
-  { n: 'Equities', v: '₹3.2L', pct: 24, c: '#7faf93' },
-  { n: 'Mutual Funds', v: '₹1.4L', pct: 10, c: '#9d8bd6' },
-  { n: 'Gold', v: '₹0.5L', pct: 4, c: '#c9a86a' },
-];
-
-// Overview KPI strip (MobileScreens.jsx:137–156) — matches the hardcoded
-// display values (₹27K / 23% / ₹1.18L / ₹91K) verbatim as the api.reports
-// fallback so mock-mode rendering is unchanged.
-const REP_KPI_FALLBACK: ReportOverviewView = {
-  netIncome: 27000,
-  savingsRate: 23,
-  totalIncome: 118000,
-  totalExpenses: 91000,
+// Empty-but-renderable fallbacks while the api loads (or is unreachable).
+const EMPTY_OVERVIEW: ReportOverviewView = {
+  netIncome: 0,
+  savingsRate: 0,
+  totalIncome: 0,
+  totalExpenses: 0,
 };
+const EMPTY_SERIES: IncomeExpenseSeriesView = { labels: [], income: [], expense: [] };
+const EMPTY_SLICES: CategorySliceView[] = [];
+const EMPTY_TREND: NetWorthTrendView = { points: [], current: 0, deltaPct: 0 };
+
+/** Reports periods map onto the transactions period filter for By Source. */
+function txPeriodFor(period: PeriodValue): TxPeriod {
+  return period === '1m' ? 'month' : period === '3m' ? '3m' : 'all';
+}
+
+/** % change first → last of a series, for the derived delta chips. */
+function seriesDeltaPct(values: number[]): number | null {
+  const first = values.find((v) => v !== 0);
+  const last = values[values.length - 1];
+  if (first === undefined || last === undefined || first === 0) return null;
+  return ((last - first) / Math.abs(first)) * 100;
+}
+
+/** Sparkline data needs ≥2 points to draw a path. */
+function sparkable(values: number[]): number[] {
+  return values.length >= 2 ? values : [0, 0];
+}
 
 function fmtKpi(n: number): string {
   return n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : `₹${Math.round(n / 1000)}K`;
@@ -144,7 +122,63 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const [scrolled, setScrolled] = useState(false);
   const [period, setPeriod] = useState<PeriodValue>('6m');
 
-  const { data: overview } = useApiData(() => api.reports.overview(period), REP_KPI_FALLBACK);
+  const { data: overview } = useApiData(() => api.reports.overview(period), EMPTY_OVERVIEW, [period]);
+  const { data: series } = useApiData(() => api.reports.incomeVsExpense(period), EMPTY_SERIES, [period]);
+  const { data: catData } = useApiData(() => api.reports.categories(period), EMPTY_SLICES, [period]);
+  const { data: nwTrend } = useApiData(() => api.reports.netWorthTrend(period), EMPTY_TREND, [period]);
+  const { data: goals } = useApiData(() => api.goals.list(), [] as GoalView[]);
+  const { data: accounts } = useApiData(() => api.accounts.list(), [] as AccountView[]);
+  const { data: incomeTxs } = useApiData(
+    () => api.transactions.list({ filter: 'inc', period: txPeriodFor(period) }),
+    [] as TxView[],
+    [period],
+  );
+
+  const totalCat = catData.reduce((s, d) => s + d.value, 0);
+
+  // Income "By Source" — income transactions grouped by category.
+  const incomeTotal = incomeTxs.reduce((s, tx) => s + tx.amount, 0);
+  const incomeSources = [...incomeTxs.reduce((m, tx) => {
+    const cur = m.get(tx.cat) ?? { src: tx.cat, amt: 0, c: tx.cCol };
+    cur.amt += tx.amount;
+    return m.set(tx.cat, cur);
+  }, new Map<string, { src: string; amt: number; c: string }>()).values()]
+    .sort((a, b) => b.amt - a.amt)
+    .map((s) => ({ ...s, pct: incomeTotal > 0 ? Math.round((s.amt / incomeTotal) * 100) : 0 }));
+
+  // Per-month savings rate for the Savings tab sparkline.
+  const savingsSpark = series.income.map((inc, i) =>
+    inc > 0 ? Math.round(((inc - (series.expense[i] ?? 0)) / inc) * 100) : 0,
+  );
+  const totalSaved = series.income.reduce((s, v, i) => s + v - (series.expense[i] ?? 0), 0);
+
+  // Wealth: asset allocation grouped from accounts (liabilities excluded).
+  const assets = accounts.filter((a) => a.bal > 0);
+  const assetTotal = assets.reduce((s, a) => s + a.bal, 0);
+  const allocationGroups: { n: string; match: (type: string) => boolean; c: string }[] = [
+    { n: 'Cash & Bank', match: (ty) => ['savings', 'checking', 'cash', 'wallet'].includes(ty), c: '#8197c4' },
+    { n: 'Investments', match: (ty) => ty === 'investment', c: '#7faf93' },
+    { n: 'Other', match: (ty) => !['savings', 'checking', 'cash', 'wallet', 'investment'].includes(ty), c: '#c9a86a' },
+  ];
+  const allocation = allocationGroups
+    .map((g) => {
+      const v = assets.filter((a) => g.match(a.type)).reduce((s, a) => s + a.bal, 0);
+      return {
+        n: g.n,
+        v: v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : `₹${Math.round(v / 1000)}K`,
+        pct: assetTotal > 0 ? Math.round((v / assetTotal) * 100) : 0,
+        c: g.c,
+        raw: v,
+      };
+    })
+    .filter((g) => g.raw > 0);
+
+  const incomeDelta = seriesDeltaPct(series.income);
+  const expenseDelta = seriesDeltaPct(series.expense);
+  const netWorthDisplay =
+    nwTrend.current >= 100000
+      ? `₹${(nwTrend.current / 100000).toFixed(1)}L`
+      : `₹${Math.round(nwTrend.current / 1000)}K`;
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
@@ -154,10 +188,18 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
     sheet({
       title: 'Report period',
       options: [
-        { label: 'This week', icon: '📅', onPress: () => toast('This week') },
-        { label: 'This month', icon: '🗓', onPress: () => toast('This month') },
-        { label: 'This year', icon: '📆', onPress: () => toast('This year') },
-        { label: 'Export report', icon: '📤', onPress: () => toast('Report exported', '📤') },
+        { label: 'This month', icon: '🗓', onPress: () => setPeriod('1m') },
+        { label: 'Last 3 months', icon: '📆', onPress: () => setPeriod('3m') },
+        { label: 'This year', icon: '📅', onPress: () => setPeriod('1y') },
+        {
+          label: 'Export report',
+          icon: '📤',
+          onPress: () => {
+            shareTxCsv('all')
+              .then(() => toast('Report exported', '📤'))
+              .catch(() => toast("Couldn't export report", '📡'));
+          },
+        },
       ],
     });
   };
@@ -223,14 +265,12 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
                   {fmtKpi(overview.netIncome)}
                 </Text>
-                <Text style={[styles.kpiDelta, { color: t.em }]}>↑ 12.4%</Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Savings Rate</Text>
                 <Text style={[styles.kpiValue, { color: t.text1, fontFamily: weight(700) }]}>
                   {Math.round(overview.savingsRate)}%
                 </Text>
-                <Text style={[styles.kpiDelta, { color: t.em }]}>↑ 2pp</Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Income</Text>
@@ -255,7 +295,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                       Income vs Expenses
                     </Text>
                     <Text style={[styles.cardSubtitle, { color: t.text1, fontFamily: weight(700) }]}>
-                      Last 8 months
+                      Last {series.labels.length || '—'} months
                     </Text>
                   </View>
                   <View style={styles.legendRow}>
@@ -269,7 +309,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                     </View>
                   </View>
                 </View>
-                <MGroupedBars inc={REP_INC} exp={REP_EXP} labels={REP_LABELS} />
+                <MGroupedBars inc={series.income} exp={series.expense} labels={series.labels} />
               </GlassCard>
             </SpringIn>
 
@@ -279,10 +319,10 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
                   Spending by Category
                 </Text>
-                <MDonut data={CAT_DATA} total={TOTAL_CAT} />
+                <MDonut data={catData} total={totalCat} />
                 <View style={styles.donutLegend}>
-                  {CAT_DATA.map((d) => {
-                    const pct = Math.round((d.value / TOTAL_CAT) * 100);
+                  {catData.map((d) => {
+                    const pct = d.pct;
                     return (
                       <View key={d.label} style={styles.donutLegendRow}>
                         <View style={[styles.legendDot10, { backgroundColor: d.color }]} />
@@ -306,14 +346,18 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                     <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
                       Net Worth Trend
                     </Text>
-                    <Text style={[styles.netWorthValue, { color: t.text1, fontFamily: weight(700) }]}>₹13.4L</Text>
+                    <Text style={[styles.netWorthValue, { color: t.text1, fontFamily: weight(700) }]}>
+                      {netWorthDisplay}
+                    </Text>
                   </View>
                   <View style={[styles.deltaBadge, { backgroundColor: t.emDim }]}>
-                    <Text style={[styles.deltaBadgeText, { color: t.em, fontFamily: weight(600) }]}>↑ 18.2%</Text>
+                    <Text style={[styles.deltaBadgeText, { color: nwTrend.deltaPct >= 0 ? t.em : t.red, fontFamily: weight(600) }]}>
+                      {nwTrend.deltaPct >= 0 ? '↑' : '↓'} {Math.abs(nwTrend.deltaPct).toFixed(1)}%
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.sparklineBleed}>
-                  <MSparkline data={REP_OVERVIEW} color="#7faf93" height={68} />
+                  <MSparkline data={sparkable(nwTrend.points)} color="#7faf93" height={68} />
                 </View>
               </GlassCard>
             </SpringIn>
@@ -324,12 +368,18 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
           <>
             <GlassCard style={styles.sectionCard}>
               <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
-                Total Income · 6 months
+                Total Income
               </Text>
-              <Text style={[styles.totalValue, { color: t.em, fontFamily: weight(700) }]}>₹6.92L</Text>
-              <Text style={[styles.totalDelta, { color: t.em }]}>↑ 8.4% vs prior period</Text>
+              <Text style={[styles.totalValue, { color: t.em, fontFamily: weight(700) }]}>
+                {fmtKpi(overview.totalIncome)}
+              </Text>
+              {incomeDelta !== null && (
+                <Text style={[styles.totalDelta, { color: incomeDelta >= 0 ? t.em : t.red }]}>
+                  {incomeDelta >= 0 ? '↑' : '↓'} {Math.abs(incomeDelta).toFixed(1)}% over the period
+                </Text>
+              )}
               <View style={styles.sparklineBleedTop}>
-                <MSparkline data={REP_INC} color="#7faf93" height={64} />
+                <MSparkline data={sparkable(series.income)} color="#7faf93" height={64} />
               </View>
             </GlassCard>
 
@@ -337,8 +387,8 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 (MobileScreens.jsx:224–245) — intentionally not wrapped. */}
             <SectionHead title="By Source" />
             <ListCard>
-              {INCOME_SOURCES.map((d, i) => (
-                <ListRow key={d.src} last={i === INCOME_SOURCES.length - 1}>
+              {incomeSources.map((d, i) => (
+                <ListRow key={d.src} last={i === incomeSources.length - 1}>
                   <View style={styles.sourceLeft}>
                     <Text style={[styles.sourceName, { color: t.text1, fontFamily: weight(600) }]}>{d.src}</Text>
                     <View style={styles.sourceBarWrap}>
@@ -361,10 +411,16 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
           <>
             <GlassCard style={styles.sectionCard}>
               <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
-                Total Expenses · 6 months
+                Total Expenses
               </Text>
-              <Text style={[styles.totalValue, { color: t.red, fontFamily: weight(700) }]}>₹5.32L</Text>
-              <Text style={[styles.totalDelta, { color: t.red }]}>↑ 4.1% vs prior period</Text>
+              <Text style={[styles.totalValue, { color: t.red, fontFamily: weight(700) }]}>
+                {fmtKpi(overview.totalExpenses)}
+              </Text>
+              {expenseDelta !== null && (
+                <Text style={[styles.totalDelta, { color: expenseDelta >= 0 ? t.red : t.em }]}>
+                  {expenseDelta >= 0 ? '↑' : '↓'} {Math.abs(expenseDelta).toFixed(1)}% over the period
+                </Text>
+              )}
             </GlassCard>
 
             {/* animationDelay: .05s (MobileScreens.jsx:256) */}
@@ -373,8 +429,8 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
                   Top Categories
                 </Text>
-                {CAT_DATA.map((d) => {
-                  const pct = Math.round((d.value / TOTAL_CAT) * 100);
+                {catData.map((d) => {
+                  const pct = d.pct;
                   return (
                     <View key={d.label} style={styles.topCatRow}>
                       <View style={styles.topCatHeaderRow}>
@@ -398,10 +454,14 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
           <>
             <GlassCard style={styles.sectionCard}>
               <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>Savings Rate</Text>
-              <Text style={[styles.savingsRateValue, { color: t.em, fontFamily: weight(700) }]}>23.1%</Text>
-              <Text style={[styles.savingsRateSub, { color: t.text2 }]}>₹1.60L saved over last 6 months</Text>
+              <Text style={[styles.savingsRateValue, { color: t.em, fontFamily: weight(700) }]}>
+                {overview.savingsRate.toFixed(1)}%
+              </Text>
+              <Text style={[styles.savingsRateSub, { color: t.text2 }]}>
+                {fmtKpi(Math.max(0, totalSaved))} saved over the period
+              </Text>
               <View style={styles.sparklineBleedTop}>
-                <MSparkline data={SAVINGS_RATE_SPARK} color="#7faf93" height={56} />
+                <MSparkline data={sparkable(savingsSpark)} color="#7faf93" height={56} />
               </View>
             </GlassCard>
 
@@ -411,15 +471,18 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
                   Goal Progress
                 </Text>
-                {SAVINGS_GOALS.map((g) => (
-                  <View key={g.n} style={styles.topCatRow}>
-                    <View style={styles.topCatHeaderRow}>
-                      <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{g.n}</Text>
-                      <Text style={[styles.topCatValue, { color: g.c, fontFamily: weight(700) }]}>{g.pct}%</Text>
+                {goals.map((g) => {
+                  const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
+                  return (
+                    <View key={g.name} style={styles.topCatRow}>
+                      <View style={styles.topCatHeaderRow}>
+                        <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{g.name}</Text>
+                        <Text style={[styles.topCatValue, { color: g.color, fontFamily: weight(700) }]}>{pct}%</Text>
+                      </View>
+                      <ProgressBar pct={pct} color={g.color} />
                     </View>
-                    <ProgressBar pct={g.pct} color={g.c} />
-                  </View>
-                ))}
+                  );
+                })}
               </GlassCard>
             </SpringIn>
           </>
@@ -431,10 +494,14 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
                 Total Net Worth
               </Text>
-              <Text style={[styles.savingsRateValue, { color: t.text1, fontFamily: weight(700) }]}>₹13.4L</Text>
-              <Text style={[styles.totalDelta, { color: t.em }]}>↑ ₹2.1L (18.2%) YTD</Text>
+              <Text style={[styles.savingsRateValue, { color: t.text1, fontFamily: weight(700) }]}>
+                {netWorthDisplay}
+              </Text>
+              <Text style={[styles.totalDelta, { color: nwTrend.deltaPct >= 0 ? t.em : t.red }]}>
+                {nwTrend.deltaPct >= 0 ? '↑' : '↓'} {Math.abs(nwTrend.deltaPct).toFixed(1)}% over the period
+              </Text>
               <View style={styles.sparklineBleedTop}>
-                <MSparkline data={REP_OVERVIEW} color="#8197c4" height={64} />
+                <MSparkline data={sparkable(nwTrend.points)} color="#8197c4" height={64} />
               </View>
             </GlassCard>
 
@@ -444,7 +511,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
                   Asset Allocation
                 </Text>
-                {ASSET_ALLOCATION.map((d) => (
+                {allocation.map((d) => (
                   <View key={d.n} style={styles.topCatRow}>
                     <View style={styles.topCatHeaderRow}>
                       <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{d.n}</Text>

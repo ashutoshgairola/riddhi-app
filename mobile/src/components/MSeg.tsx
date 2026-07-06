@@ -45,6 +45,12 @@ export interface MSegProps<T extends string> {
   options: MSegOption<T>[];
   value: T;
   onChange: (v: T) => void;
+  /** When true (default), each button is `flex: 1` and the control fills
+   * its container — the full-width usages (Txns filter, Add sheet type
+   * switch). Set false for an inline, fit-content control (e.g. the
+   * Settings theme row, where a flexible control would balloon to the
+   * whole row and crush the label next to it). */
+  stretch?: boolean;
 }
 
 function optionValue<T extends string>(o: MSegOption<T>): T {
@@ -55,7 +61,7 @@ function optionLabel<T extends string>(o: MSegOption<T>): string {
   return typeof o === 'string' ? o : o.label;
 }
 
-export function MSeg<T extends string>({ options, value, onChange }: MSegProps<T>) {
+export function MSeg<T extends string>({ options, value, onChange, stretch = true }: MSegProps<T>) {
   const { t } = useTheme();
 
   // Measured per-button layout (x, width), keyed by index — `onLayout`'s
@@ -135,6 +141,7 @@ export function MSeg<T extends string>({ options, value, onChange }: MSegProps<T
             onPress={() => onChange(v)}
             style={[
               styles.btn,
+              stretch && styles.btnStretch,
               {
                 color: active ? t.text1 : t.text2,
                 fontFamily: weight(600),
@@ -159,12 +166,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   btn: {
-    flex: 1,
     textAlign: 'center',
     paddingVertical: 10,
     paddingHorizontal: 8,
     fontSize: 13.5,
     zIndex: 2,
+    // Keeps compact (non-stretch) buttons visually equal even when glyph
+    // widths differ wildly (☀ renders as a wide emoji, ☾ as a narrow text
+    // glyph) — the web's flex:1 buttons resolve equal inside a fit-content
+    // container, which Yoga doesn't reproduce.
+    minWidth: 44,
+  },
+  btnStretch: {
+    flex: 1,
   },
   indicator: {
     position: 'absolute',

@@ -2,6 +2,7 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Polyline, RadialGradient, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Btn } from '../../components/ui';
 import { PageBackground } from '../../components/PageBackground';
@@ -25,6 +26,7 @@ export function OBDone({
   entering: boolean;
 }) {
   const { t } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
       <PageBackground />
@@ -33,15 +35,20 @@ export function OBDone({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 26 }}
       >
-        <View style={{ paddingTop: 72, alignItems: 'center' }}>
+        {/* Source's 72px sat below the frame mock's status bar. */}
+        <View style={{ paddingTop: insets.top + 72, alignItems: 'center' }}>
           <SpringIn>
             <View style={{ width: 104, height: 104, marginBottom: 26 }}>
               <View pointerEvents="none" style={styles.doneGlow}>
                 <Svg width={152} height={152}>
                   <Defs>
+                    {/* Alpha in stopOpacity, not rgba() stopColor — see
+                        Home's hero glow for why (react-native-svg renders
+                        rgba() stops as solid). */}
                     <RadialGradient id="doneGlow" cx="50%" cy="50%" r="50%">
-                      <Stop offset="0%" stopColor="rgba(182,164,243,0.35)" />
-                      <Stop offset="70%" stopColor="rgba(182,164,243,0)" />
+                      <Stop offset="0%" stopColor="#b6a4f3" stopOpacity={0.35} />
+                      <Stop offset="45%" stopColor="#b6a4f3" stopOpacity={0.15} />
+                      <Stop offset="100%" stopColor="#b6a4f3" stopOpacity={0} />
                     </RadialGradient>
                   </Defs>
                   <Circle cx={76} cy={76} r={76} fill="url(#doneGlow)" />
@@ -85,7 +92,8 @@ export function OBDone({
           ))}
         </SpringIn>
 
-        <View style={{ marginTop: 'auto', paddingTop: 28, paddingBottom: 20 }}>
+        {/* Bottom inset clears the home indicator (same pattern as obUi's footer). */}
+        <View style={{ marginTop: 'auto', paddingTop: 28, paddingBottom: insets.bottom + 20 }}>
           <Btn onPress={onEnter} disabled={entering} style={{ height: 54 }}>
             <Text style={{ fontSize: 16, color: '#1a1228', fontFamily: weight(600) }}>
               {entering ? 'Setting up…' : 'Enter Riddhi'}

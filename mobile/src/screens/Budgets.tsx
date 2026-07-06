@@ -71,15 +71,8 @@ interface Budget {
   spent: number;
 }
 
-const MB_BUDGETS: Budget[] = [
-  { name: 'Housing', icon: '🏠', c: '#8197c4', allocated: 30000, spent: 28000 },
-  { name: 'Food & Dining', icon: '🍽', c: '#c9a86a', allocated: 15000, spent: 13200 },
-  { name: 'Transport', icon: '🚇', c: '#9d8bd6', allocated: 8000, spent: 7400 },
-  { name: 'Shopping', icon: '🛍', c: '#c97d8c', allocated: 10000, spent: 10820 },
-  { name: 'Utilities', icon: '⚡', c: '#6fb3ad', allocated: 5000, spent: 2900 },
-  { name: 'Healthcare', icon: '💊', c: '#ef4444', allocated: 4000, spent: 820 },
-  { name: 'Entertainment', icon: '🎬', c: '#c97d8c', allocated: 3000, spent: 2498 },
-];
+// Renders empty while the api loads (or is unreachable) — no mock data.
+const EMPTY_BUDGETS: Budget[] = [];
 
 // Ring geometry — MobileSecondary.jsx:34–41: r=40, strokeWidth=8,
 // circumference hardcoded in source as 251.3 (≈ 2*pi*40).
@@ -91,26 +84,49 @@ const RING_CIRCUMFERENCE = 251.3;
 export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { openAdd } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: budgets } = useApiData(() => api.budgets.list(), MB_BUDGETS);
+  const { data: budgets } = useApiData(() => api.budgets.list(), EMPTY_BUDGETS);
 
   // Overall totals (MobileSecondary.jsx:15–17)
   const totalAlloc = budgets.reduce((s, b) => s + b.allocated, 0);
   const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
-  const overallPct = Math.round((totalSpent / totalAlloc) * 100);
+  const overallPct = totalAlloc > 0 ? Math.round((totalSpent / totalAlloc) * 100) : 0;
   const animPct = useCountUp(overallPct, 1100);
+  const monthLabel = new Date().toLocaleString('en', { month: 'long' });
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
+  };
+
+  const newBudget = async () => {
+    const cats = await api.categories.list();
+    const existing = new Set(budgets.map((b) => b.name.toLowerCase()));
+    const options = cats
+      .filter((c) => !existing.has(c.name.toLowerCase()) && c.name !== 'Income')
+      .map((c) => ({ label: `${c.icon} ${c.name}`, value: c.name }));
+    form({
+      title: 'New category budget',
+      fields: [
+        options.length
+          ? { kind: 'select', key: 'name', label: 'Category', options, initial: options[0]!.value }
+          : { key: 'name', label: 'Category name' },
+        { kind: 'amount', key: 'allocated', label: 'Monthly budget (₹)' },
+      ],
+      submitLabel: 'Create budget',
+      onSubmit: async (v) => {
+        await api.budgets.upsertCategory({ name: v['name']!, allocated: Number(v['allocated']) });
+        toast(`Budget set for ${v['name']}`, '🎯');
+      },
+    });
   };
 
   const openCreateSheet = () => {
     sheet({
       title: 'Create',
       options: [
-        { label: 'New budget', icon: '🎯', onPress: () => toast('Budget created', '🎯') },
+        { label: 'New budget', icon: '🎯', onPress: () => void newBudget() },
         { label: 'Add transaction', icon: '💸', onPress: () => openAdd() },
       ],
     });
@@ -141,7 +157,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
       >
         {/* Overall ring (MobileSecondary.jsx:32–53) */}
         <SpringIn>
-          <GlassCard style={styles.ringCard}>
+          <GlassCard style={styles.ringCard} contentStyle={styles.ringCardContent}>
             <View style={styles.ringWrap}>
               <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
                 <Circle
@@ -176,7 +192,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
             </View>
             <View style={styles.ringInfo}>
               <Text style={[styles.ringInfoTitle, { color: t.text3, fontFamily: weight(600) }]}>
-                April Budget
+                {monthLabel} Budget
               </Text>
               <View style={styles.ringInfoAmountRow}>
                 <Text style={[styles.ringInfoAmount, { color: t.text1, fontFamily: weight(700) }]}>
@@ -208,7 +224,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
             return (
               // animationDelay: `${0.05 + i*0.04}s` (MobileSecondary.jsx:68)
               <SpringIn key={b.name} delay={50 + i * 40}>
-                <GlassCard style={styles.categoryCard}>
+                <GlassCard contentStyle={styles.categoryCardContent}>
                   <View style={styles.categoryHeaderRow}>
                     <View style={[styles.categoryIconBox, { backgroundColor: b.c + '22' }]}>
                       <Text style={styles.categoryIconGlyph}>{b.icon}</Text>
@@ -265,6 +281,11 @@ const styles = StyleSheet.create({
   // Overall ring card
   ringCard: {
     marginTop: 8,
+  },
+  // Row layout must go through contentStyle to reach the card's content
+  // (on `style` it applies to GlassCard's outer wrapper — ring and text
+  // would stack vertically).
+  ringCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
@@ -324,7 +345,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 10,
   },
-  categoryCard: {
+  // Padding override (16 vs GlassCard's 18 default) — must be contentStyle;
+  // on `style` it pads the outer wrapper *around* the already-padded overlay.
+  categoryCardContent: {
     padding: 16,
   },
   categoryHeaderRow: {

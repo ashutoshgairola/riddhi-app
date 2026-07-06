@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { HttpLoggerMiddleware } from './common/http-logger.middleware';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthController } from './health.controller';
@@ -14,6 +15,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
 import { SmsSyncModule } from './sms-sync/sms-sync.module';
 import { AiChatModule } from './ai-chat/ai-chat.module';
+import { InsightsModule } from './insights/insights.module';
 
 @Module({
   imports: [
@@ -42,7 +44,12 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
     ReportsModule,
     SmsSyncModule,
     AiChatModule,
+    InsightsModule,
   ],
   controllers: [HealthController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(HttpLoggerMiddleware).forRoutes('{*splat}');
+  }
+}

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { UsersRepository } from './users.repository';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -13,7 +14,28 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly goalsService: GoalsService,
+    private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Permanently deletes the user and all owned data. Transactions and
+   * investments are removed explicitly first: transaction→category and
+   * investment→account are `onDelete: 'RESTRICT'`, so letting the user
+   * cascade race those cascades can fail — everything else cascades off
+   * the user row's FKs.
+   */
+  async deleteAccount(userId: string): Promise<void> {
+    await this.findById(userId); // 404 if unknown
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query('DELETE FROM "transaction" WHERE "userId" = $1', [
+        userId,
+      ]);
+      await manager.query('DELETE FROM "investment" WHERE "userId" = $1', [
+        userId,
+      ]);
+      await manager.query('DELETE FROM "user" WHERE "id" = $1', [userId]);
+    });
+  }
 
   async findById(id: string): Promise<User> {
     const user = await this.usersRepository.findById(id);

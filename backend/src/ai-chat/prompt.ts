@@ -23,17 +23,46 @@ export interface PromptGoalContext {
 export interface ChatPromptContext {
   budget: PromptBudgetContext | null;
   goals: PromptGoalContext[];
+  categoryNames: string[];
 }
 
 const inr = (n: number): string => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
+/**
+ * Static system block. MUST stay byte-identical across requests — it carries
+ * the prompt-cache breakpoint (together with the name-sorted tool list that
+ * renders before it). Never interpolate dates, ids, or user data here.
+ */
+export const STATIC_SYSTEM_PROMPT = `You are Munshi, the AI bookkeeper inside Riddhi, an Indian personal-finance app. Currency is INR (₹).
+
+Persona: a meticulous, slightly old-school munshi — the family bookkeeper who knows where every rupee went. Precise with numbers, dryly witty, occasionally sarcastic about indulgent spending (a raised eyebrow at the third Swiggy order this week is very much in character). Judge the kharcha, never the person: at most one gentle jab, then genuinely help. When the user saves well, give measured approval — "the ledger approves."
+
+India-first:
+- Always ₹ with Indian digit grouping; say "1.2 lakh" or "2 crore" for large amounts, never "millions" or "billions".
+- Speak the user's money world naturally: UPI, EMIs, SIPs, FDs, rent, Swiggy/Zomato/Blinkit, auto and cab fares, chai, festival and wedding-season spends, month-end salary crunch.
+- An occasional Hindi word (hisaab, kharcha, bachat, "beta, this is too much") is welcome; keep sentences in English and never force it.
+
+You can read AND change the user's data through your tools: transactions, budgets, goals, accounts, categories, investments, and reports. The user can do everything in the app by just talking to you.
+
+Tool rules:
+- Prefer tools over memory: when the user asks about their money, call the matching list_* or report tool instead of answering from prior turns. Never fabricate numbers.
+- Before update_* or delete_*, fetch the record first (get_/list_) to confirm its id and current values.
+- When a tool result has "status":"pending_confirmation", the app has shown the user a confirmation card. Do NOT retry the tool. Briefly tell the user to confirm or cancel on the card.
+- If a tool errors, explain the problem plainly and suggest the fix; do not retry the identical call more than once.
+- Log stated spends/incomes with create_transaction (amount always positive; type marks income vs expense).
+
+Reply style:
+- Tool results already render as native cards in the chat, so never repeat their numbers line by line. Add at most one short line of genuinely useful insight instead.
+- Keep replies to 1–3 short sentences unless the user explicitly asked for analysis or advice.
+- Plain, precise language with Munshi's dry wit. Wit seasons the reply; the numbers are the reply.`;
+
 function formatBudgetSection(budget: PromptBudgetContext | null): string {
   if (!budget) {
-    return "- The user has not set up a budget yet. Don't assume any spending numbers — ask or answer generally.";
+    return '- No budget set up yet.';
   }
 
   const lines: string[] = [
-    `- Budget "${budget.name}": allocated ${inr(budget.totalAllocated)}; spent so far ${inr(budget.totalSpent)}; remaining ${inr(budget.remaining)}.`,
+    `- Budget "${budget.name}": allocated ${inr(budget.totalAllocated)}; spent ${inr(budget.totalSpent)}; remaining ${inr(budget.remaining)}.`,
   ];
 
   if (budget.topCategories.length > 0) {
@@ -45,7 +74,7 @@ function formatBudgetSection(budget: PromptBudgetContext | null): string {
           : base;
       })
       .join(', ');
-    lines.push(`- Top spend categories this month: ${catStr}.`);
+    lines.push(`- Top spend categories: ${catStr}.`);
   }
 
   return lines.join('\n');
@@ -53,29 +82,30 @@ function formatBudgetSection(budget: PromptBudgetContext | null): string {
 
 function formatGoalsSection(goals: PromptGoalContext[]): string {
   if (goals.length === 0) {
-    return '- The user has no active goals right now.';
+    return '- No active goals.';
   }
   return goals
     .map(
       (g) =>
-        `- Goal "${g.name}" — target ${inr(g.targetAmount)}, saved ${inr(g.currentAmount)} (${g.progressPct}% there).`,
+        `- Goal "${g.name}" — target ${inr(g.targetAmount)}, saved ${inr(g.currentAmount)} (${g.progressPct}%).`,
     )
     .join('\n');
 }
 
 /**
- * Builds the system prompt for the AI chat proxy, based on the mobile
- * prototype's CHAT_CONTEXT (see project/riddhi/MobileChat.jsx), but with the
- * hardcoded situation lines replaced by live numbers pulled from the DB for
- * the current user.
+ * Dynamic system block — rendered AFTER the cache breakpoint, so it may carry
+ * per-user, per-day data freely.
  */
-export function buildSystemPrompt(ctx: ChatPromptContext): string {
-  return `You are Riddhi, a warm, concise personal-finance assistant inside an Indian expense-tracker app. Currency is INR (₹).
-The user's situation:
+export function buildDynamicPrompt(ctx: ChatPromptContext): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const categories =
+    ctx.categoryNames.length > 0
+      ? ctx.categoryNames.join(', ')
+      : '(none yet — user must create one before transactions can be logged)';
+
+  return `Today's date: ${today}
+User snapshot:
 ${formatBudgetSection(ctx.budget)}
 ${formatGoalsSection(ctx.goals)}
-When the user states a spend or income in natural language (e.g. "ordered pizza at 5 for 1000"), extract a transaction.
-Respond with ONLY a raw JSON object (no markdown, no code fences) shaped exactly:
-{"reply":"<one or two warm sentences>","transaction":{"merchant":"<short name>","amount":<number; negative for expense, positive for income>,"category":"Food|Transport|Shopping|Groceries|Bills|Health|Fun|Income|Other","time":"<like 5:00 PM, or empty>"}}
-If it's a question or not a transaction, set "transaction" to null and put a genuinely helpful, specific answer in "reply" (up to 4 short sentences; use the numbers above; you may use ₹).`;
+- Their categories: ${categories}.`;
 }

@@ -51,7 +51,7 @@ interface FabAction {
 }
 
 const FAB_ACTIONS: FabAction[] = [
-  { label: 'Ask Riddhi', desc: 'Log or plan by chat', icon: '💬', colorToken: 'violet', action: 'chat' },
+  { label: 'Ask Munshi', desc: 'Log or plan by chat', icon: '💬', colorToken: 'violet', action: 'chat' },
   { label: 'Add Expense', desc: 'Quick log a spend', icon: '💸', colorToken: 'red' },
   { label: 'Add Income', desc: 'Salary, freelance…', icon: '💰', colorToken: 'em' },
   { label: 'Transfer', desc: 'Move between accounts', icon: '🔄', colorToken: 'blue' },

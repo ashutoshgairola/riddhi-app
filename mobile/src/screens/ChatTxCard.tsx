@@ -3,9 +3,9 @@
  * (`function ChatTxCard({ tx })`).
  *
  * Renders the small "extracted transaction" card shown under a bot
- * message when `askRiddhi`/`localParse` detected a spend/income: category
- * icon box, merchant name, category · time line, amount (income in `em`,
- * expense in `text1`), and a "Added" checkmark line.
+ * message when the AI logged a spend/income: category icon box, merchant
+ * name, category · time line, amount (income in `em`, expense in `text1`),
+ * and a "Added" checkmark line.
  *
  * `CHAT_CATCOL`/`CHAT_ICON` are the same category-color/emoji maps used by
  * `AddTxSheet`'s `QA_CATS` (MobileApp.jsx:54–77) but keyed flat by
@@ -19,7 +19,13 @@ import { StyleSheet, Text, View } from 'react-native';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
-import type { ChatTx } from '../ai/localParse';
+export interface ChatTx {
+  merchant: string;
+  /** Signed: positive = income, negative = expense. */
+  amount: number;
+  category: string;
+  time: string;
+}
 
 // MobileChat.jsx:18–21
 export const CHAT_CATCOL: Record<string, string> = {

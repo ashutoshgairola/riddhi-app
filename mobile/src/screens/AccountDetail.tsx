@@ -29,8 +29,9 @@
  *    MobileScreens.jsx:420–424.
  */
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BankLogo } from '../components/BankLogo';
 import { GlassCard } from '../components/Glass';
 import { IconButton, ListCard, ListRow, SectionHead } from '../components/ui';
 import { MI } from '../components/icons';
@@ -38,17 +39,21 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { api } from '../api';
+import { useApiData } from '../api/useApi';
+import { shareTxCsv } from '../lib/exportCsv';
 import { MPageShell } from './_MPageShell';
 import type { Account } from './Accounts';
 
 // Quick actions (MobileScreens.jsx:442)
-const QUICK_ACTIONS: { l: string; i: string; c: string }[] = [
-  { l: 'Transfer', i: '↔', c: '#8197c4' },
-  { l: 'Statement', i: '📄', c: '#c9a86a' },
-  { l: 'Settings', i: '⚙', c: '#9d8bd6' },
+type QuickActionKey = 'transfer' | 'statement' | 'settings';
+const QUICK_ACTIONS: { l: string; i: string; c: string; k: QuickActionKey }[] = [
+  { l: 'Transfer', i: '↔', c: '#8197c4', k: 'transfer' },
+  { l: 'Statement', i: '📄', c: '#c9a86a', k: 'statement' },
+  { l: 'Settings', i: '⚙', c: '#9d8bd6', k: 'settings' },
 ];
 
-// Recent transactions (MobileScreens.jsx:452–457)
+// Recent transaction row shape (MobileScreens.jsx:452–457)
 interface Tx {
   i: string;
   d: string;
@@ -56,28 +61,90 @@ interface Tx {
   t: string;
 }
 
-const RECENT_TXS: Tx[] = [
-  { i: '🛒', d: 'Swiggy Order', a: -649, t: 'Today' },
-  { i: '💼', d: 'Salary — April', a: 118000, t: 'Today' },
-  { i: '⚡', d: 'Electricity Bill', a: -1840, t: 'Yesterday' },
-  { i: '🚇', d: 'Metro Card', a: -500, t: 'Apr 23' },
-];
+const EMPTY_TXS: Tx[] = [];
 
 export function AccountDetail({ entry }: { entry: ScreenEntry }) {
   const a = entry.data as Account;
   const { t } = useTheme();
-  const { pop } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { pop, openAdd } = useNav();
+  const { toast, sheet, form } = useFeedback();
+
+  // This account's latest transactions (accountId-scoped backend query).
+  const { data: recentTxs } = useApiData(
+    () =>
+      api.transactions
+        .list({ accountId: String(a.id), limit: 6 })
+        .then((txs) =>
+          txs.map((tx) => ({ i: tx.icon, d: tx.desc, a: tx.amount, t: tx.date.slice(0, 10) })),
+        ),
+    EMPTY_TXS,
+  );
+
+  const editAccount = () => {
+    form({
+      title: 'Edit account',
+      fields: [
+        { key: 'name', label: 'Account name', initial: a.name },
+        { key: 'institutionName', label: 'Bank / provider', initial: a.bank, optional: true },
+      ],
+      submitLabel: 'Save changes',
+      onSubmit: async (v) => {
+        await api.accounts.update(a.id, {
+          name: v['name']!,
+          institutionName: v['institutionName'] || undefined,
+        });
+        toast('Account updated', '✏️');
+        pop(); // this screen renders stale route data; the list is fresh
+      },
+    });
+  };
+
+  const removeAccount = () => {
+    sheet({
+      title: `Remove ${a.name}? Its transactions keep their history.`,
+      options: [
+        {
+          label: 'Remove account',
+          icon: '🗑',
+          danger: true,
+          onPress: () => {
+            api.accounts
+              .remove(a.id)
+              .then(() => {
+                toast('Account removed', '🗑');
+                pop();
+              })
+              .catch(() => toast("Couldn't remove — try again", '📡'));
+          },
+        },
+        { label: 'Cancel', onPress: () => {} },
+      ],
+    });
+  };
+
+  const downloadStatement = () => {
+    shareTxCsv('all')
+      .then(() => toast('Statement exported', '📄'))
+      .catch(() => toast("Couldn't export statement", '📡'));
+  };
 
   const openMoreSheet = () => {
     sheet({
       title: a.name,
       options: [
-        { label: 'Edit account', icon: '✏️', onPress: () => toast('Edit account') },
-        { label: 'Download statement', icon: '📄', onPress: () => toast('Statement downloaded', '📄') },
-        { label: 'Remove account', icon: '🗑', danger: true, onPress: () => toast('Account removed') },
+        { label: 'Edit account', icon: '✏️', onPress: editAccount },
+        { label: 'Download statement', icon: '📄', onPress: downloadStatement },
+        { label: 'Remove account', icon: '🗑', danger: true, onPress: removeAccount },
       ],
     });
+  };
+
+  // Quick-action row: Transfer opens the add-transaction sheet (transfer type),
+  // Statement exports a CSV, Settings opens the account's more menu.
+  const runQuickAction = (k: QuickActionKey) => {
+    if (k === 'transfer') openAdd();
+    else if (k === 'statement') downloadStatement();
+    else openMoreSheet();
   };
 
   return (
@@ -98,35 +165,48 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
         style={styles.balanceCard}
       >
         <View style={styles.balanceGlowBlob} pointerEvents="none" />
-        <View>
-          <Text style={styles.balanceLabel}>Balance</Text>
-          <Text style={styles.balanceValue}>
-            {a.bal < 0 ? '-' : ''}₹{Math.abs(a.bal).toLocaleString('en-IN')}
-          </Text>
-          <Text style={styles.balanceSub}>
-            {a.bank} · {a.sub}
-          </Text>
+        <View style={styles.balanceRow}>
+          <View style={styles.balanceTextBlock}>
+            <Text style={styles.balanceLabel}>Balance</Text>
+            <Text style={styles.balanceValue}>
+              {a.bal < 0 ? '-' : ''}₹{Math.abs(a.bal).toLocaleString('en-IN')}
+            </Text>
+            <Text style={styles.balanceSub}>
+              {a.bank} · {a.sub}
+            </Text>
+          </View>
+          <BankLogo name={a.bank} size={48} radius={14} fallbackText={a.logo} />
         </View>
       </LinearGradient>
 
       {/* Quick actions (MobileScreens.jsx:441–448) */}
       <View style={styles.quickActionsGrid}>
         {QUICK_ACTIONS.map((q) => (
-          <GlassCard key={q.l} style={styles.quickActionCard}>
-            <View style={[styles.quickActionIconBox, { backgroundColor: q.c + '22' }]}>
-              <Text style={[styles.quickActionIconGlyph, { color: q.c }]}>{q.i}</Text>
-            </View>
-            <Text style={[styles.quickActionLabel, { color: t.text1, fontFamily: weight(600) }]}>
-              {q.l}
-            </Text>
-          </GlassCard>
+          <Pressable
+            key={q.l}
+            style={styles.quickActionPressable}
+            onPress={() => runQuickAction(q.k)}
+            accessibilityRole="button"
+            accessibilityLabel={q.l}
+          >
+            {({ pressed }) => (
+              <GlassCard style={[styles.quickActionCard, { opacity: pressed ? 0.6 : 1 }]}>
+                <View style={[styles.quickActionIconBox, { backgroundColor: q.c + '22' }]}>
+                  <Text style={[styles.quickActionIconGlyph, { color: q.c }]}>{q.i}</Text>
+                </View>
+                <Text style={[styles.quickActionLabel, { color: t.text1, fontFamily: weight(600) }]}>
+                  {q.l}
+                </Text>
+              </GlassCard>
+            )}
+          </Pressable>
         ))}
       </View>
 
       <SectionHead title="Recent transactions" />
       <ListCard>
-        {RECENT_TXS.map((tx, i) => (
-          <ListRow key={i} last={i === RECENT_TXS.length - 1}>
+        {recentTxs.map((tx, i) => (
+          <ListRow key={i} last={i === recentTxs.length - 1}>
             <View style={[styles.txIconBox, { backgroundColor: t.bg3 }]}>
               <Text style={styles.txIconGlyph}>{tx.i}</Text>
             </View>
@@ -167,6 +247,16 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  balanceTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
   balanceLabel: {
     fontSize: 11,
     opacity: 0.8,
@@ -196,6 +286,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 18,
+  },
+  quickActionPressable: {
+    flex: 1,
   },
   quickActionCard: {
     flex: 1,

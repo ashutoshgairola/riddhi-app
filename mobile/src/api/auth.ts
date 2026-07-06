@@ -44,6 +44,16 @@ export const authApi = {
   me(): Promise<ApiUser> {
     return apiClient.get('/users/me');
   },
+  /** Always resolves `{ok:true}` server-side (no account enumeration). */
+  forgotPassword(email: string): Promise<{ ok: boolean }> {
+    return apiClient.post('/auth/forgot-password', { email });
+  },
+  updateProfile(patch: { name?: string }): Promise<ApiUser> {
+    return apiClient.patch('/users/me', patch);
+  },
+  deleteAccount(): Promise<void> {
+    return apiClient.delete('/users/me');
+  },
   completeOnboarding(payload: OnboardingPayload): Promise<{ user: ApiUser }> {
     return apiClient.post('/users/me/onboarding', payload);
   },

@@ -27,6 +27,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { BottomSheet } from '../components/BottomSheet';
+import { FormSheet, type FormConfig } from '../components/FormSheet';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spring, weight } from '../theme/tokens';
 
@@ -73,6 +74,9 @@ export interface SheetConfig {
 export interface FeedbackContextValue {
   toast(msg: string, icon?: string): void;
   sheet(cfg: SheetConfig): void;
+  /** Opens a small bottom-sheet form (components/FormSheet.tsx) at the
+   * root, above the tab bar — used by all quick create/edit flows. */
+  form(cfg: FormConfig): void;
 }
 
 interface ToastItem {
@@ -87,6 +91,8 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [formConfig, setFormConfig] = useState<FormConfig | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   // Monotonic counter rather than `Date.now() + Math.random()` (the web
   // version's id scheme) — avoids any (extremely unlikely) collision and is
   // simpler to reason about under React's strict mode double-invoke.
@@ -117,6 +123,11 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     setSheetOpen(true);
   }, []);
 
+  const form = useCallback((cfg: FormConfig) => {
+    setFormConfig(cfg);
+    setFormOpen(true);
+  }, []);
+
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
   }, []);
@@ -129,12 +140,14 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     timeoutIds.current.push(timeoutId);
   }, []);
 
-  const value = useMemo<FeedbackContextValue>(() => ({ toast, sheet }), [toast, sheet]);
+  const value = useMemo<FeedbackContextValue>(
+    () => ({ toast, sheet, form }),
+    [toast, sheet, form],
+  );
 
   return (
     <FeedbackContext.Provider value={value}>
       {children}
-      <ToastHost toasts={toasts} />
       <BottomSheet open={sheetOpen} onClose={closeSheet} title={sheetConfig?.title ?? 'Options'}>
         <View style={styles.sheetOptions}>
           {(sheetConfig?.options ?? []).map((option, i) => (
@@ -142,6 +155,14 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           ))}
         </View>
       </BottomSheet>
+      <FormSheet
+        open={formOpen}
+        config={formConfig}
+        onClose={() => setFormOpen(false)}
+        onError={toast}
+      />
+      {/* Toasts render last so they stack above both sheets. */}
+      <ToastHost toasts={toasts} />
     </FeedbackContext.Provider>
   );
 }

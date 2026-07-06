@@ -1,44 +1,28 @@
 /**
- * Chat — RN port of `project/riddhi/MobileChat.jsx` (the `MobileChat`
- * component, lines 107–251), the "Ask Riddhi" conversational logging +
- * planning assistant.
+ * Chat — "Ask Munshi", the AI chat that is a universal interface to the
+ * whole app: the backend agent reads and changes data through tools
+ * (transactions, budgets, goals, accounts, categories, investments,
+ * reports) and streams text + native widget cards back over SSE.
  *
- * Building blocks reused rather than reimplemented:
- *  - `PageBackground` for the `.m-page` gradient + glow.
- *  - `IconButton` for the back button.
- *  - `MI.sparkle`/`MI.back`/`MI.arrow`/`MI.camera`/`MI.send` for icons.
- *  - `useNav().pop` for the back button.
- *  - `ChatTxCard` (this directory) for the extracted-transaction card
- *    rendered under a bot message.
- *  - `askRiddhi`/`localParse` (src/ai) for the reply/transaction logic.
+ * Streaming path: streamChat (expo/fetch SSE) → ChatStreamEvents reduced
+ * into block-based ChatMsgs (src/screens/chat/types.ts). If the stream
+ * can't start, falls back to the buffered POST /ai-chat/messages; if it
+ * drops mid-turn, shows an error bubble with Retry (the server persisted
+ * everything that completed).
  *
- * The web topbar here is custom (not the shared `Topbar`/`MPageShell`):
- * it's a 2-line title+status block next to the sparkle icon box rather
- * than `Topbar`'s single-line title slot, so it's hand-built the same way
- * `Home.tsx` hand-builds its topbar for an analogous reason (see that
- * file's header comment) — same `.m-topbar` padding/row shape, just a
- * different middle slot. Per the task spec the topbar is intentionally
- * static (no `scrolled` glass toggle — the source never wires `onScroll`
- * on `.m-topbar` here, only the body scrolls).
+ * Risky actions (updates/deletes/large amounts) arrive as confirmation
+ * widgets — nothing is written until the user taps Confirm on the card
+ * (chat/ConfirmationCard.tsx).
  *
- * Image picking uses `expo-image-picker`'s `launchImageLibraryAsync`, the
- * same RN substitution `AddTxSheet.tsx` already uses in place of the web's
- * hidden `<input type=file>` + `URL.createObjectURL` (MobileChat.jsx:134–147)
- * — the picked image's local `uri` is used directly as the message's
- * `image` field.
+ * Thread history lives server-side; the sms icon in the topbar opens
+ * ThreadsSheet to resume a past thread or start fresh. Deep links can pass
+ * `entry.data = { threadId?, prefill?, autoSend? }` (Home insight cards
+ * use prefill+autoSend).
  *
- * Source values transcribed verbatim:
- *  - `CHAT_SUGGESTIONS` — MobileChat.jsx:3–8.
- *  - `RECEIPT_RESULTS` — MobileChat.jsx:11–16.
- *  - `send`/`handleFile` logic — MobileChat.jsx:117–127, 134–147.
- *  - Message bubble / typing-dot styling — MobileChat.jsx:196–220.
- *  - Composer layout — MobileChat.jsx:225–248.
- *
- * Typing indicator (`.chat-dot` / `@keyframes chatDot`, mobile.css:680–684,
- * 714–717): 3 dots, each looping opacity 0.3->1->0.3 and translateY
- * 0->-3->0 over 1s, staggered by 0.16s — ported via per-dot Reanimated
- * `withRepeat(withSequence(...))` loops started with a `setTimeout` stagger
- * matching the CSS `animation-delay`.
+ * Image attach: there is no OCR/vision pipeline (the chat turn is text-only),
+ * so a picked image is shown and answered honestly — Munshi asks the user to
+ * type the amount/merchant, which the real agent then logs. It never invents
+ * a transaction from the picture.
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -70,53 +54,33 @@ import { PageBackground } from '../components/PageBackground';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
-import { askRiddhi, type ChatMessage } from '../ai/askRiddhi';
-import type { ChatTx } from '../ai/localParse';
-import { ChatTxCard } from './ChatTxCard';
+import { streamChat, ChatStreamInterrupted } from '../api/chatStream';
+import { chatApi } from '../api/chatApi';
+import {
+  applyEvent,
+  hydrateMessages,
+  nextLocalId,
+  userMsg,
+  type ChatBlock,
+  type ChatMsg,
+} from './chat/types';
+import { WidgetRenderer } from './chat/WidgetRenderer';
+import { ToolStatusChip } from './chat/ToolStatusChip';
+import { ThreadsSheet } from './chat/ThreadsSheet';
 
-// MobileChat.jsx:3–8
 const CHAT_SUGGESTIONS = [
   'I ordered pizza at 5 for ₹1,000',
-  'How do I plan budget to finish my bike goal?',
-  'Got my ₹1,18,000 salary today',
   'Where am I overspending this month?',
+  'How are my goals doing?',
+  'Got my ₹1,18,000 salary today',
 ];
 
-interface ReceiptResult {
-  reply: string;
-  tx: ChatTx;
-}
+// Honest reply when a user attaches an image — there is no OCR yet, so we
+// never fabricate a transaction; we ask for the details in text instead.
+const IMAGE_REPLY =
+  "I can't read receipts from images yet. Tell me the amount and where you spent it — e.g. “₹2,340 at Reliance Smart” — and I'll log it right away.";
 
-// MobileChat.jsx:11–16
-const RECEIPT_RESULTS: ReceiptResult[] = [
-  {
-    reply: 'Read your receipt — ₹2,340 at Reliance Smart. Filed under Groceries.',
-    tx: { merchant: 'Reliance Smart', amount: -2340, category: 'Groceries', time: '' },
-  },
-  {
-    reply: 'Pulled it from the screenshot — ₹899 Jio recharge. Logged under Bills.',
-    tx: { merchant: 'Jio Recharge', amount: -899, category: 'Bills', time: '' },
-  },
-  {
-    reply: 'Got ₹1,560 at Apollo Pharmacy from the bill. Added to Health.',
-    tx: { merchant: 'Apollo Pharmacy', amount: -1560, category: 'Health', time: '' },
-  },
-  {
-    reply: 'From the bank screenshot — ₹4,200 to Croma. Filed under Shopping.',
-    tx: { merchant: 'Croma', amount: -4200, category: 'Shopping', time: '' },
-  },
-];
-
-const RECEIPT_DELAY_MS = 1600;
-
-interface ChatMsg {
-  role: 'user' | 'bot';
-  text?: string;
-  image?: string;
-  tx?: ChatTx | null;
-}
-
-// ── Typing indicator dot (chatDot keyframes, mobile.css:714–717) ────────
+// ── Typing indicator dot ─────────────────────────────────────────────────
 function TypingDot({ delayMs, color }: { delayMs: number; color: string }) {
   const progress = useSharedValue(0);
 
@@ -131,8 +95,7 @@ function TypingDot({ delayMs, color }: { delayMs: number; color: string }) {
         -1,
       ),
     );
-    // progress is a stable Reanimated shared value ref; only re-run on
-    // prop changes.
+    // progress is a stable Reanimated shared value ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [delayMs]);
 
@@ -144,35 +107,108 @@ function TypingDot({ delayMs, color }: { delayMs: number; color: string }) {
   return <Animated.View style={[styles.dot, { backgroundColor: color }, style]} />;
 }
 
-export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
+interface ChatEntryData {
+  threadId?: string;
+  prefill?: string;
+  autoSend?: boolean;
+}
+
+export function Chat({ entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
   const insets = useSafeAreaInsets();
+  const entryData = (entry.data ?? {}) as ChatEntryData;
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(entryData.prefill ?? '');
   const [busy, setBusy] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const threadIdRef = useRef<string | undefined>(entryData.threadId);
+  const lastSentRef = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
-  const receiptIdx = useRef(0);
+  const bootRef = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages, busy]);
 
-  // MobileChat.jsx:117–127
+  const loadThread = async (threadId: string) => {
+    setBusy(true);
+    try {
+      const detail = await chatApi.getThread(threadId);
+      threadIdRef.current = detail.id;
+      setMessages(hydrateMessages(detail.messages));
+    } catch {
+      appendError("Couldn't load that chat.", false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const appendError = (message: string, retryable: boolean) => {
+    setMessages((m) => [
+      ...m,
+      {
+        id: nextLocalId(),
+        role: 'assistant',
+        blocks: [{ type: 'error', message, retryable }],
+      },
+    ]);
+  };
+
   const send = async (text?: string) => {
     const q = (text ?? input).trim();
     if (!q || busy) return;
     setInput('');
-    const next: ChatMessage[] = [...messages.map((m) => ({ role: m.role, text: m.text ?? '' })), { role: 'user', text: q }];
-    setMessages((m) => [...m, { role: 'user', text: q }]);
+    lastSentRef.current = q;
+    setMessages((m) => [...m, userMsg(q)]);
     setBusy(true);
-    const res = await askRiddhi(next);
-    setMessages((m) => [...m, { role: 'bot', text: res.reply, tx: res.transaction }]);
-    setBusy(false);
+
+    try {
+      await streamChat({
+        threadId: threadIdRef.current,
+        message: q,
+        onEvent: (event) => {
+          if (event.type === 'message_start') threadIdRef.current = event.threadId;
+          setMessages((m) => applyEvent(m, event));
+        },
+      });
+    } catch (err) {
+      if (err instanceof ChatStreamInterrupted) {
+        appendError('Connection dropped mid-reply.', true);
+      } else {
+        // Stream never started — fall back to the buffered endpoint.
+        try {
+          const res = await chatApi.sendMessageBuffered(threadIdRef.current, q);
+          threadIdRef.current = res.threadId;
+          const blocks: ChatBlock[] = res.blocks.map((b) =>
+            b.type === 'text'
+              ? { type: 'text', text: b.text ?? '' }
+              : { type: 'widget', widget: b.widget! },
+          );
+          setMessages((m) => [
+            ...m,
+            { id: res.messageId, role: 'assistant', blocks },
+          ]);
+        } catch {
+          appendError("Couldn't reach Munshi. Check your connection.", true);
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // MobileChat.jsx:134–147
+  // Deep-link boot: hydrate a thread and/or auto-send a prefilled prompt.
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    if (entryData.threadId) void loadThread(entryData.threadId);
+    else if (entryData.prefill && entryData.autoSend) void send(entryData.prefill);
+    // boot runs exactly once for this screen entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handlePickImage = async () => {
     if (busy) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -184,18 +220,99 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
     });
     if (result.canceled || result.assets.length === 0) return;
     const uri = result.assets[0].uri;
-    setMessages((m) => [...m, { role: 'user', image: uri }]);
-    setBusy(true);
-    setTimeout(() => {
-      const r = RECEIPT_RESULTS[receiptIdx.current % RECEIPT_RESULTS.length];
-      receiptIdx.current += 1;
-      setMessages((m) => [...m, { role: 'bot', text: r.reply, tx: r.tx }]);
-      setBusy(false);
-    }, RECEIPT_DELAY_MS);
+    // Show the picked image, then answer honestly — no OCR pipeline exists,
+    // so we ask for the details rather than inventing a transaction.
+    setMessages((m) => [
+      ...m,
+      { id: nextLocalId(), role: 'user', blocks: [], image: uri },
+      {
+        id: nextLocalId(),
+        role: 'assistant',
+        blocks: [{ type: 'text', text: IMAGE_REPLY }],
+      },
+    ]);
+  };
+
+  const selectThread = (threadId: string | null) => {
+    setHistoryOpen(false);
+    if (threadId) {
+      void loadThread(threadId);
+    } else {
+      threadIdRef.current = undefined;
+      setMessages([]);
+    }
   };
 
   const empty = messages.length === 0;
   const canSend = input.trim().length > 0 && !busy;
+  const lastMsg = messages[messages.length - 1];
+  const showTyping =
+    busy && (lastMsg?.role !== 'assistant' || lastMsg.blocks.length === 0);
+
+  const renderBlock = (block: ChatBlock, key: string, isUser: boolean) => {
+    switch (block.type) {
+      case 'text':
+        if (!block.text.trim()) return null;
+        return (
+          <View
+            key={key}
+            style={[
+              styles.bubble,
+              isUser
+                ? [styles.bubbleUser, { backgroundColor: t.em }]
+                : [
+                    styles.bubbleBot,
+                    { backgroundColor: t.bg1, borderColor: t.border, borderWidth: 1 },
+                  ],
+            ]}
+          >
+            <Text
+              style={[
+                styles.bubbleText,
+                {
+                  color: isUser ? '#1a1228' : t.text1,
+                  fontFamily: weight(isUser ? 500 : 400),
+                },
+              ]}
+            >
+              {block.text}
+            </Text>
+          </View>
+        );
+      case 'widget':
+        return <WidgetRenderer key={key} widget={block.widget} />;
+      case 'tool_status':
+        return (
+          <ToolStatusChip key={key} label={block.label} done={block.done} ok={block.ok} />
+        );
+      case 'error':
+        return (
+          <View key={key} style={styles.errorWrap}>
+            <View style={[styles.errorBubble, { backgroundColor: t.redDim, borderColor: t.red }]}>
+              <Text style={[styles.errorText, { color: t.red, fontFamily: weight(500) }]}>
+                {block.message}
+              </Text>
+            </View>
+            {block.retryable && lastSentRef.current ? (
+              <Pressable
+                onPress={() => {
+                  const retry = lastSentRef.current;
+                  // Drop the failed turn's error bubble before retrying.
+                  setMessages((m) => m.filter((msg) => !msg.blocks.includes(block)));
+                  void send(retry ?? undefined);
+                }}
+                style={[styles.retryBtn, { backgroundColor: t.bg2, borderColor: t.border }]}
+              >
+                <MI.refresh size={13} color={t.text2} />
+                <Text style={[styles.retryText, { color: t.text2, fontFamily: weight(600) }]}>
+                  Retry
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -206,19 +323,22 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
       <PageBackground />
 
       {/* topbar */}
-      <View style={styles.topbar}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>
         <IconButton onPress={pop}>
           <MI.back size={20} color={t.text1} />
         </IconButton>
         <View style={styles.topbarMid}>
           <View style={[styles.sparkleBox, { backgroundColor: t.emDim }]}>
-            <MI.sparkle size={17} color={t.em} />
+            <Image source={require('../../assets/munshi.png')} style={styles.sparkleLogo} />
           </View>
           <View>
-            <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]}>Ask Riddhi</Text>
+            <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]}>Ask Munshi</Text>
             <Text style={[styles.online, { color: t.em, fontFamily: weight(600) }]}>● Online</Text>
           </View>
         </View>
+        <IconButton onPress={() => setHistoryOpen(true)}>
+          <MI.sms size={18} color={t.text1} />
+        </IconButton>
       </View>
 
       {/* body */}
@@ -231,13 +351,13 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
         {empty && (
           <View style={styles.emptyWrap}>
             <View style={[styles.emptySparkle, { backgroundColor: t.emDim }]}>
-              <MI.sparkle size={26} color={t.em} />
+              <Image source={require('../../assets/munshi.png')} style={styles.emptyLogo} />
             </View>
             <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(700) }]}>
-              Just tell me{'\n'}what happened.
+              Every rupee,{'\n'}accounted for.
             </Text>
             <Text style={[styles.emptySubtitle, { color: t.text3, fontFamily: weight(400) }]}>
-              Log a spend in plain words, attach a bill, or ask how to hit your goals.
+              Log spends, move budgets, track goals, or ask anything — Munshi keeps the hisaab.
             </Text>
 
             <View style={styles.emptyActions}>
@@ -247,7 +367,7 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
               >
                 <MI.camera size={16} color={t.em} />
                 <Text style={[styles.scanBtnText, { color: t.em, fontFamily: weight(600) }]}>
-                  Scan a bill or bank screenshot
+                  Attach a bill or bank screenshot
                 </Text>
               </Pressable>
               {CHAT_SUGGESTIONS.map((s) => (
@@ -264,33 +384,11 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
           </View>
         )}
 
-        {messages.map((m, i) => (
+        {messages.map((m) => (
           <View
-            key={i}
+            key={m.id}
             style={[styles.msgRow, { alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }]}
           >
-            {m.text ? (
-              <View
-                style={[
-                  styles.bubble,
-                  m.role === 'user'
-                    ? [styles.bubbleUser, { backgroundColor: t.em }]
-                    : [styles.bubbleBot, { backgroundColor: t.bg1, borderColor: t.border, borderWidth: 1 }],
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.bubbleText,
-                    {
-                      color: m.role === 'user' ? '#1a1228' : t.text1,
-                      fontFamily: weight(m.role === 'user' ? 500 : 400),
-                    },
-                  ]}
-                >
-                  {m.text}
-                </Text>
-              </View>
-            ) : null}
             {m.image ? (
               <Image
                 source={{ uri: m.image }}
@@ -298,11 +396,11 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
                 resizeMode="cover"
               />
             ) : null}
-            {m.tx ? <ChatTxCard tx={m.tx} /> : null}
+            {m.blocks.map((block, i) => renderBlock(block, `${m.id}-${i}`, m.role === 'user'))}
           </View>
         ))}
 
-        {busy && (
+        {showTyping && (
           <View style={styles.typingRow}>
             <View style={[styles.typingBubble, { backgroundColor: t.bg1, borderColor: t.border }]}>
               <TypingDot delayMs={0} color={t.text3} />
@@ -329,7 +427,7 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="Message Riddhi…"
+          placeholder="Message Munshi…"
           placeholderTextColor={t.text3}
           multiline
           style={[styles.input, { backgroundColor: t.bg2, borderColor: t.border, color: t.text1 }]}
@@ -342,6 +440,12 @@ export function Chat({ entry: _entry }: { entry: ScreenEntry }) {
           <MI.send size={19} color={canSend ? '#1a1228' : t.text3} strokeWidth={2.2} />
         </Pressable>
       </View>
+
+      <ThreadsSheet
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={selectThread}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -372,6 +476,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    overflow: 'hidden',
+  },
+  sparkleLogo: {
+    width: 34,
+    height: 34,
+    resizeMode: 'cover',
   },
   title: {
     fontSize: 15,
@@ -400,6 +510,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  emptyLogo: {
+    width: 54,
+    height: 54,
+    resizeMode: 'cover',
   },
   emptyTitle: {
     fontSize: 21,
@@ -451,6 +567,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 18,
+    marginTop: 6,
   },
   bubbleUser: {
     borderBottomRightRadius: 5,
@@ -467,6 +584,35 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 16,
     borderWidth: 1,
+  },
+  errorWrap: {
+    marginTop: 6,
+    gap: 8,
+  },
+  errorBubble: {
+    maxWidth: '82%',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderBottomLeftRadius: 5,
+    borderWidth: 1,
+  },
+  errorText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  retryBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  retryText: {
+    fontSize: 12,
   },
   typingRow: {
     flexDirection: 'row',

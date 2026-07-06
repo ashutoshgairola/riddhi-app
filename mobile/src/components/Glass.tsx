@@ -22,7 +22,15 @@ import { useTheme } from '../theme/ThemeProvider';
 import { radius } from '../theme/tokens';
 
 export interface GlassViewProps extends PropsWithChildren {
+  /** Styles the outer wrapper — placement props (margins, width/flex in a
+   * parent row, overflow). Children render inside the inner overlay, so
+   * content-layout props (flexDirection/alignItems/gap/padding overrides)
+   * must go in `contentStyle` instead — on `style` they'd silently apply
+   * to the wrapper, whose only children are the BlurView and the overlay. */
   style?: StyleProp<ViewStyle>;
+  /** Styles the inner overlay that actually contains `children` — use for
+   * content layout (row direction, alignment, gap) and padding overrides. */
+  contentStyle?: StyleProp<ViewStyle>;
   /** BlurView intensity (1–100). Defaults to 30 — tuned to read like the
    * CSS `blur(22px) saturate(150%)` glass on top of `PageBackground`. */
   intensity?: number;
@@ -40,7 +48,7 @@ export type GlassCardProps = Omit<GlassViewProps, 'padding'>;
  * border + a top inset highlight emulating `glassHi`. No default padding —
  * used for topbar/tabbar/sheet/toast surfaces that manage their own insets.
  */
-export function GlassView({ style, intensity = 30, radius: r = radius.xl, padding = 0, children }: GlassViewProps) {
+export function GlassView({ style, contentStyle, intensity = 30, radius: r = radius.xl, padding = 0, children }: GlassViewProps) {
   const { t, mode } = useTheme();
   const tint: BlurTint = mode === 'light' ? 'light' : 'dark';
   // `glassHi` is authored as a CSS shadow string (`inset 0 1px 0 <color>`);
@@ -49,7 +57,16 @@ export function GlassView({ style, intensity = 30, radius: r = radius.xl, paddin
   const hiColor = t.glassHi.slice(t.glassHi.lastIndexOf(' ') + 1);
 
   return (
-    <View style={[{ borderRadius: r, overflow: 'hidden' }, style]}>
+    // The 1px border lives on this outer wrapper, NOT the clipped overlay:
+    // a border drawn at the same rounded rect the `overflow: 'hidden'` mask
+    // clips against loses its outer half to the mask's antialiasing —
+    // corners survive, straight edges mostly vanish ("broken" borders).
+    <View
+      style={[
+        { borderRadius: r, borderWidth: 1, borderColor: t.glassBrd, overflow: 'hidden' },
+        style,
+      ]}
+    >
       <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFill} />
       <View
         style={[
@@ -58,8 +75,8 @@ export function GlassView({ style, intensity = 30, radius: r = radius.xl, paddin
             borderRadius: r,
             padding,
             backgroundColor: t.glassBg,
-            borderColor: t.glassBrd,
           },
+          contentStyle,
         ]}
       >
         <View style={[styles.hiLight, { backgroundColor: hiColor }]} pointerEvents="none" />
@@ -76,9 +93,9 @@ export function GlassView({ style, intensity = 30, radius: r = radius.xl, paddin
  * card surface specifically. Thin wrapper so card and bare-glass usages
  * share one implementation.
  */
-export function GlassCard({ style, children }: GlassCardProps) {
+export function GlassCard({ style, contentStyle, children }: GlassCardProps) {
   return (
-    <GlassView style={style} intensity={40} radius={radius.xl} padding={18}>
+    <GlassView style={style} contentStyle={contentStyle} intensity={40} radius={radius.xl} padding={18}>
       {children}
     </GlassView>
   );
@@ -86,8 +103,11 @@ export function GlassCard({ style, children }: GlassCardProps) {
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    borderWidth: 1,
+    // No `flex: 1` here: the overlay must size to its content. With a flex
+    // basis of 0% it collapses to zero height whenever an ancestor imposes
+    // a height constraint (e.g. DetectedCard's animated `maxHeight` wrap
+    // rendered every card as a 2px sliver). Fixed-size hosts (IconButton)
+    // pass explicit dimensions via `contentStyle` instead.
   },
   hiLight: {
     position: 'absolute',

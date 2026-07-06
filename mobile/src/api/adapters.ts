@@ -77,6 +77,7 @@ export function toTxView(tx: ApiTransaction, category?: ApiCategory): TxView {
     date: tx.date,
     amount: signedAmount,
     type: isIncome ? 'inc' : 'exp',
+    note: tx.notes,
   };
 }
 
@@ -97,6 +98,7 @@ export function toRecentTxView(
     icon,
     desc: tx.description,
     cat: catName,
+    cCol: resolveCatColor(category),
     date: displayDate ?? tx.date,
     amt: signedAmount,
     type: isIncome ? 'inc' : 'exp',
@@ -121,13 +123,30 @@ export function toAccountView(
     id: account.id,
     name: account.name,
     type: account.type,
-    sub: account.institutionName ?? account.type,
+    // `bank` already carries the institution, so `sub` is the human-readable
+    // account-type label (the mock's masked account number has no backend
+    // equivalent). Screens render "{bank} · {sub}", e.g. "HDFC Bank · Savings".
+    sub: prettyAccountType(account.type),
     bal: account.balance,
     gradient,
     logo: initials,
     bank: account.institutionName ?? account.name,
     change,
   };
+}
+
+/** Maps a raw account type to a display label (e.g. 'credit' → 'Credit card'). */
+function prettyAccountType(type: string): string {
+  const MAP: Record<string, string> = {
+    checking: 'Checking',
+    savings: 'Savings',
+    credit: 'Credit card',
+    investment: 'Investment',
+    cash: 'Wallet',
+    loan: 'Loan',
+    other: 'Account',
+  };
+  return MAP[type] ?? 'Account';
 }
 
 // ── Budget adapter ────────────────────────────────────────────────────
@@ -176,7 +195,13 @@ export function toHoldingView(inv: ApiInvestment): HoldingView {
 
 // ── Category adapter ──────────────────────────────────────────────────
 
-export function toCategoryView(cat: ApiCategory, txs = 0, total = 0, subs: string[] = []): CategoryView {
+export function toCategoryView(
+  cat: ApiCategory,
+  txs = 0,
+  total = 0,
+  subs: string[] = [],
+  isIncome = false,
+): CategoryView {
   return {
     id: cat.id,
     name: cat.name,
@@ -185,6 +210,7 @@ export function toCategoryView(cat: ApiCategory, txs = 0, total = 0, subs: strin
     txs,
     total,
     subs,
+    isIncome,
   };
 }
 
