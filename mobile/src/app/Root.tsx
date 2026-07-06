@@ -6,9 +6,11 @@ import {
   PlusJakartaSans_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/plus-jakarta-sans';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { hydrateBaseUrl } from '../api/baseUrl';
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { PageBackground } from '../components/PageBackground';
 import { FeedbackProvider } from '../feedback/FeedbackProvider';
@@ -54,7 +56,12 @@ export default function Root() {
     PlusJakartaSans_800ExtraBold,
   });
 
-  if (!fontsLoaded) {
+  const [urlReady, setUrlReady] = useState(false);
+  useEffect(() => {
+    hydrateBaseUrl().finally(() => setUrlReady(true));
+  }, []);
+
+  if (!fontsLoaded || !urlReady) {
     return null;
   }
 

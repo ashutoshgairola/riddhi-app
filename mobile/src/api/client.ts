@@ -10,8 +10,7 @@
  *
  * Throws ApiError on non-2xx responses.
  */
-
-const BASE_URL = (process.env['EXPO_PUBLIC_API_URL'] ?? '').replace(/\/$/, '');
+import { getBaseUrl } from './baseUrl';
 
 let _token: string | null = null;
 
@@ -38,6 +37,7 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...extra,
   };
   if (_token) {
@@ -60,7 +60,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
     method: 'GET',
     headers: buildHeaders(),
   });
@@ -68,7 +68,7 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
     method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify(body),
@@ -77,7 +77,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function patch<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
     method: 'PATCH',
     headers: buildHeaders(),
     body: JSON.stringify(body),
@@ -86,7 +86,7 @@ async function patch<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function del<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getBaseUrl()}${path}`, {
     method: 'DELETE',
     headers: buildHeaders(),
   });

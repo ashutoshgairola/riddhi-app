@@ -16,8 +16,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 
 import type { ChatStreamEvent } from '../ai/chatEvents';
 import { getAuthToken } from './client';
-
-const BASE_URL = (process.env['EXPO_PUBLIC_API_URL'] ?? '').replace(/\/$/, '');
+import { getBaseUrl } from './baseUrl';
 
 export class ChatStreamInterrupted extends Error {
   constructor(message = 'Stream interrupted') {
@@ -35,11 +34,12 @@ export interface StreamChatOptions {
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const token = getAuthToken();
-  const res = await expoFetch(`${BASE_URL}/ai-chat/stream`, {
+  const res = await expoFetch(`${getBaseUrl()}/ai-chat/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
+      'ngrok-skip-browser-warning': 'true',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ threadId: opts.threadId, message: opts.message }),
