@@ -129,7 +129,11 @@ export class TransactionsService {
       );
 
       await queryRunner.commitTransaction();
-      this.events.emit(TRANSACTION_CREATED, { userId, transaction: saved });
+      try {
+        this.events.emit(TRANSACTION_CREATED, { userId, transaction: saved });
+      } catch {
+        // A notification listener failure must never affect the committed transaction.
+      }
       return saved;
     } catch (err) {
       await queryRunner.rollbackTransaction();
