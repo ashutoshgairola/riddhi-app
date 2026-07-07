@@ -64,6 +64,7 @@ function toModelItem(tx: Transaction, categoryNames: Map<string, string>) {
     type: tx.type,
     category: categoryNames.get(tx.categoryId) ?? null,
     accountId: tx.accountId,
+    paymentMethod: tx.paymentMethod,
     notes: tx.notes,
   };
 }
@@ -83,6 +84,11 @@ export const transactionTools: RiddhiTool[] = [
       from: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
       to: { type: 'string', description: 'End date (YYYY-MM-DD)' },
       categoryId: { type: 'string', description: 'Filter by category id' },
+      source: {
+        type: 'string',
+        enum: ['bank', 'card'],
+        description: 'Filter by payment side: bank/UPI or credit card',
+      },
       limit: {
         type: 'integer',
         description: 'Max items to return (default 10, max 50)',
@@ -95,6 +101,7 @@ export const transactionTools: RiddhiTool[] = [
         from: input.from as string | undefined,
         to: input.to as string | undefined,
         categoryId: input.categoryId as string | undefined,
+        source: input.source as 'bank' | 'card' | undefined,
         page: 1,
         limit: Math.min(Number(input.limit) || 10, 50),
       });
