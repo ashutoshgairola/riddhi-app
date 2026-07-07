@@ -1,5 +1,6 @@
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventsService } from './events.service';
+import { computeDayGroups } from './events.totals';
 
 function makeRepo(events: any[]) {
   return {
@@ -43,5 +44,65 @@ describe('EventsService CRUD', () => {
     } as any);
     const created = repo.create.mock.calls[0][0];
     expect(created.expenses[0].paid).toBe(false);
+  });
+});
+
+function makeRepoWithExpenses(events: any[]) {
+  const repo = makeRepo(events);
+  repo.findExpense = jest.fn(async (expId: string, evId: string) => {
+    const ev = events.find((e) => e.id === evId);
+    return ev?.expenses?.find((x: any) => x.id === expId) ?? null;
+  });
+  repo.saveExpense = jest.fn(async (x: any) => x);
+  repo.createExpense = jest.fn((x: any) => ({ id: 'exp-new', ...x }));
+  return repo;
+}
+
+describe('EventsService multi-day', () => {
+  it('rejects multiDay create without endDate', async () => {
+    const svc = new EventsService(makeRepo([]), {} as any);
+    await expect(
+      svc.create('u1', { name: 'Trip', emoji: '✈️', color: '#fff', budget: 100, date: '2026-07-08', multiDay: true, expenses: [] } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects endDate before start', async () => {
+    const svc = new EventsService(makeRepo([]), {} as any);
+    await expect(
+      svc.create('u1', { name: 'Trip', emoji: '✈️', color: '#fff', budget: 100, date: '2026-07-10', endDate: '2026-07-08', multiDay: true, expenses: [] } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('forces endDate to null when not multiDay on update', async () => {
+    const events = [{ id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-10', expenses: [] }];
+    const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
+    await svc.update('ev1', 'u1', { multiDay: false } as any);
+    expect(events[0].endDate).toBeNull();
+  });
+
+  it('rejects an out-of-range dayDate on addExpense', async () => {
+    const events = [{ id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-10', expenses: [] }];
+    const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
+    await expect(
+      svc.addExpense('ev1', 'u1', { categoryId: 'c1', label: 'A', planned: 10, dayDate: '2026-07-20' } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('coerces dayDate to null for a single-day event', async () => {
+    const events = [{ id: 'ev1', userId: 'u1', budget: 100, multiDay: false, date: '2026-07-08', endDate: null, expenses: [] }];
+    const repo = makeRepoWithExpenses(events);
+    const svc = new EventsService(repo, {} as any);
+    await svc.addExpense('ev1', 'u1', { categoryId: 'c1', label: 'A', planned: 10, dayDate: '2026-07-08' } as any);
+    expect(repo.createExpense.mock.calls[0][0].dayDate).toBeNull();
+  });
+
+  it('resets out-of-range expense days when the range shrinks', async () => {
+    const events = [{
+      id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-12',
+      expenses: [{ id: 'x1', dayDate: '2026-07-11', planned: 10, actual: 0, paid: false }],
+    }];
+    const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
+    await svc.update('ev1', 'u1', { endDate: '2026-07-09' } as any);
+    expect(events[0].expenses[0].dayDate).toBeNull();
   });
 });
