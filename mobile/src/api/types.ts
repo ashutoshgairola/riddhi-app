@@ -6,6 +6,8 @@
  * (SwipeTx, RecentTx, etc.) so the adapter can produce identical objects.
  */
 
+import type { TxSource } from './paymentSource';
+
 export type PaymentMethod = 'upi' | 'card' | 'netbanking' | 'autopay' | 'cash';
 
 // ── API / backend DTOs ────────────────────────────────────────────────
@@ -30,6 +32,7 @@ export interface ApiTransaction {
     nextDate?: string;
   };
   eventId?: string | null;
+  paymentMethod?: PaymentMethod | null;
 }
 
 export interface ApiCategory {
@@ -194,6 +197,7 @@ export interface TxView {
   type: 'inc' | 'exp';
   note?: string; // free-text note stored on the transaction
   eventId?: string | null;
+  source?: TxSource;
 }
 
 /** Recent transaction view — matches RecentTx in Home.tsx */
@@ -205,6 +209,7 @@ export interface RecentTxView {
   date: string; // display string e.g. "Today", "Yesterday", "Apr 23"
   amt: number; // signed
   type: 'exp' | 'inc';
+  source?: TxSource;
 }
 
 /** Account view — matches Account in Accounts.tsx */
@@ -364,6 +369,8 @@ export interface NewTxInput {
   note?: string;
   /** Source account this transaction belongs to. */
   accountId?: string;
+  /** Payment rail; when omitted the backend derives it from the account. */
+  paymentMethod?: PaymentMethod;
 }
 
 export interface UpdateTxInput {
