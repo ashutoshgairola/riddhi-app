@@ -28,6 +28,13 @@ export class Event {
   @Column({ type: 'date', nullable: true })
   date: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  multiDay: boolean;
+
+  /** YYYY-MM-DD end date; null for single-day events. `date` holds the start. */
+  @Column({ type: 'date', nullable: true })
+  endDate: string | null;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, transformer: numericTransformer })
   budget: number;
 

@@ -1,6 +1,6 @@
 import {
   IsString, IsNumber, IsOptional, IsInt, IsArray, ValidateNested,
-  MaxLength, Min, Matches,
+  MaxLength, Min, Matches, IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateEventExpenseDto } from './create-event-expense.dto';
@@ -22,6 +22,15 @@ export class CreateEventDto {
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   date?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  multiDay?: boolean;
+
+  /** YYYY-MM-DD; required by the service when multiDay is true. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  endDate?: string;
 
   @IsNumber()
   @Min(0)

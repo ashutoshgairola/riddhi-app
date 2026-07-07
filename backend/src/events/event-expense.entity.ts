@@ -38,6 +38,10 @@ export class EventExpense {
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0, transformer: numericTransformer })
   actual: number;
 
+  /** YYYY-MM-DD day this expense belongs to; null = Unscheduled. Kept within [event.date, event.endDate]. */
+  @Column({ type: 'date', nullable: true })
+  dayDate: string | null;
+
   @Column({ type: 'boolean', default: false })
   paid: boolean;
 

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsUUID, IsOptional, IsBoolean, IsInt, MaxLength, Min } from 'class-validator';
+import { IsString, IsNumber, IsUUID, IsOptional, IsBoolean, IsInt, MaxLength, Min, ValidateIf, Matches } from 'class-validator';
 
 export class CreateEventExpenseDto {
   @IsUUID()
@@ -7,6 +7,12 @@ export class CreateEventExpenseDto {
   @IsString()
   @MaxLength(255)
   label: string;
+
+  /** YYYY-MM-DD within the event range, or null for Unscheduled. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  dayDate?: string | null;
 
   @IsNumber()
   @Min(0)
