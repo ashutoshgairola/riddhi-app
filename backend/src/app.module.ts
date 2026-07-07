@@ -11,6 +11,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { BudgetsModule } from './budgets/budgets.module';
+import { EventsModule } from './events/events.module';
 import { GoalsModule } from './goals/goals.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -45,6 +46,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     CategoriesModule,
     TransactionsModule,
     BudgetsModule,
+    EventsModule,
     GoalsModule,
     InvestmentsModule,
     NotificationsModule,
