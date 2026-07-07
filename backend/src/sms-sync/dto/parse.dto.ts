@@ -40,4 +40,5 @@ export interface ParseSmsResult {
   bank: string | null;
   last4: string | null;
   confidence: number;
+  paymentMethod: 'upi' | 'card' | 'autopay';
 }

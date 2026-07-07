@@ -43,6 +43,7 @@ export class SmsSyncService {
       merchant,
       category,
     );
+    const paymentMethod = this.extractPaymentMethod(text);
 
     return {
       merchant,
@@ -53,6 +54,7 @@ export class SmsSyncService {
       bank,
       last4,
       confidence,
+      paymentMethod,
     };
   }
 
@@ -159,6 +161,18 @@ export class SmsSyncService {
     }
 
     return null;
+  }
+
+  // ── Payment Method ────────────────────────────────────────────────────────
+  private extractPaymentMethod(text: string): 'upi' | 'card' | 'autopay' {
+    const t = text.toLowerCase();
+    if (/\b(e-?mandate|mandate|auto\s?pay|autopay|si\b|standing instruction|ach|nach|sip)\b/.test(t)) {
+      return 'autopay';
+    }
+    if (/credit\s*card|debit\s*card|\bcard\b/.test(t)) {
+      return 'card';
+    }
+    return 'upi';
   }
 
   // ── Category ──────────────────────────────────────────────────────────────
