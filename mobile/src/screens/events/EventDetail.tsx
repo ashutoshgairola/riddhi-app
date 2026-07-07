@@ -432,6 +432,9 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
         item={editItem}
         onSave={saveItem}
         onDelete={deleteItem}
+        multiDay={ev.multiDay}
+        rangeStart={ev.date}
+        rangeEnd={ev.endDate}
       />
     </MPageShell>
   );

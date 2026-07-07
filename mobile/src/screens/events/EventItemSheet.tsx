@@ -24,6 +24,7 @@ import { Btn } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
 import { EV_CAT_LIST } from './templates';
+import { eachDayYMD, formatDayShort } from './eventDates';
 import type { EventExpenseView, NewEventExpenseInput } from '../../api/types';
 
 /** Icon + color per event category label — port of MobileStore.jsx:8–19 (`CAT_META`). */
@@ -48,6 +49,7 @@ function catMeta(name: string): { icon: string; color: string } {
 
 export interface EventItemSaved extends NewEventExpenseInput {
   actual: number;
+  dayDate: string | null;
 }
 
 export function EventItemSheet({
@@ -56,12 +58,18 @@ export function EventItemSheet({
   item,
   onSave,
   onDelete,
+  multiDay,
+  rangeStart,
+  rangeEnd,
 }: {
   open: boolean;
   onClose: () => void;
   item?: EventExpenseView | null;
   onSave: (patch: EventItemSaved) => void;
   onDelete?: () => void;
+  multiDay: boolean;
+  rangeStart: string | null;
+  rangeEnd: string | null;
 }) {
   const { t } = useTheme();
 
@@ -70,6 +78,7 @@ export function EventItemSheet({
   const [planned, setPlanned] = useState('');
   const [actual, setActual] = useState('');
   const [paid, setPaid] = useState(false);
+  const [dayDate, setDayDate] = useState<string | null>(null);
 
   const isNew = !item;
 
@@ -81,6 +90,7 @@ export function EventItemSheet({
     setPlanned(item ? String(item.planned || '') : '');
     setActual(item && item.actual ? String(item.actual) : '');
     setPaid(item?.paid ?? false);
+    setDayDate(item?.dayDate ?? null);
   }, [open, item]);
 
   // MobileEvents.jsx:27–33 (`save`).
@@ -91,7 +101,7 @@ export function EventItemSheet({
       onClose();
       return;
     }
-    onSave({ categoryName: cat, label: label.trim() || cat, planned: p, actual: a, paid });
+    onSave({ categoryName: cat, label: label.trim() || cat, planned: p, actual: a, paid, dayDate });
     onClose();
   };
 
@@ -243,6 +253,36 @@ export function EventItemSheet({
             </Text>
           </View>
         </Pressable>
+
+        {/* day selector — multi-day events only */}
+        {multiDay && rangeStart && rangeEnd ? (
+          <View style={{ marginTop: 14 }}>
+            <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>DAY</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsRow}
+            >
+              {[null, ...eachDayYMD(rangeStart, rangeEnd)].map((d) => {
+                const on = d === dayDate;
+                return (
+                  <Pressable
+                    key={d ?? 'unscheduled'}
+                    onPress={() => setDayDate(d)}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: on ? t.emDim : t.bg2, borderColor: on ? t.emGlow : t.border },
+                    ]}
+                  >
+                    <Text style={[styles.chipLabel, { color: on ? t.em : t.text2, fontFamily: weight(600) }]}>
+                      {d === null ? 'Unscheduled' : formatDayShort(d)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
 
         <Btn variant="em" onPress={save} style={styles.saveBtn}>
           {isNew ? 'Add expense' : 'Save changes'}
