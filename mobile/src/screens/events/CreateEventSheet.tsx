@@ -20,6 +20,7 @@ import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 import { BottomSheet } from '../../components/BottomSheet';
 import { CalendarPicker, type Anchor } from '../../components/CalendarPicker';
 import { Btn } from '../../components/ui';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
 import { CUSTOM_EMOJIS, EV_TEMPLATES, seedFromTemplate } from './templates';
@@ -57,9 +58,10 @@ export function CreateEventSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreate: (input: NewEventInput) => void;
+  onCreate: (input: NewEventInput) => void | Promise<void>;
 }) {
   const { t } = useTheme();
+  const { toast } = useFeedback();
 
   const [tpl, setTpl] = useState(DEFAULT_TEMPLATE_KEY);
   const [name, setName] = useState('');
@@ -107,17 +109,23 @@ export function CreateEventSheet({
     }
   };
 
-  // MobileEvents.jsx:139–148 (`create`).
-  const create = () => {
+  // MobileEvents.jsx:139–148 (`create`). Awaits `onCreate` (mirrors
+  // AddTxSheet.tsx's `save`) so a failed create toasts and leaves the sheet
+  // open for retry instead of closing (and navigating) silently.
+  const create = async () => {
     const seed = seedFromTemplate(template);
-    onCreate({
-      ...seed,
-      name: name.trim() || template.name,
-      date: date || undefined,
-      budget: Number(budget) || template.budget,
-      emoji: isCustom ? emoji : template.emoji,
-    });
-    onClose();
+    try {
+      await onCreate({
+        ...seed,
+        name: name.trim() || template.name,
+        date: date || undefined,
+        budget: Number(budget) || template.budget,
+        emoji: isCustom ? emoji : template.emoji,
+      });
+      onClose();
+    } catch {
+      toast("Couldn't create event", '⚠️');
+    }
   };
 
   const dateLabel = displayDate(date);
@@ -254,7 +262,7 @@ export function CreateEventSheet({
           </View>
         </View>
 
-        <Btn variant="em" onPress={create} style={styles.createBtn}>
+        <Btn variant="em" onPress={() => void create()} style={styles.createBtn}>
           Create event
         </Btn>
       </View>

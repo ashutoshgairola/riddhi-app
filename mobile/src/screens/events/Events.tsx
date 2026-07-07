@@ -66,6 +66,25 @@ function evFmtK(n: number): string {
   return `₹${a}`;
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Parse a stored 'YYYY-MM-DD' as a *local* date (mirrors
+// CreateEventSheet.tsx's `parseYMD`, duplicated here since that helper
+// isn't exported).
+function parseYMD(s: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// Friendly display label for a stored `YYYY-MM-DD` date (mirrors
+// CreateEventSheet.tsx's `displayDate`).
+function displayDate(s: string): string | null {
+  const d = parseYMD(s);
+  return d ? `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : null;
+}
+
 export function Events({ entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { nav } = useNav();
@@ -144,6 +163,7 @@ export function Events({ entry }: { entry: ScreenEntry }) {
             const pct = ev.budget > 0 ? Math.round((ev.paid / ev.budget) * 100) : 0;
             const over = ev.projected > ev.budget;
             const barColor = over ? t.red : pct >= 85 ? t.amber : ev.color;
+            const dateLabel = ev.date ? displayDate(ev.date) : null;
 
             return (
               <SpringIn key={ev.id} delay={50 + i * 50}>
@@ -163,8 +183,8 @@ export function Events({ entry }: { entry: ScreenEntry }) {
                             {ev.name}
                           </Text>
                           <View style={styles.eventMetaRow}>
-                            {ev.date ? (
-                              <Text style={[styles.eventMetaText, { color: t.text3 }]}>🗓 {ev.date}</Text>
+                            {dateLabel ? (
+                              <Text style={[styles.eventMetaText, { color: t.text3 }]}>🗓 {dateLabel}</Text>
                             ) : null}
                             <Text style={[styles.eventMetaText, { color: t.text3 }]}>
                               {ev.paidCount}/{ev.count} paid
