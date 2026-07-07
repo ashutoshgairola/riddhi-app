@@ -39,18 +39,18 @@ const ITEMS: MoreItem[] = [
   },
   { id: "goals", l: "Goals", i: "⊙", c: "#9d8bd6", d: "Savings & milestones" },
   {
-    id: "events",
-    l: "Events",
-    i: "🎉",
-    c: "#c97d8c",
-    d: "Plan birthdays, trips & more",
-  },
-  {
     id: "invest",
     l: "Investments",
     i: "▲",
     c: "#7faf93",
     d: "Portfolio & holdings",
+  },
+  {
+    id: "events",
+    l: "Events",
+    i: "🎉",
+    c: "#c97d8c",
+    d: "Plan birthdays, trips & more",
   },
   { id: "reports", l: "Reports", i: "≋", c: "#6fb3ad", d: "Charts & insights" },
   {
