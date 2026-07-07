@@ -31,6 +31,16 @@ each with its own spec → plan → build cycle:
   user's Play subscriptions). Not Play-specific.
 - **E. Home widgets** — "card bills due" and "upcoming subscriptions".
 
+## Consistency principle (applies to every slice)
+
+Each slice **keeps the rest of the app in sync as part of that slice** — the app
+must be correct and consistent after every slice, never left half-wired. Concretely,
+whenever a slice changes the transaction/account/subscription model, that same
+slice updates every module that reads or writes those records: SMS-sync, receipt
+scanning, events, budgets, categories, reports/insights, CSV export, and the
+Munshi AI-chat tools + snapshot. Each slice spec carries its own
+"Cross-module consistency" section listing exactly what it touches.
+
 ## Goal
 
 Give every transaction a queryable payment source so the app can show *how* you
@@ -146,6 +156,35 @@ accepts optional `source: 'bank' | 'card'`.
   `upi`. `NewTxInput` already carries `accountId`; add optional `paymentMethod`
   (defaults follow the account type, matching the backend derivation).
 
+## Cross-module consistency (Slice A)
+
+Modules this slice must update so the whole app understands payment source:
+
+- **SMS-sync** (`sms-sync.service.ts`) — it already matches an account by the
+  last-4 digits it parses. Set `paymentMethod` on the created transaction from
+  that match: matched account `type=credit` → `card`; otherwise `upi` (or
+  `autopay` when the SMS reads as an auto-debit/ACH/SIP mandate). This is what
+  makes real synced spends carry the correct tag.
+- **Munshi AI-chat** — `transactions.tools.ts` `toModelItem`/`toViewItem` include
+  `paymentMethod` (and the derived source label) so the assistant can answer
+  "how much did I spend on my card this month". `list_transactions` accepts an
+  optional `source: 'bank' | 'card'` filter mirroring the API. The financial
+  snapshot in `prompt.ts` gains a one-line bank-vs-card spend split so Munshi is
+  source-aware without a tool call.
+- **Receipt scanning** (`receipts.service.ts`) — created transactions get a
+  default `paymentMethod` derived from the chosen account (same rule as the
+  create path); no schema change.
+- **Events** (`events.service.ts`) — event-linked expense transactions keep
+  deriving their method from their account (typically none → `cash`); no
+  behavioural change, verified not broken.
+- **CSV export** (mobile `lib/exportCsv.ts`) — add a "Source" column from the
+  derived tag label.
+
+Modules that need **no change** in Slice A (amounts are unaffected by the tag):
+budgets, categories, reports/insights, goals. Their settlement-exclusion
+correctness is handled in Slice B (bill payment modeled as a `transfer`, already
+excluded from expense totals).
+
 ## Testing
 
 - **Backend:** unit tests for create-path derivation (credit → card, bank → upi,
@@ -154,6 +193,10 @@ accepts optional `source: 'bank' | 'card'`.
   cases.
 - **Mobile:** adapter tests mapping `(paymentMethod, account)` → `source`
   including the `null`-method derivation and the autopay marker.
+- **Cross-module:** sms-sync test asserting a credit-card SMS produces a
+  `card`-tagged transaction and a UPI SMS a `upi`-tagged one; Munshi
+  `transactions.tools` test asserting `paymentMethod` is returned and the
+  `source` filter narrows results.
 
 ## Risks / edge cases
 
