@@ -37,7 +37,9 @@ export type ScreenKind =
   | 'settings'
   | 'notifs'
   | 'search'
-  | 'tx-detail';
+  | 'tx-detail'
+  | 'events'
+  | 'event-detail';
 
 /** One entry in the nav stack. `data` carries route params (e.g. the
  * account/transaction being drilled into) — MobileApp.jsx:299/304. */

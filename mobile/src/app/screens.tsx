@@ -13,6 +13,8 @@ import { Accounts } from '../screens/Accounts';
 import { Budgets } from '../screens/Budgets';
 import { CategoryDetail } from '../screens/CategoryDetail';
 import { Chat } from '../screens/Chat';
+import { EventDetail } from '../screens/events/EventDetail';
+import { Events } from '../screens/events/Events';
 import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
 import { Invest } from '../screens/Invest';
@@ -46,6 +48,8 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   notifs: Notifications,
   search: Search,
   'tx-detail': TxDetail,
+  events: Events,
+  'event-detail': EventDetail,
 };
 
 /** Renders the screen for a given stack entry — RN counterpart of
