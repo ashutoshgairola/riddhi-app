@@ -45,7 +45,7 @@ import type { SwipeTx } from './SwipeRow';
 export function TxDetail({ entry }: { entry: ScreenEntry }) {
   const tx = entry.data as SwipeTx;
   const { t } = useTheme();
-  const { pop } = useNav();
+  const { pop, nav } = useNav();
   const { toast, sheet, form } = useFeedback();
 
   const editTx = async () => {
@@ -174,6 +174,19 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
         </ListCard>
       </View>
 
+      {tx.eventId ? (
+        <View style={styles.listWrap}>
+          <ListCard>
+            <ListRow last onPress={() => nav('event-detail', { id: tx.eventId! })}>
+              <Text style={[styles.eventLinkLabel, { color: t.text1, fontFamily: weight(600) }]}>
+                View event budget
+              </Text>
+              <MI.arrow size={18} color={t.text3} />
+            </ListRow>
+          </ListCard>
+        </View>
+      ) : null}
+
       <GlassCard style={styles.noteCard}>
         <Text style={[styles.noteLabel, { color: t.text3, fontFamily: weight(600) }]}>NOTE</Text>
         <Text style={[styles.noteBody, { color: tx.note ? t.text1 : t.text2 }]}>
@@ -234,6 +247,10 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 13,
     textAlign: 'right',
+  },
+  eventLinkLabel: {
+    flex: 1,
+    fontSize: 13,
   },
   noteCard: {
     marginBottom: 14,

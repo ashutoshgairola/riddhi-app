@@ -40,6 +40,7 @@ export interface SwipeTx {
   amount: number;
   type: 'inc' | 'exp';
   note?: string;
+  eventId?: string | null;
 }
 
 /** Drag clamp range (web: `Math.max(-90, Math.min(90, dx))`). */

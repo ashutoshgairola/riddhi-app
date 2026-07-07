@@ -61,6 +61,7 @@ import { useApiData } from '../api/useApi';
 import type {
   AccountView,
   CategorySliceView,
+  EventView,
   GoalView,
   IncomeExpenseSeriesView,
   NetWorthTrendView,
@@ -116,7 +117,7 @@ function fmtKpi(n: number): string {
 
 export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { pop } = useNav();
+  const { pop, nav } = useNav();
   const { toast, sheet } = useFeedback();
   const [tab, setTab] = useState<TabId>('overview');
   const [scrolled, setScrolled] = useState(false);
@@ -127,6 +128,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const { data: catData } = useApiData(() => api.reports.categories(period), EMPTY_SLICES, [period]);
   const { data: nwTrend } = useApiData(() => api.reports.netWorthTrend(period), EMPTY_TREND, [period]);
   const { data: goals } = useApiData(() => api.goals.list(), [] as GoalView[]);
+  const { data: events } = useApiData(() => api.events.list(), [] as EventView[]);
   const { data: accounts } = useApiData(() => api.accounts.list(), [] as AccountView[]);
   const { data: incomeTxs } = useApiData(
     () => api.transactions.list({ filter: 'inc', period: txPeriodFor(period) }),
@@ -343,7 +345,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
 
             {/* Net worth trend (MobileScreens.jsx:198–210), animationDelay: .15s */}
             <SpringIn delay={150}>
-              <GlassCard style={styles.sectionCardLast}>
+              <GlassCard style={events.length > 0 ? styles.sectionCard : styles.sectionCardLast}>
                 <View style={styles.cardHeaderRow}>
                   <View>
                     <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
@@ -364,6 +366,52 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 </View>
               </GlassCard>
             </SpringIn>
+
+            {/* Event Budgets — Task 12; shown only when the user has events
+                (api.events.list, Task 6). Mirrors the "By Source" list
+                pattern below: SectionHead + ListCard/ListRow/ProgressBar,
+                not wrapped in a GlassCard. */}
+            {events.length > 0 && (
+              <SpringIn delay={200}>
+                <SectionHead title="Event Budgets" />
+                <ListCard>
+                  {events.map((ev, i) => {
+                    const pct = ev.budget > 0 ? Math.min(Math.round((ev.paid / ev.budget) * 100), 100) : 0;
+                    const barColor = ev.over ? t.red : ev.color;
+                    return (
+                      <ListRow
+                        key={ev.id}
+                        last={i === events.length - 1}
+                        onPress={() => nav('event-detail', { id: ev.id })}
+                      >
+                        <View style={styles.eventRowLeft}>
+                          <Text style={styles.eventRowEmoji}>{ev.emoji}</Text>
+                          <View style={styles.eventRowText}>
+                            <Text
+                              style={[styles.eventRowName, { color: t.text1, fontFamily: weight(600) }]}
+                              numberOfLines={1}
+                            >
+                              {ev.name}
+                            </Text>
+                            <View style={styles.eventRowBarWrap}>
+                              <ProgressBar pct={pct} color={barColor} />
+                            </View>
+                          </View>
+                        </View>
+                        <View style={styles.eventRowRight}>
+                          <Text style={[styles.eventRowAmt, { color: t.text1, fontFamily: weight(700) }]}>
+                            {fmtKpi(ev.paid)} <Text style={{ color: t.text3 }}>/ {fmtKpi(ev.budget)}</Text>
+                          </Text>
+                          <Text style={[styles.eventRowStatus, { color: ev.over ? t.red : t.text3 }]}>
+                            {ev.over ? 'over' : 'under'}
+                          </Text>
+                        </View>
+                      </ListRow>
+                    );
+                  })}
+                </ListCard>
+              </SpringIn>
+            )}
           </>
         )}
 
@@ -706,6 +754,41 @@ const styles = StyleSheet.create({
   sourcePct: {
     fontSize: 11,
     marginTop: 2,
+  },
+
+  // Event Budgets list rows
+  eventRowLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
+  },
+  eventRowEmoji: {
+    fontSize: 20,
+  },
+  eventRowText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  eventRowName: {
+    fontSize: 14,
+  },
+  eventRowBarWrap: {
+    marginTop: 8,
+  },
+  eventRowRight: {
+    alignItems: 'flex-end',
+    marginLeft: 10,
+  },
+  eventRowAmt: {
+    fontSize: 13,
+  },
+  eventRowStatus: {
+    fontSize: 11,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
 
   // Top categories / goal progress / asset allocation rows
