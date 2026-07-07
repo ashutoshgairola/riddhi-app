@@ -129,6 +129,11 @@ async function fetchCategoryMap(): Promise<Map<string, ApiCategory>> {
   return new Map(cats.map((c) => [c.id, c]));
 }
 
+async function fetchAccountMap(): Promise<Map<string, ApiAccount>> {
+  const accounts = await apiClient.get<ApiAccount[]>('/accounts');
+  return new Map(accounts.map((a) => [a.id, a]));
+}
+
 /** Category name → id, creating the category if missing. */
 async function resolveCategoryId(name: string): Promise<string> {
   const cats = await apiClient.get<ApiCategory[]>('/categories');
@@ -197,6 +202,8 @@ export interface TxListParams {
   to?: string;
   /** Free-text description match, resolved server-side across all history. */
   search?: string;
+  /** Restrict to bank/UPI or credit-card transactions (server-side). */
+  source?: 'bank' | 'card';
 }
 
 // Local YYYY-MM-DD (avoids the UTC shift that toISOString() causes in
@@ -230,18 +237,26 @@ export const api = {
       }
       if (params?.categoryId) qs.set('categoryId', params.categoryId);
       if (params?.accountId) qs.set('accountId', params.accountId);
+      if (params?.source) qs.set('source', params.source);
       if (params?.search?.trim()) qs.set('search', params.search.trim());
       qs.set('limit', String(params?.limit ?? 100));
       const raw = await apiClient.get<ApiPaginatedTransactions>(`/transactions?${qs.toString()}`);
-      const catMap = await fetchCategoryMap();
-      return txItems(raw).map((tx) => toTxView(tx, catMap.get(tx.categoryId)));
+      const [catMap, acctMap] = await Promise.all([fetchCategoryMap(), fetchAccountMap()]);
+      return txItems(raw).map((tx) =>
+        toTxView(tx, catMap.get(tx.categoryId), tx.accountId ? acctMap.get(tx.accountId) : undefined),
+      );
     },
 
     async recent(): Promise<RecentTxView[]> {
       const raw = await apiClient.get<ApiPaginatedTransactions>('/transactions?limit=4');
-      const catMap = await fetchCategoryMap();
+      const [catMap, acctMap] = await Promise.all([fetchCategoryMap(), fetchAccountMap()]);
       return txItems(raw).map((tx) =>
-        toRecentTxView(tx, catMap.get(tx.categoryId), displayDate(tx.date.slice(0, 10))),
+        toRecentTxView(
+          tx,
+          catMap.get(tx.categoryId),
+          displayDate(tx.date.slice(0, 10)),
+          tx.accountId ? acctMap.get(tx.accountId) : undefined,
+        ),
       );
     },
 
@@ -255,10 +270,15 @@ export const api = {
         categoryId,
         notes: input.note,
         ...(input.accountId ? { accountId: input.accountId } : {}),
+        ...(input.paymentMethod ? { paymentMethod: input.paymentMethod } : {}),
       });
       bumpData();
-      const catMap = await fetchCategoryMap();
-      return toTxView(created, catMap.get(created.categoryId));
+      const [catMap, acctMap] = await Promise.all([fetchCategoryMap(), fetchAccountMap()]);
+      return toTxView(
+        created,
+        catMap.get(created.categoryId),
+        created.accountId ? acctMap.get(created.accountId) : undefined,
+      );
     },
 
     async update(id: TxView['id'], patch: UpdateTxInput): Promise<void> {

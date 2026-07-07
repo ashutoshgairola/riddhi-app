@@ -43,6 +43,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from '../api';
+import type { PaymentMethod } from '../api/types';
 import { GlassCard } from '../components/Glass';
 import { BankLogo } from '../components/BankLogo';
 import { IconButton, ListCard, ListRow, SearchButton, Toggle, TopbarActions } from '../components/ui';
@@ -75,6 +76,7 @@ export interface SyncDetected {
   account: string;
   time: string;
   conf: number;
+  paymentMethod: PaymentMethod;
 }
 
 interface SyncRecent {
@@ -203,6 +205,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       amount: tx.amount,
       type: tx.amount > 0 ? 'inc' : 'exp',
       categoryName: tx.cat,
+      paymentMethod: tx.paymentMethod,
     });
 
   /** Maps a confirmed detection into an "Auto-added" list row. */

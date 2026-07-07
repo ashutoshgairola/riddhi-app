@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../api/client';
 import { getMessages, isSmsReaderAvailable } from '../../modules/sms-reader';
 import type { SyncDetected } from '../screens/Sync';
+import type { PaymentMethod } from '../api/types';
 
 /** Category → accent color, mirroring the backend keyword-map Category union. */
 const CAT_COLOR: Record<string, string> = {
@@ -62,6 +63,7 @@ interface ParsedSms {
   bank: string | null;
   last4: string | null;
   confidence: number;
+  paymentMethod: PaymentMethod;
 }
 
 /** True only where the native reader is linked (an Android dev/preview build). */
@@ -144,6 +146,7 @@ export async function fetchSmsSuggestions(): Promise<SyncDetected[]> {
       account: p.account ?? '',
       time: new Date().toISOString().slice(0, 10),
       conf: p.confidence,
+      paymentMethod: p.paymentMethod,
     };
   });
 }
