@@ -109,6 +109,7 @@ export class TransactionsService {
         isRecurring: dto.isRecurring ?? false,
         recurringDetails: dto.recurringDetails ?? null,
         accountId: dto.accountId ?? null,
+        eventId: dto.eventId ?? null,
         destinationAccountId: dto.destinationAccountId ?? null,
         notes: dto.notes ?? null,
       });

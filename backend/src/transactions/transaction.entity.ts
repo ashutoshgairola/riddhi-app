@@ -11,6 +11,7 @@ import { TransactionType, TransactionStatus } from '../common/enums';
 import { User } from '../users/user.entity';
 import { Account } from '../accounts/account.entity';
 import { TransactionCategory } from '../categories/category.entity';
+import { Event } from '../events/event.entity';
 
 export interface RecurringDetails {
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -68,6 +69,14 @@ export class Transaction {
   @ManyToOne(() => Account, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'destinationAccountId' })
   destinationAccount: Account | null;
+
+  /** Set when this expense was logged by ticking an Event Planner item. */
+  @Column({ type: 'uuid', nullable: true })
+  eventId: string | null;
+
+  @ManyToOne(() => Event, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'eventId' })
+  event: Event | null;
 
   @Column({
     type: 'enum',

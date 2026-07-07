@@ -52,6 +52,11 @@ export class CreateTransactionDto {
   @IsUUID()
   accountId?: string;
 
+  /** Links this transaction to an Event Planner expense (set server-side). */
+  @IsOptional()
+  @IsUUID()
+  eventId?: string;
+
   /** Destination account for a `transfer` — credited when the source is debited. */
   @IsOptional()
   @IsUUID()
