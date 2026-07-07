@@ -35,6 +35,8 @@ import type {
   EventExpenseView,
 } from './types';
 
+import { deriveSource } from './paymentSource';
+
 // ── Category color lookup ─────────────────────────────────────────────
 // Canonical category colors matching the mock data palette.
 const CATEGORY_COLORS: Record<string, string> = {
@@ -65,7 +67,7 @@ function resolveCatColor(category?: ApiCategory): string {
  * Maps an API transaction + optional category → TxView (SwipeTx-compatible).
  * Signs the amount: income → positive, expense/transfer → negative.
  */
-export function toTxView(tx: ApiTransaction, category?: ApiCategory): TxView {
+export function toTxView(tx: ApiTransaction, category?: ApiCategory, account?: ApiAccount): TxView {
   const isIncome = tx.type === 'income';
   const signedAmount = isIncome ? tx.amount : -tx.amount;
   const catName = category?.name ?? tx.categoryId;
@@ -83,6 +85,7 @@ export function toTxView(tx: ApiTransaction, category?: ApiCategory): TxView {
     type: isIncome ? 'inc' : 'exp',
     note: tx.notes,
     eventId: tx.eventId ?? null,
+    source: deriveSource(tx.paymentMethod, account),
   };
 }
 
@@ -94,6 +97,7 @@ export function toRecentTxView(
   tx: ApiTransaction,
   category?: ApiCategory,
   displayDate?: string,
+  account?: ApiAccount,
 ): RecentTxView {
   const isIncome = tx.type === 'income';
   const signedAmount = isIncome ? tx.amount : -tx.amount;
@@ -107,6 +111,7 @@ export function toRecentTxView(
     date: displayDate ?? tx.date,
     amt: signedAmount,
     type: isIncome ? 'inc' : 'exp',
+    source: deriveSource(tx.paymentMethod, account),
   };
 }
 
