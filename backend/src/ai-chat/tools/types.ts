@@ -5,6 +5,7 @@ import { AccountsService } from '../../accounts/accounts.service';
 import { CategoriesService } from '../../categories/categories.service';
 import { InvestmentsService } from '../../investments/investments.service';
 import { ReportsService } from '../../reports/reports.service';
+import { EventsService } from '../../events/events.service';
 import { Widget } from '../widgets';
 
 export interface ToolCtx {
@@ -17,6 +18,7 @@ export interface ToolCtx {
     categories: CategoriesService;
     investments: InvestmentsService;
     reports: ReportsService;
+    events: EventsService;
   };
 }
 

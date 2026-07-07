@@ -78,6 +78,7 @@ function makeService(client: Anthropic | null) {
   const accounts = {};
   const investments = {};
   const reports = {};
+  const events = { findAll: jest.fn().mockResolvedValue([]) };
   const threadRepo = mockRepo();
   const messageRepo = mockRepo();
   const actionRepo = mockRepo();
@@ -91,6 +92,7 @@ function makeService(client: Anthropic | null) {
     accounts as never,
     investments as never,
     reports as never,
+    events as never,
     client,
     threadRepo as never,
     messageRepo as never,

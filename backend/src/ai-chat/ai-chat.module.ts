@@ -9,6 +9,7 @@ import { CategoriesModule } from '../categories/categories.module';
 import { AccountsModule } from '../accounts/accounts.module';
 import { InvestmentsModule } from '../investments/investments.module';
 import { ReportsModule } from '../reports/reports.module';
+import { EventsModule } from '../events/events.module';
 import { AiChatController } from './ai-chat.controller';
 import { AiChatService, ANTHROPIC_CLIENT } from './ai-chat.service';
 import { ChatThread } from './entities/chat-thread.entity';
@@ -25,6 +26,7 @@ import { PendingAction } from './entities/pending-action.entity';
     AccountsModule,
     InvestmentsModule,
     ReportsModule,
+    EventsModule,
   ],
   controllers: [AiChatController],
   providers: [

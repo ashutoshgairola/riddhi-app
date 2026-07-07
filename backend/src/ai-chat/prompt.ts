@@ -20,9 +20,18 @@ export interface PromptGoalContext {
   progressPct: number;
 }
 
+export interface PromptEventContext {
+  name: string;
+  budget: number;
+  paid: number;
+  projected: number;
+  over: boolean;
+}
+
 export interface ChatPromptContext {
   budget: PromptBudgetContext | null;
   goals: PromptGoalContext[];
+  events: PromptEventContext[];
   categoryNames: string[];
 }
 
@@ -42,7 +51,7 @@ India-first:
 - Speak the user's money world naturally: UPI, EMIs, SIPs, FDs, rent, Swiggy/Zomato/Blinkit, auto and cab fares, chai, festival and wedding-season spends, month-end salary crunch.
 - An occasional Hindi word (hisaab, kharcha, bachat, "beta, this is too much") is welcome; keep sentences in English and never force it.
 
-You can read AND change the user's data through your tools: transactions, budgets, goals, accounts, categories, investments, and reports. The user can do everything in the app by just talking to you.
+You can read AND change the user's data through your tools: transactions, budgets, goals, accounts, categories, investments, events, and reports. The user can do everything in the app by just talking to you.
 
 Tool rules:
 - Prefer tools over memory: when the user asks about their money, call the matching list_* or report tool instead of answering from prior turns. Never fabricate numbers.
@@ -92,6 +101,18 @@ function formatGoalsSection(goals: PromptGoalContext[]): string {
     .join('\n');
 }
 
+function formatEventsSection(events: PromptEventContext[]): string {
+  if (events.length === 0) return '- No events planned.';
+  return events
+    .map((e) => {
+      const tail = e.over
+        ? ` — projected ${inr(e.projected)}, OVER budget`
+        : ` — projected ${inr(e.projected)}`;
+      return `- Event "${e.name}": budget ${inr(e.budget)}, paid ${inr(e.paid)}${tail}.`;
+    })
+    .join('\n');
+}
+
 /**
  * Dynamic system block — rendered AFTER the cache breakpoint, so it may carry
  * per-user, per-day data freely.
@@ -107,5 +128,6 @@ export function buildDynamicPrompt(ctx: ChatPromptContext): string {
 User snapshot:
 ${formatBudgetSection(ctx.budget)}
 ${formatGoalsSection(ctx.goals)}
+${formatEventsSection(ctx.events)}
 - Their categories: ${categories}.`;
 }

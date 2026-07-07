@@ -16,11 +16,13 @@ import { CategoriesService } from '../categories/categories.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { InvestmentsService } from '../investments/investments.service';
 import { ReportsService } from '../reports/reports.service';
+import { EventsService } from '../events/events.service';
 import { GoalStatus } from '../common/enums';
 import {
   buildDynamicPrompt,
   ChatPromptContext,
   PromptBudgetContext,
+  PromptEventContext,
   PromptGoalContext,
   STATIC_SYSTEM_PROMPT,
 } from './prompt';
@@ -74,6 +76,7 @@ export class AiChatService {
     private readonly accountsService: AccountsService,
     private readonly investmentsService: InvestmentsService,
     private readonly reportsService: ReportsService,
+    private readonly eventsService: EventsService,
     @Inject(ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
     @InjectRepository(ChatThread)
     private readonly threadRepo: Repository<ChatThread>,
@@ -98,6 +101,7 @@ export class AiChatService {
         categories: this.categoriesService,
         investments: this.investmentsService,
         reports: this.reportsService,
+        events: this.eventsService,
       },
     };
   }
@@ -552,7 +556,7 @@ export class AiChatService {
   // ── Shared prompt context ──────────────────────────────────────────────────
 
   private async buildPromptContext(userId: string): Promise<ChatPromptContext> {
-    const [budgets, goals, categories] = await Promise.all([
+    const [budgets, goals, categories, eventsRaw] = await Promise.all([
       this.budgetsService
         .findAll(userId)
         .catch(() => [] as Awaited<ReturnType<BudgetsService['findAll']>>),
@@ -562,6 +566,9 @@ export class AiChatService {
       this.categoriesService
         .findAll(userId)
         .catch(() => [] as Awaited<ReturnType<CategoriesService['findAll']>>),
+      this.eventsService
+        .findAll(userId)
+        .catch(() => [] as Awaited<ReturnType<EventsService['findAll']>>),
     ]);
 
     const budget: PromptBudgetContext | null = budgets[0]
@@ -591,9 +598,15 @@ export class AiChatService {
         progressPct: g.progressPct,
       }));
 
+    const events: PromptEventContext[] = eventsRaw.map((e) => ({
+      name: e.name, budget: e.budget, paid: e.paid,
+      projected: e.projected, over: e.over,
+    }));
+
     return {
       budget,
       goals: activeGoals,
+      events,
       categoryNames: categories.map((c) => c.name),
     };
   }
