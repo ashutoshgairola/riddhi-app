@@ -16,32 +16,20 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Polyline } from 'react-native-svg';
 
 import { BottomSheet } from '../../components/BottomSheet';
 import { CalendarPicker, type Anchor } from '../../components/CalendarPicker';
+import { CalendarRangePicker } from '../../components/CalendarRangePicker';
 import { Btn } from '../../components/ui';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
 import { CUSTOM_EMOJIS, EV_TEMPLATES, seedFromTemplate } from './templates';
+import { parseYMD, toYMD, formatRange } from './eventDates';
 import type { NewEventInput } from '../../api/types';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// Parse a stored 'YYYY-MM-DD' as a *local* date (mirrors FormSheet.tsx's
-// `parseYMD`, duplicated here since that helper isn't exported).
-function parseYMD(s: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function toYMD(d: Date): string {
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mo}-${day}`;
-}
 
 function displayDate(s: string): string | null {
   const d = parseYMD(s);
@@ -73,6 +61,12 @@ export function CreateEventSheet({
   const [dateAnchor, setDateAnchor] = useState<Anchor | null>(null);
   const dateRowRef = useRef<View>(null);
 
+  const [multiDay, setMultiDay] = useState(false);
+  const [endDate, setEndDate] = useState('');
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeAnchor, setRangeAnchor] = useState<Anchor | null>(null);
+  const rangeRowRef = useRef<View>(null);
+
   const template = EV_TEMPLATES.find((tp) => tp.key === tpl) ?? EV_TEMPLATES[0];
   const isCustom = tpl === 'custom';
 
@@ -84,6 +78,8 @@ export function CreateEventSheet({
     setDate('');
     setBudget('');
     setEmoji(DEFAULT_EMOJI);
+    setMultiDay(false);
+    setEndDate('');
   }, [open]);
 
   // Seed budget (and reset emoji for `custom`) whenever the template changes
@@ -109,16 +105,32 @@ export function CreateEventSheet({
     }
   };
 
+  const openRangePicker = () => {
+    Keyboard.dismiss();
+    if (rangeRowRef.current) {
+      rangeRowRef.current.measureInWindow((x, y, w, h) => {
+        setRangeAnchor({ x, y, w, h });
+        setRangeOpen(true);
+      });
+    } else {
+      setRangeAnchor(null);
+      setRangeOpen(true);
+    }
+  };
+
   // MobileEvents.jsx:139–148 (`create`). Awaits `onCreate` (mirrors
   // AddTxSheet.tsx's `save`) so a failed create toasts and leaves the sheet
   // open for retry instead of closing (and navigating) silently.
   const create = async () => {
+    if (multiDay && (!date || !endDate)) return; // need a full range
     const seed = seedFromTemplate(template);
     try {
       await onCreate({
         ...seed,
         name: name.trim() || template.name,
         date: date || undefined,
+        multiDay,
+        endDate: multiDay ? endDate || undefined : undefined,
         budget: Number(budget) || template.budget,
         emoji: isCustom ? emoji : template.emoji,
       });
@@ -215,29 +227,98 @@ export function CreateEventSheet({
           ]}
         />
 
+        <Pressable
+          onPress={() => setMultiDay((m) => !m)}
+          style={[
+            styles.multiDayRow,
+            {
+              backgroundColor: multiDay ? t.emDim : t.bg2,
+              borderColor: multiDay ? t.emGlow : t.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.checkbox,
+              {
+                backgroundColor: multiDay ? t.em : 'transparent',
+                borderColor: multiDay ? t.em : t.text3,
+              },
+            ]}
+          >
+            {multiDay ? (
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                <Polyline
+                  points="20 6 9 17 4 12"
+                  stroke="#1a1228"
+                  strokeWidth={3.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            ) : null}
+          </View>
+          <View style={styles.multiDayTextWrap}>
+            <Text style={[styles.multiDayTitle, { color: t.text1, fontFamily: weight(600) }]}>
+              Multiple days
+            </Text>
+            <Text style={[styles.multiDaySubtitle, { color: t.text3, fontFamily: weight(500) }]}>
+              Spans a date range instead of a single day
+            </Text>
+          </View>
+        </Pressable>
+
         <View style={styles.fieldsRow}>
           <View style={styles.fieldFlex}>
-            <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>DATE</Text>
-            <Pressable
-              ref={dateRowRef}
-              onPress={openDatePicker}
-              style={[
-                styles.input,
-                styles.dateRow,
-                { backgroundColor: t.bg2, borderColor: dateOpen ? t.em : t.border },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.dateText,
-                  { color: dateLabel ? t.text1 : t.text3, fontFamily: weight(600) },
-                ]}
-                numberOfLines={1}
-              >
-                {dateLabel ?? 'Select date'}
-              </Text>
-              <Text style={styles.dateIcon}>📅</Text>
-            </Pressable>
+            {multiDay ? (
+              <>
+                <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>DATES</Text>
+                <Pressable
+                  ref={rangeRowRef}
+                  onPress={openRangePicker}
+                  style={[
+                    styles.input,
+                    styles.dateRow,
+                    { backgroundColor: t.bg2, borderColor: rangeOpen ? t.em : t.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateText,
+                      { color: date && endDate ? t.text1 : t.text3, fontFamily: weight(600) },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {date && endDate ? formatRange(date, endDate) : 'Select dates'}
+                  </Text>
+                  <Text style={styles.dateIcon}>📅</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>DATE</Text>
+                <Pressable
+                  ref={dateRowRef}
+                  onPress={openDatePicker}
+                  style={[
+                    styles.input,
+                    styles.dateRow,
+                    { backgroundColor: t.bg2, borderColor: dateOpen ? t.em : t.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dateText,
+                      { color: dateLabel ? t.text1 : t.text3, fontFamily: weight(600) },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {dateLabel ?? 'Select date'}
+                  </Text>
+                  <Text style={styles.dateIcon}>📅</Text>
+                </Pressable>
+              </>
+            )}
           </View>
           <View style={styles.fieldFlex}>
             <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>BUDGET</Text>
@@ -276,6 +357,19 @@ export function CreateEventSheet({
           setDateOpen(false);
         }}
         onClose={() => setDateOpen(false)}
+      />
+
+      <CalendarRangePicker
+        visible={rangeOpen}
+        start={parseYMD(date)}
+        end={parseYMD(endDate)}
+        anchor={rangeAnchor}
+        onSelect={(s, e) => {
+          setDate(toYMD(s));
+          setEndDate(toYMD(e));
+          setRangeOpen(false);
+        }}
+        onClose={() => setRangeOpen(false)}
       />
     </BottomSheet>
   );
@@ -354,6 +448,34 @@ const styles = StyleSheet.create({
   },
   nameInput: {
     height: 46,
+  },
+  multiDayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    padding: 14,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  multiDayTextWrap: {
+    flex: 1,
+  },
+  multiDayTitle: {
+    fontSize: 14,
+  },
+  multiDaySubtitle: {
+    fontSize: 11.5,
+    marginTop: 1,
   },
   fieldsRow: {
     flexDirection: 'row',
