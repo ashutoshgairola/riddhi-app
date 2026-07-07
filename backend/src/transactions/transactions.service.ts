@@ -14,7 +14,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { QueryTransactionsDto } from './dto/query-transactions.dto';
 import { Transaction } from './transaction.entity';
-import { TransactionType, TransactionStatus } from '../common/enums';
+import { TransactionType, TransactionStatus, PaymentMethod, AccountType } from '../common/enums';
 import { Account } from '../accounts/account.entity';
 import type { EntityManager } from 'typeorm';
 import { TRANSACTION_CREATED } from '../notifications/notification-events';
@@ -37,6 +37,18 @@ export function transactionBalanceDeltas(
     default: // EXPENSE
       return { source: -amount, destination: 0 };
   }
+}
+
+/**
+ * Default payment rail for a transaction when the client doesn't specify one.
+ * A credit account is a card swipe; any other account is UPI; no account is cash.
+ */
+export function derivePaymentMethod(
+  accountType: AccountType | null | undefined,
+): PaymentMethod {
+  if (!accountType) return PaymentMethod.CASH;
+  if (accountType === AccountType.CREDIT) return PaymentMethod.CARD;
+  return PaymentMethod.UPI;
 }
 
 interface BalanceEffect {
@@ -73,6 +85,7 @@ export class TransactionsService {
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
     // Validate account ownership before starting DB transaction
+    let sourceAccountType: AccountType | null = null;
     if (dto.accountId) {
       const account = await this.accountsService.findOne(dto.accountId, userId);
       if (!account) {
@@ -80,6 +93,7 @@ export class TransactionsService {
           'Account not found or does not belong to user',
         );
       }
+      sourceAccountType = account.type;
     }
     if (dto.destinationAccountId) {
       const dest = await this.accountsService.findOne(
@@ -112,6 +126,7 @@ export class TransactionsService {
         eventId: dto.eventId ?? null,
         destinationAccountId: dto.destinationAccountId ?? null,
         notes: dto.notes ?? null,
+        paymentMethod: dto.paymentMethod ?? derivePaymentMethod(sourceAccountType),
       });
 
       const saved = await queryRunner.manager.save(tx);
