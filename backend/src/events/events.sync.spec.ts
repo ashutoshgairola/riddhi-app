@@ -66,4 +66,13 @@ describe('EventsService paid sync', () => {
     await svc.removeExpense('ev1', 'x1', 'u1');
     expect(tx.remove).toHaveBeenCalledWith('tx1', 'u1');
   });
+
+  it('addExpense(paid) leaves no persisted row when the linked transaction fails to create', async () => {
+    const { svc, tx, event } = harness();
+    tx.create.mockRejectedValueOnce(new Error('boom'));
+    await expect(
+      svc.addExpense('ev1', 'u1', { categoryId: 'c1', label: 'Cake', planned: 2500, actual: 2800, paid: true } as any),
+    ).rejects.toThrow('boom');
+    expect(event.expenses).toHaveLength(0);
+  });
 });

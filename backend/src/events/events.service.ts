@@ -101,13 +101,11 @@ export class EventsService {
       transactionId: null,
       sortOrder: dto.sortOrder ?? (event.expenses?.length ?? 0),
     });
-    expense = await this.repo.saveExpense(expense);
-
     if (paid) {
       const tx = await this.createLinkedTx(userId, event, expense);
       expense.transactionId = tx.id;
-      await this.repo.saveExpense(expense);
     }
+    expense = await this.repo.saveExpense(expense);
     return this.findOne(id, userId);
   }
 
