@@ -47,7 +47,7 @@ interface FabAction {
   icon: string;
   /** Token key into `Tokens`, resolved against the active theme below. */
   colorToken: "violet" | "red" | "em" | "blue";
-  action?: "chat";
+  action?: "chat" | "plan-event";
 }
 
 const FAB_ACTIONS: FabAction[] = [
@@ -75,6 +75,13 @@ const FAB_ACTIONS: FabAction[] = [
     desc: "Move between accounts",
     icon: "🔄",
     colorToken: "blue",
+  },
+  {
+    label: "Plan an event",
+    desc: "Budget a party or trip",
+    icon: "🎉",
+    colorToken: "violet",
+    action: "plan-event",
   },
 ];
 
@@ -129,6 +136,9 @@ function FabActionCard({
   const handlePress = () => {
     if (item.action === "chat") {
       nav("chat");
+      setFabOpen(false);
+    } else if (item.action === "plan-event") {
+      nav("events", { autoCreate: true });
       setFabOpen(false);
     } else {
       openAdd();
