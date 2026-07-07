@@ -35,6 +35,7 @@ import { api } from '../api';
 import { GlassCard } from '../components/Glass';
 import { Btn, IconButton, ListCard, ListRow, SearchButton, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
+import { SourceTag } from '../components/SourceTag';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
@@ -166,11 +167,17 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
       <View style={styles.listWrap}>
         <ListCard>
           {rows.map((r, i) => (
-            <ListRow key={r.k} last={i === rows.length - 1}>
+            <ListRow key={r.k} last={i === rows.length - 1 && !tx.source}>
               <Text style={[styles.rowKey, { color: t.text3 }]}>{r.k}</Text>
               <Text style={[styles.rowValue, { color: r.c ?? t.text1, fontFamily: weight(600) }]}>{r.v}</Text>
             </ListRow>
           ))}
+          {tx.source ? (
+            <ListRow last>
+              <Text style={[styles.rowKey, { color: t.text3 }]}>Source</Text>
+              <SourceTag source={tx.source} />
+            </ListRow>
+          ) : null}
         </ListCard>
       </View>
 

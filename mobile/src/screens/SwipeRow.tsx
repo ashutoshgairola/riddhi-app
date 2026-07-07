@@ -26,9 +26,11 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { MI } from '../components/icons';
+import { SourceTag } from '../components/SourceTag';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav } from '../app/navContext';
+import type { TxSource } from '../api/paymentSource';
 
 export interface SwipeTx {
   id: number | string;
@@ -41,6 +43,7 @@ export interface SwipeTx {
   type: 'inc' | 'exp';
   note?: string;
   eventId?: string | null;
+  source?: TxSource;
 }
 
 /** Drag clamp range (web: `Math.max(-90, Math.min(90, dx))`). */
@@ -148,9 +151,12 @@ export function SwipeRow({ tx, fmt, onDelete, onEdit }: SwipeRowProps) {
             <Text style={[styles.desc, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
               {tx.desc}
             </Text>
-            <Text style={[styles.catLine, { color: t.text3, fontFamily: weight(500) }]}>
-              <Text style={{ color: tx.cCol, fontFamily: weight(600) }}>{tx.cat}</Text>
-            </Text>
+            <View style={styles.metaRow}>
+              <Text style={[styles.catLine, { color: t.text3, fontFamily: weight(500) }]}>
+                <Text style={{ color: tx.cCol, fontFamily: weight(600) }}>{tx.cat}</Text>
+              </Text>
+              {tx.source ? <SourceTag source={tx.source} /> : null}
+            </View>
           </View>
           <Text
             style={[
@@ -211,9 +217,14 @@ const styles = StyleSheet.create({
   desc: {
     fontSize: 14,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
   catLine: {
     fontSize: 11.5,
-    marginTop: 2,
   },
   amount: {
     fontSize: 14.5,

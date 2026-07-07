@@ -59,6 +59,7 @@ import { MASKED_AMOUNT, usePrefs } from "../prefs/PrefsProvider";
 import { MI } from "../components/icons";
 import { PageBackground } from "../components/PageBackground";
 import { PullToRefresh } from "../components/PullToRefresh";
+import { SourceTag } from "../components/SourceTag";
 import { SpringIn } from "../components/SpringIn";
 import { WeekChart } from "../components/charts";
 import { useCountUp } from "../hooks/useCountUp";
@@ -68,6 +69,7 @@ import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { useApiData } from "../api/useApi";
 import type { NotificationView, WeekDataPoint } from "../api/types";
+import type { TxSource } from "../api/paymentSource";
 import { AiInsightsStrip } from "./home/AiInsightsStrip";
 
 interface RecentTx {
@@ -77,6 +79,7 @@ interface RecentTx {
   date: string;
   amt: number;
   type: "exp" | "inc";
+  source?: TxSource;
 }
 
 // Empty-but-renderable fallbacks while the api loads (or is unreachable).
@@ -580,14 +583,18 @@ function RecentRow({
           >
             {tx.desc}
           </Text>
-          <Text
-            style={[
-              styles.recentMeta,
-              { color: t.text3, fontFamily: weight(500) },
-            ]}
-          >
-            {tx.cat} · {tx.date}
-          </Text>
+          <View style={styles.recentMetaRow}>
+            <Text
+              style={[
+                styles.recentMeta,
+                { color: t.text3, fontFamily: weight(500) },
+              ]}
+              numberOfLines={1}
+            >
+              {tx.cat} · {tx.date}
+            </Text>
+            {tx.source ? <SourceTag source={tx.source} /> : null}
+          </View>
         </View>
         <Text
           style={[
@@ -870,9 +877,15 @@ const styles = StyleSheet.create({
   recentDesc: {
     fontSize: 14.5,
   },
+  recentMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
   recentMeta: {
     fontSize: 11.5,
-    marginTop: 2,
+    flexShrink: 1,
   },
   recentAmt: {
     fontSize: 14.5,
