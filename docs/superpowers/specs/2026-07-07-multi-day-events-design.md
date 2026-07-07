@@ -110,10 +110,28 @@ export function computeDayGroups(expenses, event): EventDayGroup[];
 
 **CreateEventSheet** (`screens/events/CreateEventSheet.tsx`):
 
-- Add a **"Multiple days"** toggle. Off → the current single date picker. On →
-  **Start** and **End** date pickers (both via the existing `CalendarPicker`); End
-  is constrained to `>= Start`. On create, send `multiDay`, `date` (start), and
-  `endDate`.
+- Add a **"Multiple days"** toggle. Off → the current single `CalendarPicker`. On →
+  a single **date-range** field that opens a new **`CalendarRangePicker`** (below)
+  for picking start→end in one popover. On create, send `multiDay`, `date` (start),
+  and `endDate`.
+
+**`CalendarRangePicker`** (`mobile/src/components/CalendarRangePicker.tsx`) — a
+range-selecting sibling of `CalendarPicker` that **reuses its exact look** (same
+scrim + floating card, month header with prev/next arrows, month/year jump view,
+weekday row, 6×7 grid) and its exported pure helpers (`isSameDay`, `addDays`,
+`isAfterDay`, `buildMonthMatrix`). Differences from the single picker:
+
+- Speaks a range: `start: Date | null`, `end: Date | null` in, `onSelect(start, end)`
+  out (fired only when a full range is chosen), plus `onClose`.
+- Two-tap selection: first tap sets the start (clears end); the next tap on/after the
+  start sets the end and commits (`onSelect` + close); a tap **before** the current
+  start restarts the selection with that day as the new start.
+- Highlight: the start and end cells fill like the single picker's `selected` state
+  (`emDim` bg, `em` text); days strictly between render a lighter continuous band so
+  the range reads as one span.
+- A footer line shows the pending range (e.g. "8 Jul – 10 Jul") so the two-step
+  interaction has feedback. The Today/Yesterday quick chips are omitted (they set a
+  single day, not a range).
 - Template-seeded expenses are created Unscheduled (`dayDate` omitted).
 
 **EventItemSheet** (`screens/events/EventItemSheet.tsx`):
