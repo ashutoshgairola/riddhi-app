@@ -11,6 +11,8 @@
  *   transactions: list / recent / create / update / remove
  *   accounts:     list / create / update / remove
  *   budgets:      list / currentSummary / upsertCategory
+ *   events:       list / get / create / update / remove / addExpense /
+ *                 updateExpense / removeExpense
  *   goals:        list / create
  *   investments:  list / create
  *   categories:   list / create
@@ -33,6 +35,8 @@ import {
   toCategoryView,
   toNotificationView,
   toReportOverviewView,
+  toEventView,
+  toEventDetailView,
 } from './adapters';
 import type {
   TxView,
@@ -60,6 +64,7 @@ import type {
   ApiCategoryActivity,
   ApiPaginatedTransactions,
   ApiUserPreferences,
+  ApiEvent,
   NewTxInput,
   UpdateTxInput,
   NewAccountInput,
@@ -69,6 +74,10 @@ import type {
   NewBudgetCategoryInput,
   PrefsPatch,
   ScannedReceipt,
+  EventView,
+  EventDetailView,
+  NewEventInput,
+  NewEventExpenseInput,
 } from './types';
 
 // ── Feature flag ──────────────────────────────────────────────────────
@@ -458,6 +467,83 @@ export const api = {
       });
       bumpData();
       return true;
+    },
+  },
+
+  events: {
+    async list(): Promise<EventView[]> {
+      const raw = await apiClient.get<ApiEvent[]>('/events');
+      return raw.map(toEventView);
+    },
+
+    async get(id: string): Promise<EventDetailView> {
+      const [raw, catMap] = await Promise.all([
+        apiClient.get<ApiEvent>(`/events/${id}`),
+        fetchCategoryMap(),
+      ]);
+      return toEventDetailView(raw, catMap);
+    },
+
+    async create(input: NewEventInput): Promise<EventView> {
+      // Resolve each expense's category label -> id (creating if missing),
+      // exactly as budgets/transactions do.
+      const expenses = await Promise.all(
+        input.expenses.map(async (x) => ({
+          categoryId: await resolveCategoryId(x.categoryName),
+          label: x.label,
+          planned: x.planned,
+          actual: x.actual ?? 0,
+          paid: false, // create starts unticked; ticking is a later PATCH
+        })),
+      );
+      const created = await apiClient.post<ApiEvent>('/events', {
+        name: input.name, emoji: input.emoji, color: input.color,
+        date: input.date, budget: input.budget, guests: input.guests ?? 0,
+        expenses,
+      });
+      bumpData();
+      return toEventView(created);
+    },
+
+    async update(id: string, patch: Partial<Pick<NewEventInput, 'name' | 'emoji' | 'color' | 'date' | 'budget' | 'guests'>>): Promise<void> {
+      await apiClient.patch(`/events/${id}`, patch);
+      bumpData();
+    },
+
+    async remove(id: string): Promise<void> {
+      await apiClient.delete(`/events/${id}`);
+      bumpData();
+    },
+
+    async addExpense(id: string, input: NewEventExpenseInput): Promise<void> {
+      await apiClient.post(`/events/${id}/expenses`, {
+        categoryId: await resolveCategoryId(input.categoryName),
+        label: input.label,
+        planned: input.planned,
+        actual: input.actual,
+        paid: input.paid ?? false,
+      });
+      bumpData();
+    },
+
+    async updateExpense(
+      id: string,
+      expenseId: string,
+      patch: { categoryName?: string; label?: string; planned?: number; actual?: number; paid?: boolean },
+    ): Promise<void> {
+      const body: Record<string, unknown> = {};
+      if (patch.categoryName !== undefined) body['categoryId'] = await resolveCategoryId(patch.categoryName);
+      if (patch.label !== undefined) body['label'] = patch.label;
+      if (patch.planned !== undefined) body['planned'] = patch.planned;
+      if (patch.actual !== undefined) body['actual'] = patch.actual;
+      if (patch.paid !== undefined) body['paid'] = patch.paid;
+      await apiClient.patch(`/events/${id}/expenses/${expenseId}`, body);
+      bumpData();
+    },
+
+    async removeExpense(id: string, expenseId: string): Promise<void> {
+      await apiClient.delete(`/events/${id}/expenses/${expenseId}`);
+      bumpData();
     },
   },
 

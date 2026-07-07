@@ -27,6 +27,7 @@ export interface ApiTransaction {
     endDate?: string;
     nextDate?: string;
   };
+  eventId?: string | null;
 }
 
 export interface ApiCategory {
@@ -148,6 +149,35 @@ export interface ApiUser {
   isFirstLogin: boolean;
 }
 
+export interface ApiEventExpense {
+  id: string;
+  categoryId: string;
+  label: string;
+  planned: number;
+  actual: number;
+  paid: boolean;
+  transactionId: string | null;
+  sortOrder: number;
+}
+
+export interface ApiEvent {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  date: string | null;
+  budget: number;
+  guests: number;
+  planned: number;
+  paid: number;
+  projected: number;
+  paidCount: number;
+  count: number;
+  remaining: number;
+  over: boolean;
+  expenses?: ApiEventExpense[];
+}
+
 // ── View-model types (shapes screens use) ────────────────────────────
 
 /** Transaction view — matches SwipeTx in SwipeRow.tsx and MT_DATA shape */
@@ -161,6 +191,7 @@ export interface TxView {
   amount: number; // signed: positive for income, negative for expense
   type: 'inc' | 'exp';
   note?: string; // free-text note stored on the transaction
+  eventId?: string | null;
 }
 
 /** Recent transaction view — matches RecentTx in Home.tsx */
@@ -228,6 +259,39 @@ export interface CategoryView {
   subs: string[];
   /** True when the category's transactions are predominantly income. */
   isIncome: boolean;
+}
+
+export interface EventExpenseView {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  icon: string;
+  color: string;
+  label: string;
+  planned: number;
+  actual: number;
+  paid: boolean;
+}
+
+export interface EventView {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  date: string | null;
+  budget: number;
+  guests: number;
+  planned: number;
+  paid: number;
+  projected: number;
+  over: boolean;
+  paidCount: number;
+  count: number;
+  remaining: number;
+}
+
+export interface EventDetailView extends EventView {
+  expenses: EventExpenseView[];
 }
 
 /** `GET /reports/category-activity` row — per-category all-time totals. */
@@ -346,6 +410,24 @@ export interface NewBudgetCategoryInput {
   allocated: number;
   icon?: string;
   color?: string;
+}
+
+export interface NewEventExpenseInput {
+  categoryName: string;
+  label: string;
+  planned: number;
+  actual?: number;
+  paid?: boolean;
+}
+
+export interface NewEventInput {
+  name: string;
+  emoji: string;
+  color: string;
+  date?: string;
+  budget: number;
+  guests?: number;
+  expenses: NewEventExpenseInput[];
 }
 
 /** `GET/PATCH /users/me/preferences` (subset the app uses). */

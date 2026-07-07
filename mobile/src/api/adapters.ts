@@ -19,6 +19,7 @@ import type {
   ApiInvestment,
   ApiNotification,
   ApiReportOverview,
+  ApiEvent,
   TxView,
   RecentTxView,
   AccountView,
@@ -29,6 +30,9 @@ import type {
   NotificationView,
   NotifViewType,
   ReportOverviewView,
+  EventView,
+  EventDetailView,
+  EventExpenseView,
 } from './types';
 
 // ── Category color lookup ─────────────────────────────────────────────
@@ -78,6 +82,7 @@ export function toTxView(tx: ApiTransaction, category?: ApiCategory): TxView {
     amount: signedAmount,
     type: isIncome ? 'inc' : 'exp',
     note: tx.notes,
+    eventId: tx.eventId ?? null,
   };
 }
 
@@ -164,6 +169,41 @@ export function toBudgetCategoryView(bc: ApiBudgetCategory): BudgetCategoryView 
 
 export function toBudgetCategoryViews(budget: ApiBudget): BudgetCategoryView[] {
   return budget.categories.map(toBudgetCategoryView);
+}
+
+// ── Event adapter ─────────────────────────────────────────────────────
+
+export function toEventView(e: ApiEvent): EventView {
+  return {
+    id: e.id, name: e.name, emoji: e.emoji, color: e.color, date: e.date,
+    budget: e.budget, guests: e.guests, planned: e.planned, paid: e.paid,
+    projected: e.projected, over: e.over, paidCount: e.paidCount,
+    count: e.count, remaining: e.remaining,
+  };
+}
+
+export function toEventDetailView(
+  e: ApiEvent,
+  catMap: Map<string, ApiCategory>,
+): EventDetailView {
+  const expenses: EventExpenseView[] = (e.expenses ?? [])
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((x) => {
+      const cat = catMap.get(x.categoryId);
+      return {
+        id: x.id,
+        categoryId: x.categoryId,
+        categoryName: cat?.name ?? 'Other',
+        icon: cat?.icon ?? '🏷',
+        color: cat?.color ?? '#8197c4',
+        label: x.label,
+        planned: x.planned,
+        actual: x.actual,
+        paid: x.paid,
+      };
+    });
+  return { ...toEventView(e), expenses };
 }
 
 // ── Goal adapter ──────────────────────────────────────────────────────
