@@ -79,6 +79,7 @@ function fmt(n: number): string {
 }
 
 type FilterValue = 'all' | 'inc' | 'exp';
+type SourceValue = 'all' | 'bank' | 'card';
 
 const PERIODS: { value: TxPeriod; label: string; icon: string }[] = [
   { value: 'week', label: 'This week', icon: '📅' },
@@ -93,9 +94,14 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
   const { toast, sheet } = useFeedback();
   const [filter, setFilter] = useState<FilterValue>('all');
   const [period, setPeriod] = useState<TxPeriod>('all');
+  const [source, setSource] = useState<SourceValue>('all');
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: txData } = useApiData(() => api.transactions.list({ period }), EMPTY_TXNS, [period]);
+  const { data: txData } = useApiData(
+    () => api.transactions.list({ period, source: source === 'all' ? undefined : source }),
+    EMPTY_TXNS,
+    [period, source],
+  );
 
   const filtered = txData.filter((tx) => filter === 'all' || tx.type === filter);
   const totalInc = filtered.filter((t2) => t2.type === 'inc').reduce((s, t2) => s + t2.amount, 0);
@@ -182,6 +188,19 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
             ]}
             value={filter}
             onChange={setFilter}
+          />
+        </SpringIn>
+
+        {/* Source seg — Bank & UPI / Cards filter, mirrors filter seg above */}
+        <SpringIn delay={60} style={styles.segWrap}>
+          <MSeg<SourceValue>
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'bank', label: 'Bank & UPI' },
+              { value: 'card', label: 'Cards' },
+            ]}
+            value={source}
+            onChange={setSource}
           />
         </SpringIn>
 
