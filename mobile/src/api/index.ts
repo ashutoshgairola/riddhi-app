@@ -514,18 +514,20 @@ export const api = {
           planned: x.planned,
           actual: x.actual ?? 0,
           paid: false, // create starts unticked; ticking is a later PATCH
+          dayDate: x.dayDate ?? null,
         })),
       );
       const created = await apiClient.post<ApiEvent>('/events', {
         name: input.name, emoji: input.emoji, color: input.color,
-        date: input.date, budget: input.budget, guests: input.guests ?? 0,
+        date: input.date, multiDay: input.multiDay ?? false, endDate: input.endDate,
+        budget: input.budget, guests: input.guests ?? 0,
         expenses,
       });
       bumpData();
       return toEventView(created);
     },
 
-    async update(id: string, patch: Partial<Pick<NewEventInput, 'name' | 'emoji' | 'color' | 'date' | 'budget' | 'guests'>>): Promise<void> {
+    async update(id: string, patch: Partial<Pick<NewEventInput, 'name' | 'emoji' | 'color' | 'date' | 'multiDay' | 'endDate' | 'budget' | 'guests'>>): Promise<void> {
       await apiClient.patch(`/events/${id}`, patch);
       bumpData();
     },
@@ -542,6 +544,7 @@ export const api = {
         planned: input.planned,
         actual: input.actual,
         paid: input.paid ?? false,
+        dayDate: input.dayDate ?? null,
       });
       bumpData();
     },
@@ -549,7 +552,7 @@ export const api = {
     async updateExpense(
       id: string,
       expenseId: string,
-      patch: { categoryName?: string; label?: string; planned?: number; actual?: number; paid?: boolean },
+      patch: { categoryName?: string; label?: string; planned?: number; actual?: number; paid?: boolean; dayDate?: string | null },
     ): Promise<void> {
       const body: Record<string, unknown> = {};
       if (patch.categoryName !== undefined) body['categoryId'] = await resolveCategoryId(patch.categoryName);
@@ -557,6 +560,7 @@ export const api = {
       if (patch.planned !== undefined) body['planned'] = patch.planned;
       if (patch.actual !== undefined) body['actual'] = patch.actual;
       if (patch.paid !== undefined) body['paid'] = patch.paid;
+      if (patch.dayDate !== undefined) body['dayDate'] = patch.dayDate;
       await apiClient.patch(`/events/${id}/expenses/${expenseId}`, body);
       bumpData();
     },

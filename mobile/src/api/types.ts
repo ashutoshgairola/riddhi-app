@@ -163,6 +163,7 @@ export interface ApiEventExpense {
   paid: boolean;
   transactionId: string | null;
   sortOrder: number;
+  dayDate: string | null;
 }
 
 export interface ApiEvent {
@@ -171,6 +172,8 @@ export interface ApiEvent {
   emoji: string;
   color: string;
   date: string | null;
+  multiDay: boolean;
+  endDate: string | null;
   budget: number;
   guests: number;
   planned: number;
@@ -181,6 +184,7 @@ export interface ApiEvent {
   remaining: number;
   over: boolean;
   expenses?: ApiEventExpense[];
+  dayGroups?: EventDayGroup[];
 }
 
 // ── View-model types (shapes screens use) ────────────────────────────
@@ -268,6 +272,14 @@ export interface CategoryView {
   isIncome: boolean;
 }
 
+export interface EventDayGroup {
+  dayDate: string | null;
+  planned: number;
+  paid: number;
+  count: number;
+  paidCount: number;
+}
+
 export interface EventExpenseView {
   id: string;
   categoryId: string;
@@ -278,6 +290,7 @@ export interface EventExpenseView {
   planned: number;
   actual: number;
   paid: boolean;
+  dayDate: string | null;
 }
 
 export interface EventView {
@@ -286,6 +299,8 @@ export interface EventView {
   emoji: string;
   color: string;
   date: string | null;
+  multiDay: boolean;
+  endDate: string | null;
   budget: number;
   guests: number;
   planned: number;
@@ -299,6 +314,7 @@ export interface EventView {
 
 export interface EventDetailView extends EventView {
   expenses: EventExpenseView[];
+  dayGroups: EventDayGroup[];
 }
 
 /** `GET /reports/category-activity` row — per-category all-time totals. */
@@ -427,6 +443,7 @@ export interface NewEventExpenseInput {
   planned: number;
   actual?: number;
   paid?: boolean;
+  dayDate?: string | null;
 }
 
 export interface NewEventInput {
@@ -434,6 +451,8 @@ export interface NewEventInput {
   emoji: string;
   color: string;
   date?: string;
+  multiDay?: boolean;
+  endDate?: string;
   budget: number;
   guests?: number;
   expenses: NewEventExpenseInput[];

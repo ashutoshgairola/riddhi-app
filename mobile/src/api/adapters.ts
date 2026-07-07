@@ -181,6 +181,7 @@ export function toBudgetCategoryViews(budget: ApiBudget): BudgetCategoryView[] {
 export function toEventView(e: ApiEvent): EventView {
   return {
     id: e.id, name: e.name, emoji: e.emoji, color: e.color, date: e.date,
+    multiDay: e.multiDay, endDate: e.endDate,
     budget: e.budget, guests: e.guests, planned: e.planned, paid: e.paid,
     projected: e.projected, over: e.over, paidCount: e.paidCount,
     count: e.count, remaining: e.remaining,
@@ -206,9 +207,10 @@ export function toEventDetailView(
         planned: x.planned,
         actual: x.actual,
         paid: x.paid,
+        dayDate: x.dayDate,
       };
     });
-  return { ...toEventView(e), expenses };
+  return { ...toEventView(e), expenses, dayGroups: e.dayGroups ?? [] };
 }
 
 // ── Goal adapter ──────────────────────────────────────────────────────
