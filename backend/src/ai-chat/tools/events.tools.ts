@@ -4,6 +4,7 @@ interface EventLike {
   id: string; name: string; emoji: string; budget: number;
   planned: number; paid: number; projected: number; over: boolean;
   paidCount: number; count: number;
+  multiDay: boolean; date: string | null; endDate: string | null;
 }
 
 export const eventTools: RiddhiTool[] = [
@@ -21,6 +22,7 @@ export const eventTools: RiddhiTool[] = [
           id: e.id, name: e.name, emoji: e.emoji, budget: e.budget,
           planned: e.planned, paid: e.paid, projected: e.projected,
           over: e.over, paidCount: e.paidCount, count: e.count,
+          multiDay: e.multiDay, startDate: e.date, endDate: e.endDate,
         })),
       };
     },
