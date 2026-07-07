@@ -21,6 +21,14 @@ export enum TransactionStatus {
   VOID = 'void',
 }
 
+export enum PaymentMethod {
+  UPI = 'upi',
+  CARD = 'card',
+  NETBANKING = 'netbanking',
+  AUTOPAY = 'autopay',
+  CASH = 'cash',
+}
+
 export enum RecurringFrequency {
   DAILY = 'daily',
   WEEKLY = 'weekly',

@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { TransactionType, TransactionStatus } from '../common/enums';
+import { TransactionType, TransactionStatus, PaymentMethod } from '../common/enums';
 import { User } from '../users/user.entity';
 import { Account } from '../accounts/account.entity';
 import { TransactionCategory } from '../categories/category.entity';
@@ -84,6 +84,9 @@ export class Transaction {
     default: TransactionStatus.CLEARED,
   })
   status: TransactionStatus;
+
+  @Column({ type: 'enum', enum: PaymentMethod, nullable: true })
+  paymentMethod: PaymentMethod | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
