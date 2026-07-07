@@ -6,6 +6,8 @@
  * (SwipeTx, RecentTx, etc.) so the adapter can produce identical objects.
  */
 
+export type PaymentMethod = 'upi' | 'card' | 'netbanking' | 'autopay' | 'cash';
+
 // ── API / backend DTOs ────────────────────────────────────────────────
 
 export interface ApiTransaction {
