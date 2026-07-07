@@ -83,7 +83,7 @@ export class EventsService {
         actual: e.actual ?? 0,
         paid: false, // created events start unticked; ticking is a later PATCH
         transactionId: null,
-        dayDate: multiDay && e.dayDate && e.dayDate >= (start ?? '') && e.dayDate <= (endDate ?? '') ? e.dayDate : null,
+        dayDate: this.resolveDayDate({ multiDay, date: start, endDate } as any, e.dayDate),
         sortOrder: e.sortOrder ?? i,
       })) as EventExpense[],
     });

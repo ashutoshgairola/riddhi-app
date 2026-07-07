@@ -80,6 +80,17 @@ describe('EventsService multi-day', () => {
     expect(events[0].endDate).toBeNull();
   });
 
+  it('rejects an out-of-range expense dayDate on create', async () => {
+    const svc = new EventsService(makeRepo([]), {} as any);
+    await expect(
+      svc.create('u1', {
+        name: 'Trip', emoji: '✈️', color: '#fff', budget: 100,
+        date: '2026-07-08', endDate: '2026-07-10', multiDay: true,
+        expenses: [{ categoryId: 'c1', label: 'A', planned: 10, dayDate: '2026-07-20' }],
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('rejects an out-of-range dayDate on addExpense', async () => {
     const events = [{ id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-10', expenses: [] }];
     const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
@@ -103,6 +114,16 @@ describe('EventsService multi-day', () => {
     }];
     const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
     await svc.update('ev1', 'u1', { endDate: '2026-07-09' } as any);
+    expect(events[0].expenses[0].dayDate).toBeNull();
+  });
+
+  it('clears expense days when multiDay is turned off on update', async () => {
+    const events = [{
+      id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-12',
+      expenses: [{ id: 'x1', dayDate: '2026-07-11', planned: 10, actual: 0, paid: false }],
+    }];
+    const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
+    await svc.update('ev1', 'u1', { multiDay: false } as any);
     expect(events[0].expenses[0].dayDate).toBeNull();
   });
 });
