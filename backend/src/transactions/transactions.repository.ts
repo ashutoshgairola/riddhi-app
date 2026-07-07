@@ -27,6 +27,7 @@ export class TransactionsRepository {
       search,
       categoryId,
       accountId,
+      source,
       from,
       to,
       page = 1,
@@ -50,6 +51,16 @@ export class TransactionsRepository {
     }
     if (accountId) {
       qb.andWhere('tx.accountId = :accountId', { accountId });
+    }
+    if (source === 'card') {
+      qb.leftJoin('tx.account', 'srcAcc').andWhere('srcAcc.type = :creditType', {
+        creditType: 'credit',
+      });
+    } else if (source === 'bank') {
+      qb.leftJoin('tx.account', 'srcAcc').andWhere(
+        '(srcAcc.id IS NULL OR srcAcc.type != :creditType)',
+        { creditType: 'credit' },
+      );
     }
     if (from) {
       qb.andWhere('tx.date >= :from', { from: new Date(from) });
