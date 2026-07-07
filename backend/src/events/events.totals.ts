@@ -37,3 +37,52 @@ export function computeEventTotals(
     over: projected > budget,
   };
 }
+
+export interface EventDayGroup {
+  dayDate: string | null;
+  planned: number;
+  paid: number;
+  count: number;
+  paidCount: number;
+}
+
+interface DayGroupExpense {
+  planned: number;
+  actual: number;
+  paid: boolean;
+  dayDate: string | null;
+}
+
+/** Per-day rollups for a multi-day event; [] for single-day events. */
+export function computeDayGroups(
+  expenses: DayGroupExpense[],
+  event: { multiDay: boolean },
+): EventDayGroup[] {
+  if (!event.multiDay) return [];
+  const byDay = new Map<string | null, EventDayGroup>();
+  for (const e of expenses) {
+    const key = e.dayDate ?? null;
+    let g = byDay.get(key);
+    if (!g) {
+      g = { dayDate: key, planned: 0, paid: 0, count: 0, paidCount: 0 };
+      byDay.set(key, g);
+    }
+    g.planned += e.planned || 0;
+    if (e.paid) {
+      g.paid += e.actual || 0;
+      g.paidCount += 1;
+    }
+    g.count += 1;
+  }
+  const groups = [...byDay.values()];
+  groups.forEach((g) => {
+    g.planned = r2(g.planned);
+    g.paid = r2(g.paid);
+  });
+  // Non-null days ascending, then Unscheduled (null) last.
+  return groups.sort((a, b) => {
+    if (a.dayDate === null) return 1;
+    if (b.dayDate === null) return -1;
+    return a.dayDate < b.dayDate ? -1 : a.dayDate > b.dayDate ? 1 : 0;
+  });
+}

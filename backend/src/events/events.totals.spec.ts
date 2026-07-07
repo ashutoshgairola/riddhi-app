@@ -1,7 +1,10 @@
-import { computeEventTotals } from './events.totals';
+import { computeEventTotals, computeDayGroups } from './events.totals';
 
 const item = (planned: number, actual: number, paid: boolean) =>
   ({ planned, actual, paid }) as any;
+
+const dayItem = (planned: number, actual: number, paid: boolean, dayDate: string | null) =>
+  ({ planned, actual, paid, dayDate }) as any;
 
 describe('computeEventTotals', () => {
   it('sums planned, paid actuals, and projects unpaid at planned', () => {
@@ -29,5 +32,33 @@ describe('computeEventTotals', () => {
       planned: 0, paid: 0, projected: 0, paidCount: 0, count: 0,
       remaining: 10000, over: false,
     });
+  });
+});
+
+describe('computeDayGroups', () => {
+  it('returns [] for single-day events', () => {
+    expect(computeDayGroups([dayItem(100, 0, false, null)], { multiDay: false })).toEqual([]);
+  });
+
+  it('groups by day ascending with Unscheduled last, summing planned/paid', () => {
+    const groups = computeDayGroups(
+      [
+        dayItem(2000, 2000, true, '2026-07-09'),
+        dayItem(500, 0, false, '2026-07-08'),
+        dayItem(8000, 7500, true, '2026-07-08'),
+        dayItem(1500, 0, false, null),
+      ],
+      { multiDay: true },
+    );
+    expect(groups.map((g) => g.dayDate)).toEqual(['2026-07-08', '2026-07-09', null]);
+    // 2026-07-08: planned 8500, paid 7500 (only the paid item's actual), 2 items, 1 paid
+    expect(groups[0]).toEqual({ dayDate: '2026-07-08', planned: 8500, paid: 7500, count: 2, paidCount: 1 });
+    expect(groups[1]).toEqual({ dayDate: '2026-07-09', planned: 2000, paid: 2000, count: 1, paidCount: 1 });
+    expect(groups[2]).toEqual({ dayDate: null, planned: 1500, paid: 0, count: 1, paidCount: 0 });
+  });
+
+  it('omits the Unscheduled group when every expense has a day', () => {
+    const groups = computeDayGroups([dayItem(100, 0, false, '2026-07-08')], { multiDay: true });
+    expect(groups.map((g) => g.dayDate)).toEqual(['2026-07-08']);
   });
 });
