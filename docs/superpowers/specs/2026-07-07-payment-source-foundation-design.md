@@ -165,12 +165,12 @@ Modules this slice must update so the whole app understands payment source:
   that match: matched account `type=credit` → `card`; otherwise `upi` (or
   `autopay` when the SMS reads as an auto-debit/ACH/SIP mandate). This is what
   makes real synced spends carry the correct tag.
-- **Munshi AI-chat** — `transactions.tools.ts` `toModelItem`/`toViewItem` include
-  `paymentMethod` (and the derived source label) so the assistant can answer
-  "how much did I spend on my card this month". `list_transactions` accepts an
-  optional `source: 'bank' | 'card'` filter mirroring the API. The financial
-  snapshot in `prompt.ts` gains a one-line bank-vs-card spend split so Munshi is
-  source-aware without a tool call.
+- **Munshi AI-chat** — `transactions.tools.ts` `toModelItem` includes
+  `paymentMethod` so the assistant can answer "how much did I spend on my card
+  this month", and `list_transactions` accepts an optional `source: 'bank' |
+  'card'` filter mirroring the API. (The one-line bank-vs-card spend split in the
+  `prompt.ts` snapshot is deferred to Slice B, where card outstanding/dues make
+  it meaningful and the context plumbing lands with the card model.)
 - **Receipt scanning** (`receipts.service.ts`) — created transactions get a
   default `paymentMethod` derived from the chosen account (same rule as the
   create path); no schema change.
