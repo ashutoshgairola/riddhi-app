@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
   Max,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TransactionType } from '../../common/enums';
@@ -30,6 +31,10 @@ export class QueryTransactionsDto {
   @IsOptional()
   @IsUUID()
   accountId?: string;
+
+  @IsOptional()
+  @IsIn(['bank', 'card'])
+  source?: 'bank' | 'card';
 
   @IsOptional()
   @IsDateString()

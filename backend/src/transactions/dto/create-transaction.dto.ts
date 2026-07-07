@@ -13,7 +13,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TransactionType, TransactionStatus } from '../../common/enums';
+import { TransactionType, TransactionStatus, PaymentMethod } from '../../common/enums';
 
 class RecurringDetailsDto {
   @IsIn(['daily', 'weekly', 'monthly', 'yearly'])
@@ -61,6 +61,10 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsUUID()
   destinationAccountId?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @IsOptional()
   @IsEnum(TransactionStatus)
