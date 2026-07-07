@@ -248,11 +248,11 @@ export function EventItemSheet({
           {isNew ? 'Add expense' : 'Save changes'}
         </Btn>
         {!isNew ? (
-          <Pressable onPress={remove} style={styles.removeBtn}>
+          <Btn variant="ghost" onPress={remove} style={styles.removeBtn}>
             <Text style={[styles.removeLabel, { color: t.red, fontFamily: weight(600) }]}>
               Remove expense
             </Text>
-          </Pressable>
+          </Btn>
         ) : null}
       </View>
     </BottomSheet>
@@ -355,9 +355,6 @@ const styles = StyleSheet.create({
   },
   removeBtn: {
     marginTop: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   removeLabel: {
     fontSize: 15,
