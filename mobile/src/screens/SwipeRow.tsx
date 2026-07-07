@@ -152,7 +152,10 @@ export function SwipeRow({ tx, fmt, onDelete, onEdit }: SwipeRowProps) {
               {tx.desc}
             </Text>
             <View style={styles.metaRow}>
-              <Text style={[styles.catLine, { color: t.text3, fontFamily: weight(500) }]}>
+              <Text
+                style={[styles.catLine, { color: t.text3, fontFamily: weight(500) }]}
+                numberOfLines={1}
+              >
                 <Text style={{ color: tx.cCol, fontFamily: weight(600) }}>{tx.cat}</Text>
               </Text>
               {tx.source ? <SourceTag source={tx.source} /> : null}
@@ -225,6 +228,7 @@ const styles = StyleSheet.create({
   },
   catLine: {
     fontSize: 11.5,
+    flexShrink: 1,
   },
   amount: {
     fontSize: 14.5,
