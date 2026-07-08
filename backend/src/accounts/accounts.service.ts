@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { AccountsRepository } from './accounts.repository';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { Account } from './account.entity';
+import { CreditCard } from '../credit-card/credit-card.entity';
+import { AccountType } from '../common/enums';
 
 export interface NetWorthResult {
   netWorth: number;
@@ -12,7 +16,11 @@ export interface NetWorthResult {
 
 @Injectable()
 export class AccountsService {
-  constructor(private readonly accountsRepository: AccountsRepository) {}
+  constructor(
+    private readonly accountsRepository: AccountsRepository,
+    @InjectRepository(CreditCard)
+    private readonly creditCardRepository: Repository<CreditCard>,
+  ) {}
 
   findAll(userId: string): Promise<Account[]> {
     return this.accountsRepository.findAllByUser(userId);
@@ -30,7 +38,20 @@ export class AccountsService {
       userId,
       lastUpdated: new Date(),
     });
-    return this.accountsRepository.save(account);
+    const saved = await this.accountsRepository.save(account);
+    if (dto.type === AccountType.CREDIT) {
+      const card = this.creditCardRepository.create({
+        accountId: saved.id,
+        userId,
+        creditLimit: dto.creditLimit ?? 0,
+        statementDay: dto.statementDay ?? 1,
+        graceDays: dto.graceDays ?? 18,
+        last4: dto.last4 ?? null,
+        network: dto.network ?? null,
+      });
+      await this.creditCardRepository.save(card);
+    }
+    return saved;
   }
 
   async update(

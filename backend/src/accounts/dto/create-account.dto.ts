@@ -4,6 +4,9 @@ import {
   IsOptional,
   IsBoolean,
   IsNumber,
+  IsInt,
+  Min,
+  Max,
   MaxLength,
 } from 'class-validator';
 import { AccountType } from '../../common/enums';
@@ -46,4 +49,30 @@ export class CreateAccountDto {
   @IsString()
   @MaxLength(20)
   color?: string;
+
+  @IsOptional()
+  @IsNumber()
+  creditLimit?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(28)
+  statementDay?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  graceDays?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4)
+  last4?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  network?: string;
 }
