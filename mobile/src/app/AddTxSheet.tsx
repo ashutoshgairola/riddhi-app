@@ -33,6 +33,8 @@ import Svg, { Line, Path } from "react-native-svg";
 import * as ImagePicker from "expo-image-picker";
 
 import { api } from "../api";
+import type { AccountView } from "../api/types";
+import { useApiData } from "../api/useApi";
 import { BottomSheet } from "../components/BottomSheet";
 import { MSeg } from "../components/MSeg";
 import { Btn } from "../components/ui";
@@ -41,6 +43,10 @@ import { useFeedback } from "../feedback/FeedbackProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, weight } from "../theme/tokens";
 import { useNav } from "./navContext";
+
+/** No-accounts fallback for `useApiData` (kept as a stable module-level
+ * reference so the hook doesn't see a new array identity every render). */
+const EMPTY_ACCOUNTS: AccountView[] = [];
 
 /** Keypad "del" key icon — verbatim from MobileApp.jsx:192 (a delete-key
  * glyph: rounded-left rect arrow + diagonal X), not in the shared `MI` set. */
@@ -150,6 +156,18 @@ export function AddTxSheet() {
   const [receipt, setReceipt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  // Account/card the spend was made from — defaults to the opener's prefill
+  // account (e.g. a transfer action) or, once loaded, the primary bank
+  // account. A credit-card selection tags the tx `paymentMethod: 'card'`; a
+  // bank account tags it `'upi'`.
+  const [accountId, setAccountId] = useState<string | undefined>(
+    addPrefill?.accountId,
+  );
+  const { data: accounts } = useApiData(
+    () => api.accounts.list(),
+    EMPTY_ACCOUNTS,
+  );
+  const selectedAccount = accounts.find((a) => String(a.id) === accountId);
   // Set true right before a programmatic type change (prefill / receipt scan)
   // so the "reset category on type change" effect doesn't clobber the seeded
   // category. Only user-driven type switches should reset the category.
@@ -186,6 +204,7 @@ export function AddTxSheet() {
     setReceipt(null);
     setAmount(addPrefill?.amount ? String(addPrefill.amount) : "");
     setNote(addPrefill?.desc ?? "");
+    setAccountId(addPrefill?.accountId);
     const nextType = addPrefill?.type ?? "expense";
     applyTypeAndCat(
       nextType,
@@ -193,6 +212,15 @@ export function AddTxSheet() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addOpen, addPrefill]);
+
+  // Default to the primary (first non-credit) bank account once accounts have
+  // loaded, when the opener didn't prefill a specific account. Accounts load
+  // asynchronously, so this can resolve after the sheet has already opened.
+  useEffect(() => {
+    if (!addOpen || accountId || accounts.length === 0) return;
+    const primary = accounts.find((a) => a.type !== "credit") ?? accounts[0];
+    setAccountId(String(primary.id));
+  }, [addOpen, accountId, accounts]);
 
   // Reset cat to the new type's first category (MobileApp.jsx:92–94), except
   // when the type change was a programmatic seed.
@@ -272,8 +300,16 @@ export function AddTxSheet() {
         type: type === "income" ? "inc" : "exp",
         categoryName: cat,
         note: note.trim() || undefined,
-        // Link to the source account when the sheet was opened from one.
-        accountId: addPrefill?.accountId,
+        // Link to the picked account/card; a credit card tags the spend
+        // 'card', a bank account 'upi' (the backend also derives this from
+        // the account, so this just keeps the optimistic view correct).
+        accountId,
+        paymentMethod:
+          selectedAccount?.type === "credit"
+            ? "card"
+            : accountId
+              ? "upi"
+              : undefined,
       });
       toast(`Saved ${saveLabel} · ₹${value.toLocaleString("en-IN")}`, "✓");
       setAddOpen(false);
@@ -359,6 +395,50 @@ export function AddTxSheet() {
           );
         })}
       </ScrollView>
+
+      {/* account/card picker */}
+      {accounts.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.acctRow}
+        >
+          {accounts.map((a) => {
+            const on = String(a.id) === accountId;
+            return (
+              <Pressable
+                key={String(a.id)}
+                onPress={() => setAccountId(String(a.id))}
+                style={[
+                  styles.acctChip,
+                  {
+                    backgroundColor: on ? `${t.blue}22` : t.bg2,
+                    borderColor: on ? t.blue : t.border,
+                  },
+                ]}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.acctName,
+                    { color: on ? t.blue : t.text1, fontFamily: weight(600) },
+                  ]}
+                >
+                  {a.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.acctType,
+                    { color: on ? t.blue : t.text3, fontFamily: weight(500) },
+                  ]}
+                >
+                  {a.sub}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
 
       {/* note */}
       <TextInput
@@ -513,6 +593,27 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontSize: 13,
+  },
+  acctRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+    marginTop: 10,
+  },
+  acctChip: {
+    minWidth: 96,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  acctName: {
+    fontSize: 13,
+  },
+  acctType: {
+    fontSize: 11,
+    marginTop: 2,
   },
   noteInput: {
     marginTop: 14,
