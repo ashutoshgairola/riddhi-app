@@ -20,6 +20,10 @@ import type {
   ApiNotification,
   ApiReportOverview,
   ApiEvent,
+  ApiCardSummary,
+  ApiCycleCategory,
+  CardSummaryView,
+  CycleCategoryView,
   TxView,
   RecentTxView,
   AccountView,
@@ -302,6 +306,51 @@ export function toNotificationView(n: ApiNotification): NotificationView {
     unread: !n.read,
     type,
     data: n.data ?? null,
+  };
+}
+
+// ── Credit-card adapter ───────────────────────────────────────────────
+
+function toCycleCategoryView(c: ApiCycleCategory): CycleCategoryView {
+  return {
+    categoryId: c.categoryId,
+    label: c.label,
+    value: c.value,
+    color: c.color ?? (CATEGORY_COLORS[c.label] ?? DEFAULT_CAT_COLOR),
+  };
+}
+
+/**
+ * Maps the backend credit-card summary → CardSummaryView.
+ * Derives `dueTone` from `daysUntilDue` (<=3 urgent, <=7 warn, else ok)
+ * and defaults null `cycleByCategory` colors via the shared fallback palette.
+ */
+export function toCardSummaryView(dto: ApiCardSummary): CardSummaryView {
+  const dueTone: CardSummaryView['dueTone'] =
+    dto.daysUntilDue <= 3 ? 'urgent' : dto.daysUntilDue <= 7 ? 'warn' : 'ok';
+  return {
+    accountId: dto.accountId,
+    name: dto.name,
+    institutionName: dto.institutionName,
+    creditLimit: dto.creditLimit,
+    statementDay: dto.statementDay,
+    graceDays: dto.graceDays,
+    network: dto.network,
+    last4: dto.last4,
+    rewardRate: dto.rewardRate,
+    outstanding: dto.outstanding,
+    available: dto.available,
+    usedPct: dto.usedPct,
+    unbilled: dto.unbilled,
+    billed: dto.billed,
+    minDue: dto.minDue,
+    dueDate: dto.dueDate,
+    daysUntilDue: dto.daysUntilDue,
+    hasBill: dto.hasBill,
+    rewardsThisCycle: dto.rewardsThisCycle,
+    lastStatementDate: dto.lastStatementDate,
+    cycleByCategory: dto.cycleByCategory.map(toCycleCategoryView),
+    dueTone,
   };
 }
 

@@ -10,6 +10,7 @@
  * Screen-facing surface:
  *   transactions: list / recent / create / update / remove
  *   accounts:     list / create / update / remove
+ *   cards:        get / pay / updateSettings
  *   budgets:      list / currentSummary / upsertCategory
  *   events:       list / get / create / update / remove / addExpense /
  *                 updateExpense / removeExpense
@@ -37,6 +38,7 @@ import {
   toReportOverviewView,
   toEventView,
   toEventDetailView,
+  toCardSummaryView,
 } from './adapters';
 import type {
   TxView,
@@ -65,6 +67,8 @@ import type {
   ApiPaginatedTransactions,
   ApiUserPreferences,
   ApiEvent,
+  ApiCardSummary,
+  CardSummaryView,
   NewTxInput,
   UpdateTxInput,
   NewAccountInput,
@@ -348,6 +352,23 @@ export const api = {
 
     async remove(id: AccountView['id']): Promise<void> {
       await apiClient.delete(`/accounts/${id}`);
+      bumpData();
+    },
+  },
+
+  cards: {
+    async get(accountId: string): Promise<CardSummaryView> {
+      const dto = await apiClient.get<ApiCardSummary>(`/accounts/${accountId}/card`);
+      return toCardSummaryView(dto);
+    },
+
+    async pay(accountId: string, body: { fromAccountId: string; amount: number }): Promise<void> {
+      await apiClient.post(`/accounts/${accountId}/card/pay`, body);
+      bumpData();
+    },
+
+    async updateSettings(accountId: string, patch: Partial<ApiCardSummary>): Promise<void> {
+      await apiClient.patch(`/accounts/${accountId}/card`, patch);
       bumpData();
     },
   },
@@ -742,6 +763,15 @@ export const api = {
     async create(input: NewCategoryInput): Promise<void> {
       await apiClient.post('/categories', input);
       bumpData();
+    },
+
+    /** Category name → id, creating the category if it doesn't exist yet.
+     * Exposed for flows (e.g. notification-detected confirm) that need a
+     * concrete `categoryId` rather than a name — mirrors the same
+     * resolution `transactions.create({categoryName})` already does
+     * internally. */
+    resolveId(name: string): Promise<string> {
+      return resolveCategoryId(name);
     },
   },
 

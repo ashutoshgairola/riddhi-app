@@ -187,6 +187,38 @@ export interface ApiEvent {
   dayGroups?: EventDayGroup[];
 }
 
+/** `GET /accounts/:id/card` — credit-card config + computed cycle summary. */
+export interface ApiCycleCategory {
+  categoryId: string;
+  label: string;
+  value: number;
+  color: string | null;
+}
+
+export interface ApiCardSummary {
+  accountId: string;
+  name: string;
+  institutionName?: string;
+  creditLimit: number;
+  statementDay: number;
+  graceDays: number;
+  network: string | null;
+  last4: string | null;
+  rewardRate: string | null;
+  outstanding: number;
+  available: number;
+  usedPct: number;
+  unbilled: number;
+  billed: number;
+  minDue: number;
+  dueDate: string;
+  daysUntilDue: number;
+  hasBill: boolean;
+  rewardsThisCycle: number;
+  lastStatementDate: string;
+  cycleByCategory: ApiCycleCategory[];
+}
+
 // ── View-model types (shapes screens use) ────────────────────────────
 
 /** Transaction view — matches SwipeTx in SwipeRow.tsx and MT_DATA shape */
@@ -315,6 +347,41 @@ export interface EventView {
 export interface EventDetailView extends EventView {
   expenses: EventExpenseView[];
   dayGroups: EventDayGroup[];
+}
+
+/** Credit-card cycle category, colors defaulted by the adapter. */
+export interface CycleCategoryView {
+  categoryId: string;
+  label: string;
+  value: number;
+  color: string;
+}
+
+/** Credit-card summary view — matches ApiCardSummary plus a derived `dueTone`. */
+export interface CardSummaryView {
+  accountId: string;
+  name: string;
+  institutionName?: string;
+  creditLimit: number;
+  statementDay: number;
+  graceDays: number;
+  network: string | null;
+  last4: string | null;
+  rewardRate: string | null;
+  outstanding: number;
+  available: number;
+  usedPct: number;
+  unbilled: number;
+  billed: number;
+  minDue: number;
+  dueDate: string;
+  daysUntilDue: number;
+  hasBill: boolean;
+  rewardsThisCycle: number;
+  lastStatementDate: string;
+  cycleByCategory: CycleCategoryView[];
+  /** Derived from daysUntilDue: <=3 urgent, <=7 warn, else ok. */
+  dueTone: 'ok' | 'warn' | 'urgent';
 }
 
 /** `GET /reports/category-activity` row — per-category all-time totals. */
