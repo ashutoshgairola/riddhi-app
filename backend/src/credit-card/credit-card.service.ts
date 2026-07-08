@@ -6,9 +6,10 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { CategoriesService } from '../categories/categories.service';
 import { Transaction } from '../transactions/transaction.entity';
 import { CreditCard } from './credit-card.entity';
-import { TransactionType, AccountType } from '../common/enums';
+import { TransactionType, AccountType, PaymentMethod } from '../common/enums';
 import { computeCardSummary, CardTxn, CategoryMeta } from './card-summary';
 import { UpdateCardDto } from './dto/update-card.dto';
+import { PayCardDto } from './dto/pay-card.dto';
 
 @Injectable()
 export class CreditCardService {
@@ -98,5 +99,25 @@ export class CreditCardService {
     Object.assign(card, dto);
     await this.cardRepo.save(card);
     return this.getSummary(accountId, userId);
+  }
+
+  async pay(cardAccountId: string, userId: string, dto: PayCardDto) {
+    const card = await this.accountsService.findOne(cardAccountId, userId);
+    if (card.type !== AccountType.CREDIT) throw new BadRequestException('Not a credit card account');
+    const from = await this.accountsService.findOne(dto.fromAccountId, userId);
+    if (from.balance < dto.amount) throw new BadRequestException('Not enough balance in the source account');
+    const categories = await this.categoriesService.findAll(userId);
+    const category = categories.find((c) => c.name.toLowerCase() === 'other') ?? categories[0];
+    if (!category) throw new BadRequestException('No category available to record the payment');
+    return this.transactionsService.create(userId, {
+      date: new Date().toISOString(),
+      description: `${card.name} — bill paid`,
+      amount: dto.amount,
+      type: TransactionType.TRANSFER,
+      categoryId: category.id,
+      accountId: dto.fromAccountId,
+      destinationAccountId: cardAccountId,
+      paymentMethod: PaymentMethod.NETBANKING,
+    } as any);
   }
 }
