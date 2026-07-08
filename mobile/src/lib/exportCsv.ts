@@ -18,13 +18,14 @@ function csvEscape(value: string): string {
 }
 
 export function buildTxCsv(txs: TxView[]): string {
-  const header = 'Date,Description,Category,Type,Amount (INR)';
+  const header = 'Date,Description,Category,Type,Source,Amount (INR)';
   const rows = txs.map((tx) =>
     [
       tx.date,
       csvEscape(tx.desc),
       csvEscape(tx.cat),
       tx.type === 'inc' ? 'income' : 'expense',
+      csvEscape(tx.source?.label ?? ''),
       String(tx.amount),
     ].join(','),
   );
