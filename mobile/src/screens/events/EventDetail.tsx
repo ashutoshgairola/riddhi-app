@@ -69,6 +69,7 @@ import { api } from '../../api';
 import { useApiData } from '../../api/useApi';
 import { MPageShell } from '../_MPageShell';
 import { EventItemSheet, type EventItemSaved } from './EventItemSheet';
+import { formatDayShort, formatRange } from './eventDates';
 import type { EventDetailView, EventExpenseView } from '../../api/types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -82,25 +83,6 @@ function evFmtK(n: number): string {
   if (a >= 100000) return `₹${(a / 100000).toFixed(2)}L`;
   if (a >= 1000) return `₹${(a / 1000).toFixed(a % 1000 ? 1 : 0)}K`;
   return `₹${a}`;
-}
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// Parse a stored 'YYYY-MM-DD' as a *local* date (mirrors
-// CreateEventSheet.tsx's `parseYMD`, duplicated here since that helper
-// isn't exported).
-function parseYMD(s: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-// Friendly display label for a stored `YYYY-MM-DD` date (mirrors
-// CreateEventSheet.tsx's `displayDate`).
-function displayDate(s: string): string | null {
-  const d = parseYMD(s);
-  return d ? `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : null;
 }
 
 // Ring geometry (MobileEvents.jsx:274–280).
@@ -326,7 +308,6 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
   const pct = ev.budget > 0 ? Math.round((ev.paid / ev.budget) * 100) : 0;
   const ringColor = ev.over ? t.red : pct >= 85 ? t.amber : ev.color;
   const leftOrOver = ev.over ? ev.projected - ev.budget : ev.budget - ev.paid;
-  const dateLabel = ev.date ? displayDate(ev.date) : null;
 
   return (
     <MPageShell
@@ -358,8 +339,10 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
               {evFmtK(ev.paid)} <Text style={[styles.heroValueOf, { color: t.text3 }]}>/ {evFmtK(ev.budget)}</Text>
             </Text>
             <View style={styles.heroChipsRow}>
-              {dateLabel ? (
-                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {dateLabel}</Text>
+              {ev.multiDay && ev.date && ev.endDate ? (
+                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {formatRange(ev.date, ev.endDate)}</Text>
+              ) : ev.date ? (
+                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {ev.date}</Text>
               ) : null}
               {ev.guests > 0 ? (
                 <Text style={[styles.heroChip, { color: t.text2 }]}>👥 {ev.guests} guests</Text>
@@ -404,6 +387,29 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
             Add your first line item to start planning.
           </Text>
         </GlassCard>
+      ) : ev.multiDay ? (
+        <View style={styles.expenseList}>
+          {ev.dayGroups.map((g) => {
+            const rows = ev.expenses.filter((x) => (x.dayDate ?? null) === g.dayDate);
+            return (
+              <View key={g.dayDate ?? 'unscheduled'}>
+                <View style={styles.dayHeader}>
+                  <Text style={[styles.dayHeaderTitle, { color: t.text2, fontFamily: weight(700) }]}>
+                    {g.dayDate === null ? 'Unscheduled' : formatDayShort(g.dayDate)}
+                  </Text>
+                  <Text style={[styles.dayHeaderSub, { color: t.text3 }]}>
+                    {evFmt(g.paid)} / {evFmt(g.planned)}
+                  </Text>
+                </View>
+                {rows.map((x, i) => (
+                  <SpringIn key={x.id} delay={40 + i * 20}>
+                    <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />
+                  </SpringIn>
+                ))}
+              </View>
+            );
+          })}
+        </View>
       ) : (
         <View style={styles.expenseList}>
           {ev.expenses.map((x, i) => (
@@ -569,6 +575,16 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 9,
   },
+  dayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  dayHeaderTitle: { fontSize: 12.5, textTransform: 'uppercase', letterSpacing: 0.6 },
+  dayHeaderSub: { fontSize: 11.5 },
   expenseCard: {
     padding: 0,
   },
