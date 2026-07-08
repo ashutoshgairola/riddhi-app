@@ -36,11 +36,18 @@ export function resolvePaymentSource(
   const key = instKey(institution);
   if (key) {
     let matches = accounts.filter((a) => instKey(a.institutionName) === key);
-    // A card rail can only be a credit account; other rails match by institution
-    // alone (no type narrowing), so a mixed set of accounts stays ambiguous.
+    // Aggressively narrow by the account type implied by the rail, but only when
+    // the rail actually implies one:
+    //  - card           → credit accounts (a card spend is a credit account)
+    //  - upi/netbanking → bank accounts (these debits come from a bank account)
+    //  - autopay/unknown → no narrowing (a mandate can sit on a card OR a bank
+    //    account, so don't guess by type).
     if (rail === 'card') {
       matches = matches.filter((a) => a.type === AccountType.CREDIT);
+    } else if (rail === 'upi' || rail === 'netbanking') {
+      matches = matches.filter((a) => a.type !== AccountType.CREDIT);
     }
+    // Leave blank when genuinely in doubt: fill only on a unique candidate.
     if (matches.length === 1) accountId = matches[0].id;
   }
   return { accountId, paymentMethod };
