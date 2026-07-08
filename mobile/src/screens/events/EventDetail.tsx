@@ -342,7 +342,7 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
               {ev.multiDay && ev.date && ev.endDate ? (
                 <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {formatRange(ev.date, ev.endDate)}</Text>
               ) : ev.date ? (
-                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {ev.date}</Text>
+                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {formatDayShort(ev.date)}</Text>
               ) : null}
               {ev.guests > 0 ? (
                 <Text style={[styles.heroChip, { color: t.text2 }]}>👥 {ev.guests} guests</Text>
@@ -401,11 +401,13 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
                     {evFmt(g.paid)} / {evFmt(g.planned)}
                   </Text>
                 </View>
-                {rows.map((x, i) => (
-                  <SpringIn key={x.id} delay={40 + i * 20}>
-                    <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />
-                  </SpringIn>
-                ))}
+                <View style={styles.dayRows}>
+                  {rows.map((x, i) => (
+                    <SpringIn key={x.id} delay={40 + i * 20}>
+                      <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />
+                    </SpringIn>
+                  ))}
+                </View>
               </View>
             );
           })}
@@ -585,6 +587,7 @@ const styles = StyleSheet.create({
   },
   dayHeaderTitle: { fontSize: 12.5, textTransform: 'uppercase', letterSpacing: 0.6 },
   dayHeaderSub: { fontSize: 11.5 },
+  dayRows: { gap: 9 },
   expenseCard: {
     padding: 0,
   },
