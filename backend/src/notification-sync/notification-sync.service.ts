@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { IngestItemDto } from './dto/ingest.dto';
+import { ConfirmDetectedDto } from './dto/confirm.dto';
 import { computeDedupKey } from './dedup';
 import { NotificationAnalysisService } from './notification-analysis.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TransactionsService } from '../transactions/transactions.service';
 import { Account } from '../accounts/account.entity';
 import { resolvePaymentSource } from './payment-source-resolver';
 import { DetectedStatus, NotificationType, TransactionType } from '../common/enums';
@@ -22,6 +24,7 @@ export class NotificationSyncService {
     private readonly accounts: Repository<Account>,
     private readonly analysis: NotificationAnalysisService,
     private readonly notifications: NotificationsService,
+    private readonly transactions: TransactionsService,
   ) {}
 
   /**
@@ -118,5 +121,49 @@ export class NotificationSyncService {
       });
     }
     return { detected };
+  }
+
+  listPending(userId: string): Promise<DetectedTransaction[]> {
+    return this.detected.find({
+      where: { userId, status: DetectedStatus.PENDING },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  private async loadPending(userId: string, id: string): Promise<DetectedTransaction> {
+    const det = await this.detected.findOne({ where: { id, userId } });
+    if (!det || det.status !== DetectedStatus.PENDING) {
+      throw new NotFoundException('Detected transaction not found');
+    }
+    return det;
+  }
+
+  async confirm(
+    userId: string,
+    id: string,
+    dto: ConfirmDetectedDto,
+  ): Promise<{ transactionId: string }> {
+    const det = await this.loadPending(userId, id);
+    const tx = await this.transactions.create(userId, {
+      date: dto.date,
+      description: dto.description,
+      amount: dto.amount,
+      type: dto.type,
+      categoryId: dto.categoryId,
+      accountId: dto.accountId,
+      paymentMethod: dto.paymentMethod,
+      notes: dto.notes,
+    });
+    det.status = DetectedStatus.CONFIRMED;
+    det.transactionId = tx.id;
+    await this.detected.save(det);
+    return { transactionId: tx.id };
+  }
+
+  async dismiss(userId: string, id: string): Promise<{ ok: true }> {
+    const det = await this.loadPending(userId, id);
+    det.status = DetectedStatus.DISMISSED;
+    await this.detected.save(det);
+    return { ok: true };
   }
 }

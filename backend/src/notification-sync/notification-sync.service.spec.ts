@@ -6,6 +6,7 @@ import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
 import { NotificationAnalysisService } from './notification-analysis.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TransactionsService } from '../transactions/transactions.service';
 
 describe('NotificationSyncService.ingest', () => {
   it('inserts new captures and ignores dedup collisions within and across batches', async () => {
@@ -45,6 +46,7 @@ describe('NotificationSyncService.ingest', () => {
         { provide: getRepositoryToken(Account), useValue: {} },
         { provide: NotificationAnalysisService, useValue: {} },
         { provide: NotificationsService, useValue: {} },
+        { provide: TransactionsService, useValue: {} },
       ],
     }).compile();
     const svc = moduleRef.get(NotificationSyncService);

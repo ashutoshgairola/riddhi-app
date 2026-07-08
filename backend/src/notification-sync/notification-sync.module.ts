@@ -10,6 +10,7 @@ import { NotificationSyncController } from './notification-sync.controller';
 import { NotificationSyncService } from './notification-sync.service';
 import { NotificationSyncScheduler } from './notification-sync.scheduler';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { TransactionsModule } from '../transactions/transactions.module';
 import {
   NotificationAnalysisService,
   NOTIFICATION_ANTHROPIC_CLIENT,
@@ -24,6 +25,7 @@ import {
       UserPreferences,
     ]),
     NotificationsModule,
+    TransactionsModule,
   ],
   controllers: [NotificationSyncController],
   providers: [

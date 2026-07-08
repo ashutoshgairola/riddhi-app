@@ -6,6 +6,7 @@ import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TransactionsService } from '../transactions/transactions.service';
 import { AccountType, PaymentMethod } from '../common/enums';
 
 describe('runAnalysisForUser', () => {
@@ -39,6 +40,7 @@ describe('runAnalysisForUser', () => {
         { provide: getRepositoryToken(Account), useValue: accRepo },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
+        { provide: TransactionsService, useValue: {} },
       ],
     }).compile();
     const svc = moduleRef.get(NotificationSyncService);
@@ -65,6 +67,7 @@ describe('runAnalysisForUser', () => {
         { provide: getRepositoryToken(Account), useValue: { find: jest.fn() } },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
+        { provide: TransactionsService, useValue: {} },
       ],
     }).compile();
     const svc = moduleRef.get(NotificationSyncService);
