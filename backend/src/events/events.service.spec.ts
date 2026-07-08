@@ -126,4 +126,34 @@ describe('EventsService multi-day', () => {
     await svc.update('ev1', 'u1', { multiDay: false } as any);
     expect(events[0].expenses[0].dayDate).toBeNull();
   });
+
+  it('appends a moved expense to the end of the target day (bumps sortOrder past the max)', async () => {
+    const events = [{
+      id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-10',
+      expenses: [
+        { id: 'x1', dayDate: '2026-07-08', sortOrder: 0, planned: 10, actual: 0, paid: false },
+        { id: 'x2', dayDate: '2026-07-09', sortOrder: 5, planned: 10, actual: 0, paid: false },
+      ],
+    }];
+    const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
+    await svc.updateExpense('ev1', 'x1', 'u1', { dayDate: '2026-07-09' } as any);
+    expect(events[0].expenses[0].dayDate).toBe('2026-07-09');
+    expect(events[0].expenses[0].sortOrder).toBe(6);
+  });
+
+  it('leaves sortOrder untouched when the day does not change', async () => {
+    const events = [{
+      id: 'ev1', userId: 'u1', budget: 100, multiDay: true, date: '2026-07-08', endDate: '2026-07-10',
+      expenses: [
+        { id: 'x1', dayDate: '2026-07-08', sortOrder: 0, planned: 10, actual: 0, paid: false },
+        { id: 'x2', dayDate: '2026-07-09', sortOrder: 5, planned: 10, actual: 0, paid: false },
+      ],
+    }];
+    const svc = new EventsService(makeRepoWithExpenses(events), {} as any);
+    await svc.updateExpense('ev1', 'x1', 'u1', { dayDate: '2026-07-08', label: 'Same day' } as any);
+    expect(events[0].expenses[0].sortOrder).toBe(0);
+
+    await svc.updateExpense('ev1', 'x1', 'u1', { label: 'No day change at all' } as any);
+    expect(events[0].expenses[0].sortOrder).toBe(0);
+  });
 });

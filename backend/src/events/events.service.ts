@@ -176,7 +176,14 @@ export class EventsService {
     if (dto.sortOrder !== undefined) expense.sortOrder = dto.sortOrder;
     if (dto.actual !== undefined) expense.actual = dto.actual;
     if (dto.paid !== undefined) expense.paid = dto.paid;
-    if (dto.dayDate !== undefined) expense.dayDate = this.resolveDayDate(event, dto.dayDate);
+    if (dto.dayDate !== undefined) {
+      const newDay = this.resolveDayDate(event, dto.dayDate);
+      if (newDay !== expense.dayDate && dto.sortOrder === undefined) {
+        const maxSort = (event.expenses ?? []).reduce((m, x) => Math.max(m, x.sortOrder ?? 0), 0);
+        expense.sortOrder = maxSort + 1;
+      }
+      expense.dayDate = newDay;
+    }
 
     // Ticking with no actual yet defaults the spend to the planned amount
     // (mirrors the prototype's togglePaid, MobileEvents.jsx:241-242).
