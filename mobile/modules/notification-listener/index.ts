@@ -24,6 +24,7 @@ interface NativeModule {
   markUploaded(ids: string[]): Promise<void>;
   clearAll(): Promise<void>;
   getInstalledPackages(candidates: string[]): Promise<string[]>;
+  getAppIcons(packages: string[]): Promise<Record<string, string>>;
 }
 
 const Native =
@@ -73,4 +74,7 @@ export async function clearAll(): Promise<void> {
 }
 export async function getInstalledPackages(candidates: string[]): Promise<string[]> {
   return Native ? Native.getInstalledPackages(candidates) : [];
+}
+export async function getAppIcons(packages: string[]): Promise<Record<string, string>> {
+  return Native ? Native.getAppIcons(packages) : {};
 }
