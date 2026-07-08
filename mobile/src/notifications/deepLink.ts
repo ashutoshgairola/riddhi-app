@@ -1,7 +1,7 @@
 import type { ScreenKind } from '../app/navContext';
 
 /** Screens a notification tap is allowed to deep-link into. */
-const ALLOWED: ScreenKind[] = ['budgets', 'goals', 'reports', 'chat', 'tx-detail'];
+const ALLOWED: ScreenKind[] = ['budgets', 'goals', 'reports', 'chat', 'tx-detail', 'sync'];
 
 export interface NotifNavTarget {
   kind: ScreenKind;
