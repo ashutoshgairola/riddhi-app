@@ -30,7 +30,7 @@
  * lift/enter/release, not per frame) — only the lifted row's translate is a
  * per-frame shared value.
  */
-import { useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -85,15 +85,21 @@ export function ExpenseDragList({ groups, expenses, renderRow, onMove }: Expense
 
   // Re-measure every section into window coordinates. Called on lift so the
   // frames are current for the whole drag regardless of scroll position.
+  // Rebuilds `framesRef` from scratch keyed off the CURRENT `groups`, so a day
+  // that emptied (and whose section unmounted) after a move can't leave a
+  // stale frame behind — a lingering frame could overlap another day's new
+  // on-screen position and fire a spurious wrong-day move.
   const measureSections = () => {
-    for (const key of Object.keys(sectionRefs.current)) {
+    const next: Record<string, SectionFrame> = {};
+    for (const g of groups) {
+      const key = keyFor(g.dayDate);
       const node = sectionRefs.current[key];
-      if (!node) continue;
-      const dayDate = key === 'unscheduled' ? null : key;
+      if (!node) continue; // unmounted/null ref contributes nothing
       node.measureInWindow((_x, y, _w, h) => {
-        framesRef.current[key] = { top: y, bottom: y + h, dayDate };
+        next[key] = { top: y, bottom: y + h, dayDate: g.dayDate };
       });
     }
+    framesRef.current = next;
   };
 
   // Which section (by key) does this window-space Y fall in? null = none.
@@ -190,21 +196,48 @@ function DraggableRow({
   // 0 = at rest, 1 = fully lifted; drives scale/elevation/shadow together.
   const lift = useSharedValue(0);
 
-  const pan = Gesture.Pan()
-    .activateAfterLongPress(LIFT_HOLD_MS)
-    .onStart(() => {
-      lift.value = withTiming(1, { duration: 120, easing: ease });
-      runOnJS(onLiftStart)(expense.id);
-    })
-    .onUpdate((e) => {
-      translateY.value = e.translationY;
-      runOnJS(onDragMove)(e.absoluteY);
-    })
-    .onEnd((e) => {
-      runOnJS(onDragEnd)(expense.id, expense.dayDate ?? null, e.absoluteY);
-      translateY.value = withSpring(0, LIFT_SPRING);
-      lift.value = withTiming(0, { duration: 160, easing: ease });
-    });
+  // Latest handlers + expense held in a ref so the memoized gesture below can
+  // stay built-once (keyed on row identity) yet always call through to fresh
+  // closures — no stale `onMove`/`expense` capture from an earlier render.
+  const latest = useRef({ onLiftStart, onDragMove, onDragEnd, expense });
+  latest.current = { onLiftStart, onDragMove, onDragEnd, expense };
+
+  const jsLiftStart = useCallback(() => {
+    latest.current.onLiftStart(latest.current.expense.id);
+  }, []);
+  const jsDragMove = useCallback((absoluteY: number) => {
+    latest.current.onDragMove(absoluteY);
+  }, []);
+  const jsDragEnd = useCallback((absoluteY: number) => {
+    const { onDragEnd: end, expense: x } = latest.current;
+    end(x.id, x.dayDate ?? null, absoluteY);
+  }, []);
+
+  // Build the gesture once per row identity (`expense.id`/`dayDate`) — matches
+  // how SwipeRow constructs its gesture, avoiding a fresh Gesture.Pan() on the
+  // per-frame re-renders that setActiveDropKey/setDraggingId trigger mid-drag.
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(LIFT_HOLD_MS)
+        .onStart(() => {
+          lift.value = withTiming(1, { duration: 120, easing: ease });
+          runOnJS(jsLiftStart)();
+        })
+        .onUpdate((e) => {
+          translateY.value = e.translationY;
+          runOnJS(jsDragMove)(e.absoluteY);
+        })
+        .onEnd((e) => {
+          runOnJS(jsDragEnd)(e.absoluteY);
+          translateY.value = withSpring(0, LIFT_SPRING);
+          lift.value = withTiming(0, { duration: 160, easing: ease });
+        }),
+    // js* callbacks + shared values are stable; rebuild only if the row's
+    // identity/day changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [expense.id, expense.dayDate],
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }, { scale: 1 + lift.value * LIFT_SCALE }],
