@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- NOTE: android:exported="false" per spec. Some AGP versions require
+         android:exported="true" for a service declaring an intent-filter and
+         will fail the build with a manifest merger error if so. If that
+         happens, flip this to "true" — binding is still gated by the
+         system-only BIND_NOTIFICATION_LISTENER_SERVICE permission, so this
+         is safe either way. -->
+    <service
+      android:name="expo.modules.notificationlistener.RiddhiNotificationListenerService"
+      android:label="Riddhi notifications"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
+  </application>
+</manifest>
