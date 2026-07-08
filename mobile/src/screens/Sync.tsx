@@ -175,12 +175,19 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const refreshDetections = useCallback(async () => {
     if (!notifSupported) return;
     setListenerEnabled(isListenerEnabled());
-    const paused = (await AsyncStorage.getItem(CAPTURE_PAUSED_KEY)) === '1';
-    if (!paused) await configureAllowlist();
-    await uploadCaptured();
-    const [cats, det] = await Promise.all([api.categories.list(), fetchDetected()]);
-    setCategories(cats);
-    setDetected(det);
+    // Mirror `runSync`'s convention: wrap the network work in try/catch and
+    // toast on failure so an offline device shows feedback instead of
+    // silently failing (or crashing the screen).
+    try {
+      const paused = (await AsyncStorage.getItem(CAPTURE_PAUSED_KEY)) === '1';
+      if (!paused) await configureAllowlist();
+      await uploadCaptured();
+      const [cats, det] = await Promise.all([api.categories.list(), fetchDetected()]);
+      setCategories(cats);
+      setDetected(det);
+    } catch {
+      toast("Couldn't load detected transactions", '📡');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -190,8 +197,12 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
 
   const toggleCapturePaused = async (paused: boolean) => {
     setCapturePaused(paused);
-    await AsyncStorage.setItem(CAPTURE_PAUSED_KEY, paused ? '1' : '0');
-    if (paused) await setAllowlist([]);
+    try {
+      await AsyncStorage.setItem(CAPTURE_PAUSED_KEY, paused ? '1' : '0');
+      if (paused) await setAllowlist([]);
+    } catch {
+      toast("Couldn't update capture setting", '📡');
+    }
     await refreshDetections();
   };
 
@@ -243,6 +254,10 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
           paymentMethod: d.paymentMethod,
         });
         setJustAdded((n) => n + 1);
+        // Mirror the SMS confirm path (`confirm`): also push into the
+        // "Auto-added · This session" list so it stays consistent with the
+        // "N added today" count.
+        setAdded((a) => [toRecentRow(toDetectedCardTx(d)), ...a]);
       } catch {
         toast("Couldn't add that transaction", '📡');
         setDetected((cur) => [d, ...cur]);
@@ -253,7 +268,13 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const dismissDetectedItem = (id: string) => {
     const d = detected.find((x) => x.id === id);
     setDetected((cur) => cur.filter((x) => x.id !== id));
-    if (d) void dismissDetected(d.id).catch(() => {});
+    if (!d) return;
+    // Match `confirmDetectedItem`: roll the item back and surface feedback on
+    // failure rather than silently swallowing the error.
+    void dismissDetected(d.id).catch(() => {
+      toast("Couldn't dismiss that transaction", '📡');
+      setDetected((cur) => [d, ...cur]);
+    });
   };
 
   // Connected banks come from onboarding (prefs.selectedBanks); the last
@@ -411,9 +432,13 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
                 icon: '🗑',
                 onPress: () => {
                   void (async () => {
-                    await clearCaptured();
+                    try {
+                      await clearCaptured();
+                      toast('Captured data cleared', '🗑');
+                    } catch {
+                      toast("Couldn't clear captured data", '📡');
+                    }
                     await refreshDetections();
-                    toast('Captured data cleared', '🗑');
                   })();
                 },
               },
