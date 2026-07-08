@@ -98,15 +98,15 @@ BACKEND (NestJS)
 
 ### Two-stage dedup (idempotency backbone)
 
-- **Capture-level:** `dedupKey = hash(packageName + normalizedAmount +
-  postedAt-bucket)`, `UNIQUE (userId, dedupKey)`. The same notification uploaded
+- **Capture-level:** `dedupKey = sha1(packageName + '|' + text + '|' +
+  minute-bucket)`, `UNIQUE (userId, dedupKey)`. The same notification uploaded
   twice is dropped at ingest.
 - **Analysis-level:** captures flip `analyzed=true` once grouped, so a batch is
   never re-analysed and suggestions never duplicate across cron runs.
 - **Cross-source (SMS ↔ notification):** because a bank alert arrives as *both*
   an SMS and a notification, the LLM groups both records of one debit into a
-  single transaction, and the amount+time-bucket dedup key means confirming one
-  will not let the other resurface.
+  single transaction at analysis time (the capture-level key only collapses
+  exact re-uploads of one notification, not the SMS/notification pair).
 
 ## Mobile — capture (Android native)
 
@@ -165,19 +165,26 @@ The LLM returns `institution` (e.g. "HDFC") and `rail`
 (`upi`/`card`/`netbanking`/`autopay`). The backend maps these to Slice-A fields:
 
 - `paymentMethod` is set directly from `rail`.
-- `accountId` is resolved by matching `institutionName` (+ account type implied
-  by rail; `card` → `AccountType.CREDIT`) against the user's accounts:
-  - **Unambiguous** single match → auto-fill `accountId`.
-  - **Ambiguous or no match** → leave `accountId` **null**; the review card's
-    account picker (from Slice A's `AddTxSheet` / `DetectedCard.tsx`) lets the
-    user pick. `paymentMethod` is still set from `rail`, so the `SourceTag` is
-    correct either way.
+- `accountId` is resolved by matching `institutionName` (first word, lowercased)
+  against the user's accounts, then narrowing **per rail** — aggressive auto-fill,
+  but blank when genuinely in doubt (user decision, 2026-07-08):
+  - `card` → narrow to the bank's `AccountType.CREDIT` account(s).
+  - `upi` / `netbanking` → narrow to the bank's **non-credit** account(s) (these
+    debits come from a bank account, so the common savings+card-at-same-bank case
+    auto-resolves). Accepts the minor RuPay-credit-on-UPI edge case, caught at
+    review.
+  - `autopay` / unknown rail → **no** type narrowing (a mandate can sit on a card
+    or a bank account); match by institution alone.
+  - In every case: **exactly one** candidate → auto-fill `accountId`; zero or 2+
+    → leave `accountId` **null** and the review card's account picker (Slice A's
+    `AddTxSheet` / `DetectedCard.tsx`) lets the user pick. `paymentMethod` is set
+    from `rail` regardless, so the `SourceTag` is correct either way.
 
 **Deliberately not using `last4`.** Masked account numbers (`*1281`) are not
-used to resolve the account — matching is by institution + rail only. When one
-bank has multiple accounts this stays ambiguous, and the ambiguous→null→user-
-picks fallback covers it. This keeps the feature off any `Account` schema change
-and keeps the LLM output simple.
+used to resolve the account — matching is by institution + rail only. When the
+narrowing above still leaves 2+ candidates at one bank it stays ambiguous, and
+the null→user-picks fallback covers it. This keeps the feature off any `Account`
+schema change and keeps the LLM output simple.
 
 ## Data model (two new entities)
 
