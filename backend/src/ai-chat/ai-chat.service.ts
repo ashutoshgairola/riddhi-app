@@ -17,11 +17,13 @@ import { AccountsService } from '../accounts/accounts.service';
 import { InvestmentsService } from '../investments/investments.service';
 import { ReportsService } from '../reports/reports.service';
 import { EventsService } from '../events/events.service';
-import { GoalStatus } from '../common/enums';
+import { CreditCardService } from '../credit-card/credit-card.service';
+import { GoalStatus, AccountType } from '../common/enums';
 import {
   buildDynamicPrompt,
   ChatPromptContext,
   PromptBudgetContext,
+  PromptCardContext,
   PromptEventContext,
   PromptGoalContext,
   STATIC_SYSTEM_PROMPT,
@@ -77,6 +79,7 @@ export class AiChatService {
     private readonly investmentsService: InvestmentsService,
     private readonly reportsService: ReportsService,
     private readonly eventsService: EventsService,
+    private readonly creditCardService: CreditCardService,
     @Inject(ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
     @InjectRepository(ChatThread)
     private readonly threadRepo: Repository<ChatThread>,
@@ -102,6 +105,7 @@ export class AiChatService {
         investments: this.investmentsService,
         reports: this.reportsService,
         events: this.eventsService,
+        creditCard: this.creditCardService,
       },
     };
   }
@@ -556,20 +560,26 @@ export class AiChatService {
   // ── Shared prompt context ──────────────────────────────────────────────────
 
   private async buildPromptContext(userId: string): Promise<ChatPromptContext> {
-    const [budgets, goals, categories, eventsRaw] = await Promise.all([
-      this.budgetsService
-        .findAll(userId)
-        .catch(() => [] as Awaited<ReturnType<BudgetsService['findAll']>>),
-      this.goalsService
-        .findAll(userId)
-        .catch(() => [] as Awaited<ReturnType<GoalsService['findAll']>>),
-      this.categoriesService
-        .findAll(userId)
-        .catch(() => [] as Awaited<ReturnType<CategoriesService['findAll']>>),
-      this.eventsService
-        .findAll(userId)
-        .catch(() => [] as Awaited<ReturnType<EventsService['findAll']>>),
-    ]);
+    const [budgets, goals, categories, eventsRaw, accountsRaw] =
+      await Promise.all([
+        this.budgetsService
+          .findAll(userId)
+          .catch(() => [] as Awaited<ReturnType<BudgetsService['findAll']>>),
+        this.goalsService
+          .findAll(userId)
+          .catch(() => [] as Awaited<ReturnType<GoalsService['findAll']>>),
+        this.categoriesService
+          .findAll(userId)
+          .catch(
+            () => [] as Awaited<ReturnType<CategoriesService['findAll']>>,
+          ),
+        this.eventsService
+          .findAll(userId)
+          .catch(() => [] as Awaited<ReturnType<EventsService['findAll']>>),
+        this.accountsService
+          .findAll(userId)
+          .catch(() => [] as Awaited<ReturnType<AccountsService['findAll']>>),
+      ]);
 
     const budget: PromptBudgetContext | null = budgets[0]
       ? {
@@ -603,10 +613,30 @@ export class AiChatService {
       projected: e.projected, over: e.over,
     }));
 
+    const creditAccounts = accountsRaw.filter(
+      (a) => a.type === AccountType.CREDIT,
+    );
+    const cardSummaries = await Promise.all(
+      creditAccounts.map((a) =>
+        this.creditCardService.getSummary(a.id, userId).catch(() => null),
+      ),
+    );
+    const cards: PromptCardContext[] = cardSummaries
+      .filter(
+        (s): s is NonNullable<typeof s> => s !== null && s.outstanding > 0,
+      )
+      .map((s) => ({
+        name: s.name,
+        outstanding: s.outstanding,
+        dueDate: s.dueDate,
+        daysUntilDue: s.daysUntilDue,
+      }));
+
     return {
       budget,
       goals: activeGoals,
       events,
+      cards,
       categoryNames: categories.map((c) => c.name),
     };
   }

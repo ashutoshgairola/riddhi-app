@@ -75,10 +75,11 @@ function makeService(client: Anthropic | null) {
   };
   const tx = {};
   const categories = { findAll: jest.fn().mockResolvedValue([]) };
-  const accounts = {};
+  const accounts = { findAll: jest.fn().mockResolvedValue([]) };
   const investments = {};
   const reports = {};
   const events = { findAll: jest.fn().mockResolvedValue([]) };
+  const creditCard = { getSummary: jest.fn() };
   const threadRepo = mockRepo();
   const messageRepo = mockRepo();
   const actionRepo = mockRepo();
@@ -93,13 +94,14 @@ function makeService(client: Anthropic | null) {
     investments as never,
     reports as never,
     events as never,
+    creditCard as never,
     client,
     threadRepo as never,
     messageRepo as never,
     actionRepo as never,
   );
 
-  return { service, threadRepo, messageRepo, actionRepo, goals };
+  return { service, threadRepo, messageRepo, actionRepo, goals, accounts, creditCard };
 }
 
 function collect() {
@@ -200,6 +202,57 @@ describe('AiChatService agent loop', () => {
 
     const types = events.map((e) => e.type);
     expect(types).toEqual(['message_start', 'text_delta', 'message_end']);
+  });
+
+  it('includes the card-dues line in the dynamic prompt when a credit account has outstanding due', async () => {
+    const { client, streamCalls } = scriptedClient([
+      { stop_reason: 'end_turn', content: [{ type: 'text', text: 'ok' }] },
+    ]);
+    const { service, accounts, creditCard } = makeService(client);
+    accounts.findAll.mockResolvedValue([
+      { id: 'acc1', type: 'credit', name: 'ICICI Card' },
+    ]);
+    creditCard.getSummary.mockResolvedValue({
+      name: 'ICICI Card',
+      outstanding: 12000,
+      dueDate: '2026-07-15',
+      daysUntilDue: 7,
+    });
+    const { emit } = collect();
+
+    await service.runTurn('u1', null, 'how much do I owe?', emit);
+
+    expect(creditCard.getSummary).toHaveBeenCalledWith('acc1', 'u1');
+    const systemText = (
+      streamCalls[0].system as { text: string }[]
+    )[1].text;
+    expect(systemText).toContain(
+      'Card dues: ₹12,000 across 1 card; soonest ICICI Card due in 7 days (₹12,000).',
+    );
+  });
+
+  it('omits the card-dues line when no credit account has an outstanding balance', async () => {
+    const { client, streamCalls } = scriptedClient([
+      { stop_reason: 'end_turn', content: [{ type: 'text', text: 'ok' }] },
+    ]);
+    const { service, accounts, creditCard } = makeService(client);
+    accounts.findAll.mockResolvedValue([
+      { id: 'acc1', type: 'credit', name: 'ICICI Card' },
+    ]);
+    creditCard.getSummary.mockResolvedValue({
+      name: 'ICICI Card',
+      outstanding: 0,
+      dueDate: '2026-07-15',
+      daysUntilDue: 7,
+    });
+    const { emit } = collect();
+
+    await service.runTurn('u1', null, 'how much do I owe?', emit);
+
+    const systemText = (
+      streamCalls[0].system as { text: string }[]
+    )[1].text;
+    expect(systemText).toContain('No card dues.');
   });
 });
 

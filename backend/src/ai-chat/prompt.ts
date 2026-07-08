@@ -28,10 +28,18 @@ export interface PromptEventContext {
   over: boolean;
 }
 
+export interface PromptCardContext {
+  name: string;
+  outstanding: number;
+  dueDate: string;
+  daysUntilDue: number;
+}
+
 export interface ChatPromptContext {
   budget: PromptBudgetContext | null;
   goals: PromptGoalContext[];
   events: PromptEventContext[];
+  cards: PromptCardContext[];
   categoryNames: string[];
 }
 
@@ -113,6 +121,13 @@ function formatEventsSection(events: PromptEventContext[]): string {
     .join('\n');
 }
 
+function formatCardsSection(cards: PromptCardContext[]): string {
+  if (cards.length === 0) return '- No card dues.';
+  const total = cards.reduce((s, c) => s + c.outstanding, 0);
+  const soonest = [...cards].sort((a, b) => a.daysUntilDue - b.daysUntilDue)[0];
+  return `- Card dues: ${inr(total)} across ${cards.length} card${cards.length === 1 ? '' : 's'}; soonest ${soonest.name} due in ${soonest.daysUntilDue} days (${inr(soonest.outstanding)}).`;
+}
+
 /**
  * Dynamic system block — rendered AFTER the cache breakpoint, so it may carry
  * per-user, per-day data freely.
@@ -129,5 +144,6 @@ User snapshot:
 ${formatBudgetSection(ctx.budget)}
 ${formatGoalsSection(ctx.goals)}
 ${formatEventsSection(ctx.events)}
+${formatCardsSection(ctx.cards)}
 - Their categories: ${categories}.`;
 }

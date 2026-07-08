@@ -1,6 +1,6 @@
 import { Account } from '../../accounts/account.entity';
 import { AccountType } from '../../common/enums';
-import { RiddhiTool, fieldsFromInput, inr, schema } from './types';
+import { RiddhiTool, ToolCtx, fieldsFromInput, inr, schema } from './types';
 
 function toModelAccount(a: Account) {
   return {
@@ -10,6 +10,24 @@ function toModelAccount(a: Account) {
     balance: a.balance,
     includeInNetWorth: a.includeInNetWorth,
   };
+}
+
+/** Adds card computed fields (outstanding/available/minDue/dueDate) for credit accounts. */
+async function toModelAccountWithCard(ctx: ToolCtx, a: Account) {
+  const base = toModelAccount(a);
+  if (a.type !== AccountType.CREDIT) return base;
+  try {
+    const summary = await ctx.svc.creditCard.getSummary(a.id, ctx.userId);
+    return {
+      ...base,
+      outstanding: summary.outstanding,
+      available: summary.available,
+      minDue: summary.minDue,
+      dueDate: summary.dueDate,
+    };
+  } catch {
+    return base;
+  }
 }
 
 export const accountTools: RiddhiTool[] = [
@@ -22,8 +40,11 @@ export const accountTools: RiddhiTool[] = [
     risk: 'safe',
     handler: async (ctx) => {
       const accounts = await ctx.svc.accounts.findAll(ctx.userId);
+      const items = await Promise.all(
+        accounts.map((a) => toModelAccountWithCard(ctx, a)),
+      );
       return {
-        data: accounts.map(toModelAccount),
+        data: items,
         widgets: [
           {
             kind: 'account_list',
