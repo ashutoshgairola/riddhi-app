@@ -62,8 +62,12 @@ Rapido, ₹159, Transport, `HDFC UPI` — that the user confirms.
 - **Capture scope:** a **curated package allowlist** (banks + GPay/PhonePe/Paytm
   + Rapido/Uber/Swiggy/Amazon…). Only allowlisted packages are ever captured.
 - **Trigger:** listener captures 24/7 to on-device storage; the **backend
-  auto-analyses on a schedule** and pushes "N transactions detected"; the user
-  **confirms before save**.
+  auto-analyses a few times a day** (e.g. 09:00 / 13:00 / 18:00 / 22:00 IST) and
+  pushes "N transactions detected"; the user **confirms before save**.
+- **Model:** `claude-sonnet-5` via the shared `AI_MODEL` env — used
+  **app-wide**. This feature also flips the existing `claude-opus-4-8` fallbacks
+  in `receipts.service.ts` and `ai-chat.service.ts` to `claude-sonnet-5`; no
+  `claude-opus-4-8` remains anywhere.
 - **Correlation:** **one batched LLM call does grouping + extraction**
   (Approach A), with a deterministic **dedup key** for idempotency.
 
@@ -139,11 +143,10 @@ service→token imports don't cycle):
 - **`@Cron` job** (reuses `notifications.scheduler.ts` pattern, `Asia/Kolkata`,
   wrapped in the existing per-user `safe()`), per user:
   1. Load `analyzed=false` captures; cap the batch (≈150).
-  2. **One Sonnet call.** New env `NOTIFICATION_AI_MODEL` (default
-     `claude-sonnet-5`) so bulk analysis is cheap while chat/receipts stay on
-     `claude-opus-4-8` (`AI_MODEL`). Structured output (tool / JSON schema)
-     returns `groups[]`, each with `merchant`, `amount`, `type`, `category`,
-     `institution`, `rail`, `last4`, and the `sourceKeys[]` that formed the
+  2. **One Sonnet call.** Uses the shared `AI_MODEL` env (default now
+     `claude-sonnet-5`, the app-wide model). Structured output (tool / JSON
+     schema) returns `groups[]`, each with `merchant`, `amount`, `type`,
+     `category`, `institution`, `rail`, and the `sourceKeys[]` that formed the
      group.
   3. For each group → resolve `accountId` / `paymentMethod` (see below) → insert
      a `DetectedTransaction` (`status=pending`).
@@ -158,8 +161,8 @@ service→token imports don't cycle):
 
 ### Payment-source resolution
 
-The LLM returns `institution` (e.g. "HDFC"), `rail` (`upi`/`card`/`netbanking`/
-`autopay`), and `last4` (e.g. "1281"). The backend maps these to Slice-A fields:
+The LLM returns `institution` (e.g. "HDFC") and `rail`
+(`upi`/`card`/`netbanking`/`autopay`). The backend maps these to Slice-A fields:
 
 - `paymentMethod` is set directly from `rail`.
 - `accountId` is resolved by matching `institutionName` (+ account type implied
@@ -170,12 +173,11 @@ The LLM returns `institution` (e.g. "HDFC"), `rail` (`upi`/`card`/`netbanking`/
     user pick. `paymentMethod` is still set from `rail`, so the `SourceTag` is
     correct either way.
 
-**Known gap, handled without a schema change:** `Account` has `institutionName`
-but no stored `last4` yet (Slice A notes the masked account number "has no
-backend equivalent"). So `*1281` cannot pin an *exact* account when the user has
-two accounts at one bank — hence the ambiguous→null→user-picks fallback. This
-stays forward-compatible: when a later slice adds `last4` to `Account`,
-resolution simply becomes more precise with no change to this design.
+**Deliberately not using `last4`.** Masked account numbers (`*1281`) are not
+used to resolve the account — matching is by institution + rail only. When one
+bank has multiple accounts this stays ambiguous, and the ambiguous→null→user-
+picks fallback covers it. This keeps the feature off any `Account` schema change
+and keeps the LLM output simple.
 
 ## Data model (two new entities)
 
