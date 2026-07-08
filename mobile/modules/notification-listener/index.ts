@@ -23,6 +23,7 @@ interface NativeModule {
   getPending(max: number): Promise<CapturedItem[]>;
   markUploaded(ids: string[]): Promise<void>;
   clearAll(): Promise<void>;
+  getInstalledPackages(candidates: string[]): Promise<string[]>;
 }
 
 const Native =
@@ -32,7 +33,9 @@ const Native =
 
 export const isNotificationListenerAvailable = Native != null;
 
-/** Finance + merchant apps we capture from. Extend as needed. */
+/** Offline seed / fallback allowlist. No longer canonical — the app fetches
+ * the live catalog from the backend; this is only used when that fetch has
+ * never succeeded. Also mirrors the manifest <queries> (see DECLARED_QUERY_PACKAGES). */
 export const DEFAULT_ALLOWLIST: string[] = [
   // Banks (notification package names)
   'com.snapwork.hdfc', 'com.csam.icici.bank.imobile', 'com.sbi.lotusintouch',
@@ -43,6 +46,12 @@ export const DEFAULT_ALLOWLIST: string[] = [
   'com.rapido.passenger', 'com.ubercab', 'in.swiggy.android',
   'com.application.zomato', 'in.amazon.mShop.android.shopping', 'com.flipkart.android',
 ];
+
+/** Packages declared in the Android <queries> manifest block — the set the
+ * install-probe can actually see. Must stay in sync with AndroidManifest.xml.
+ * A catalog package absent here has "unknown" install-state and is treated as
+ * includable by resolveAllowlist. Equals DEFAULT_ALLOWLIST today. */
+export const DECLARED_QUERY_PACKAGES: string[] = DEFAULT_ALLOWLIST;
 
 export function isEnabled(): boolean {
   return Native ? Native.isEnabled() : false;
@@ -61,4 +70,7 @@ export async function markUploaded(ids: string[]): Promise<void> {
 }
 export async function clearAll(): Promise<void> {
   if (Native) await Native.clearAll();
+}
+export async function getInstalledPackages(candidates: string[]): Promise<string[]> {
+  return Native ? Native.getInstalledPackages(candidates) : [];
 }

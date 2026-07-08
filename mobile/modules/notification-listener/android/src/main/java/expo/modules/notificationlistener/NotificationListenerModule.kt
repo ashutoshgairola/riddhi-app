@@ -2,6 +2,7 @@ package expo.modules.notificationlistener
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import expo.modules.kotlin.exception.Exceptions
@@ -40,6 +41,17 @@ class NotificationListenerModule : Module() {
 
     AsyncFunction("clearAll") {
       CaptureStore.get(context).clearAll()
+    }
+
+    AsyncFunction("getInstalledPackages") { candidates: List<String> ->
+      val pm = context.packageManager
+      candidates.filter { pkg ->
+        try {
+          pm.getPackageInfo(pkg, 0); true
+        } catch (e: PackageManager.NameNotFoundException) {
+          false // not installed, OR not visible (not declared in <queries>)
+        }
+      }
     }
   }
 }
