@@ -12,7 +12,10 @@ class RiddhiNotificationListenerService : NotificationListenerService() {
   override fun onNotificationPosted(sbn: StatusBarNotification) {
     val pkg = sbn.packageName ?: return
     val allow = allowlist(this)
-    if (allow.isNotEmpty() && !allow.contains(pkg)) return
+    // Privacy default-deny: an empty/unseeded allowlist captures NOTHING. JS
+    // seeds DEFAULT_ALLOWLIST via setAllowlist (persisted in SharedPreferences),
+    // so nothing is stored until the app seeds the allowlist at least once.
+    if (!allow.contains(pkg)) return
 
     val extras = sbn.notification?.extras ?: return
     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
@@ -20,12 +23,21 @@ class RiddhiNotificationListenerService : NotificationListenerService() {
       ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()
     if (text.isNullOrBlank()) return
 
-    CaptureStore.get(this).insert(pkg, title, text, sbn.postTime)
+    // Extract fields on the callback (main) thread — cheap — then persist off
+    // it. insert() also runs a row-cap DELETE, so keep it off the main thread
+    // to avoid ANR/jank under bursty notifications. Use applicationContext in
+    // the lambda so we don't hold the service context on the background thread.
+    val postTime = sbn.postTime
+    ioExecutor.execute {
+      CaptureStore.get(applicationContext).insert(pkg, title, text, postTime)
+    }
   }
 
   companion object {
     private const val PREFS = "notif_listener_prefs"
     private const val KEY_ALLOW = "allowlist"
+
+    private val ioExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     fun setAllowlist(context: Context, packages: List<String>) {
       context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
