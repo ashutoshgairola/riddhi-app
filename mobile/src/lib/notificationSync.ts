@@ -11,11 +11,15 @@ import { Platform } from 'react-native';
 import { apiClient } from '../api/client';
 import {
   isNotificationListenerAvailable,
-  DEFAULT_ALLOWLIST,
+  DECLARED_QUERY_PACKAGES,
   getPending,
   markUploaded,
   setAllowlist,
+  getInstalledPackages,
 } from '../../modules/notification-listener';
+import { fetchCatalog } from './catalogSource';
+import { resolveAllowlist } from './allowlistResolver';
+import { getToggles } from './toggleStore';
 
 const UPLOAD_BATCH = 100;
 
@@ -46,9 +50,16 @@ export function notificationSyncSupported(): boolean {
   return Platform.OS === 'android' && isNotificationListenerAvailable;
 }
 
+/** Builds the effective allowlist from the live catalog, the device's installed
+ * apps, and the user's per-app toggles, then pushes it to the native store.
+ * Falls back safely (cached/seed catalog, empty install list off-Android). */
 export async function configureAllowlist(): Promise<void> {
   if (!notificationSyncSupported()) return;
-  await setAllowlist(DEFAULT_ALLOWLIST);
+  const catalog = await fetchCatalog();
+  const installed = await getInstalledPackages(catalog.map((c) => c.packageName));
+  const toggles = await getToggles();
+  const effective = resolveAllowlist(catalog, installed, DECLARED_QUERY_PACKAGES, toggles);
+  await setAllowlist(effective);
 }
 
 export async function uploadCaptured(): Promise<number> {
