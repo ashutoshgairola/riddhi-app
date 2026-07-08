@@ -198,29 +198,52 @@ export function AddTxSheet() {
       : undefined;
 
   // Reset amount/note/receipt on open (MobileApp.jsx:88–90), and seed type /
-  // amount / note / category from any prefill (transfer action, scanned receipt).
-  // Account selection is computed in the same effect (rather than a sibling
-  // effect) so a prefilled accountId always wins over the "default to primary
-  // account" fallback: sibling effects run in the same commit and can't see
-  // each other's setState, so splitting this into two effects would let the
-  // default clobber the prefill whenever accounts had already loaded.
+  // amount / note / category from any prefill (transfer action, scanned
+  // receipt). Deliberately NOT depending on `accounts`: `useApiData` hands
+  // back a new array reference on every `bumpData()` (i.e. any unrelated
+  // mutation anywhere in the app), and if this effect re-ran on that it
+  // would reset the whole in-progress form — amount, note, receipt, type,
+  // cat — out from under the user while the sheet is open. Account
+  // selection here only ever applies the prefill's account (or clears it);
+  // defaulting to the primary account once `accounts` loads is the sibling
+  // effect below.
   useEffect(() => {
     if (!addOpen) return;
     setReceipt(null);
     setAmount(addPrefill?.amount ? String(addPrefill.amount) : "");
     setNote(addPrefill?.desc ?? "");
-    const target =
-      addPrefill?.accountId ??
-      accounts.find((a) => a.type !== "credit")?.id ??
-      accounts[0]?.id;
-    setAccountId(target != null ? String(target) : undefined);
+    setAccountId(
+      addPrefill?.accountId != null ? String(addPrefill.accountId) : undefined,
+    );
     const nextType = addPrefill?.type ?? "expense";
     applyTypeAndCat(
       nextType,
       matchChip(nextType, addPrefill?.category) ?? QA_CATS[nextType][0].l,
     );
+  }, [addOpen, addPrefill]);
+
+  // Default to the primary (non-credit) account once `accounts` has loaded,
+  // but only when nothing else has already claimed `accountId`. The
+  // `addPrefill?.accountId != null` guard is what prevents the original
+  // race: without it, this effect could see a stale (pre-prefill) `accountId`
+  // in the same commit as the open-reset effect above and clobber the
+  // prefilled account, since sibling effects can't observe each other's
+  // setState within a single commit. Once `accountId` is set, this effect
+  // early-returns on every later `accounts` refetch, so it never resets the
+  // form the way the merged effect used to.
+  useEffect(() => {
+    if (
+      !addOpen ||
+      accountId ||
+      addPrefill?.accountId != null ||
+      accounts.length === 0
+    ) {
+      return;
+    }
+    const primary = accounts.find((a) => a.type !== "credit") ?? accounts[0];
+    setAccountId(String(primary.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addOpen, addPrefill, accounts]);
+  }, [addOpen, accountId, accounts]);
 
   // Reset cat to the new type's first category (MobileApp.jsx:92–94), except
   // when the type change was a programmatic seed.
