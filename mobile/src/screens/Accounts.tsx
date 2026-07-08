@@ -171,7 +171,9 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
         {accounts.map((a, i) => (
           // animationDelay: `${0.04 + i*0.04}s` (MobileScreens.jsx:392)
           <SpringIn key={a.id} delay={40 + i * 40}>
-            <Pressable onPress={() => push({ kind: 'account-detail', data: a })}>
+            <Pressable
+              onPress={() => push({ kind: a.type === 'credit' ? 'card-detail' : 'account-detail', data: a })}
+            >
               {({ pressed }) => (
                 <LinearGradient
                   colors={a.gradient}

@@ -32,6 +32,7 @@ export type ScreenKind =
   | 'chat'
   | 'accounts'
   | 'account-detail'
+  | 'card-detail'
   | 'tx-cats'
   | 'cat-detail'
   | 'settings'

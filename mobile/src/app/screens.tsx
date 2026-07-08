@@ -11,6 +11,7 @@
 import { AccountDetail } from '../screens/AccountDetail';
 import { Accounts } from '../screens/Accounts';
 import { Budgets } from '../screens/Budgets';
+import { CardDetail } from '../screens/CardDetail';
 import { CategoryDetail } from '../screens/CategoryDetail';
 import { Chat } from '../screens/Chat';
 import { EventDetail } from '../screens/events/EventDetail';
@@ -42,6 +43,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   chat: Chat,
   accounts: Accounts,
   'account-detail': AccountDetail,
+  'card-detail': CardDetail,
   'tx-cats': TxCategories,
   'cat-detail': CategoryDetail,
   settings: Settings,
