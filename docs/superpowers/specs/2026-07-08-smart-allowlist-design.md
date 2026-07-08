@@ -85,7 +85,15 @@ GET /notification-sync/catalog ──▶ catalogSource (fetch + cache + fallback
 
 - New `AsyncFunction("getInstalledPackages") { candidates: List<String> -> ... }`
   on `NotificationListenerModule`, using `PackageManager.getPackageInfo`
-  per candidate, returning the subset that resolve.
+  per candidate, returning the subset that resolve. This is the lightweight
+  call on the allowlist-push hot path — names only, no icons.
+- Separate `AsyncFunction("getAppIcons") { packages: List<String> -> ... }`
+  returning `{ packageName -> base64 PNG }` via
+  `PackageManager.getApplicationIcon` (drawable → bitmap → PNG → base64).
+  Called **only** when the Monitored-apps screen opens, never on the push
+  path, so per-notification/config work stays cheap. Catalog is small
+  (~15-30 apps) so a one-shot base64 batch is fine; the screen may cache the
+  result in memory for the session.
 - Manifest gains a `<queries>` block listing the catalog package names so the
   probe is visible under Android 11+ package-visibility rules.
 - **Graceful degradation:** a catalog package **not** present in `<queries>`
@@ -137,10 +145,16 @@ The existing "paused" path (`setAllowlist([])`) is unchanged.
 ### 7. Monitored-apps screen
 
 - New push screen (matches the `CardDetail` pattern already in the repo:
-  registered in `screens.tsx`, navigated via `navContext`), reached from a row
-  on the Sync screen.
-- Lists catalog apps grouped by `category`; each row shows display name,
+  registered in `screens.tsx`, navigated via `navContext`).
+- **Entry point:** a `ListRow` in the notification-access settings area of the
+  Sync screen (beside the listener-permission controls, not in the
+  transaction-review flow), showing a chevron and an "N apps monitored" count
+  (enabled ∩ installed). Tapping pushes the Monitored-apps screen.
+- Lists catalog apps grouped by `category`; each row shows the **app icon**
+  (from `getAppIcons`, fetched once on screen open), display name,
   installed/not-installed state, and a `Toggle` (reuses `components/ui`).
+- Icon fallback: not-installed apps (no PackageManager icon) render a
+  category glyph from `components/icons`.
 - Not-installed apps render disabled/greyed (informational).
 - Flipping a toggle writes via `setToggle` and re-runs `configureAllowlist()`
   so the native allowlist updates immediately.
@@ -189,12 +203,12 @@ The existing "paused" path (`setAllowlist([])`) is unchanged.
 - new controller/service spec coverage
 
 **Mobile — native**
-- `NotificationListenerModule.kt` — `getInstalledPackages`
+- `NotificationListenerModule.kt` — `getInstalledPackages`, `getAppIcons`
 - `AndroidManifest.xml` — `<queries>` block
 
 **Mobile — JS**
-- `modules/notification-listener/index.ts` — `getInstalledPackages` wrapper;
-  `DEFAULT_ALLOWLIST` demoted to seed
+- `modules/notification-listener/index.ts` — `getInstalledPackages` +
+  `getAppIcons` wrappers; `DEFAULT_ALLOWLIST` demoted to seed
 - new `src/lib/catalogSource.ts`, `src/lib/allowlistResolver.ts`,
   `src/lib/toggleStore.ts` (+ specs)
 - `src/lib/notificationSync.ts` — rewrite `configureAllowlist`
