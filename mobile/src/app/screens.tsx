@@ -19,6 +19,7 @@ import { Events } from '../screens/events/Events';
 import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
 import { Invest } from '../screens/Invest';
+import { MonitoredApps } from '../screens/MonitoredApps';
 import { Notifications } from '../screens/Notifications';
 import { Reports } from '../screens/Reports';
 import { Search } from '../screens/Search';
@@ -44,6 +45,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   accounts: Accounts,
   'account-detail': AccountDetail,
   'card-detail': CardDetail,
+  'monitored-apps': MonitoredApps,
   'tx-cats': TxCategories,
   'cat-detail': CategoryDetail,
   settings: Settings,

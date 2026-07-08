@@ -144,7 +144,7 @@ const DEFAULT_CATEGORY_COLOR = '#6b7280';
 
 export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
-  const { pop } = useNav();
+  const { pop, push } = useNav();
   const { toast, sheet } = useFeedback();
   const { prefs } = usePrefs();
 
@@ -524,6 +524,27 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
               </View>
             </GlassCard>
           </Pressable>
+        </SpringIn>
+      ) : null}
+
+      {notifSupported && listenerEnabled ? (
+        <SpringIn>
+          <ListCard>
+            <ListRow last onPress={() => push({ kind: 'monitored-apps' })}>
+              <View style={[styles.statusIconBox, { backgroundColor: t.emDim }]}>
+                <MI.bell size={20} color={t.em} />
+              </View>
+              <View style={styles.statusText}>
+                <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>
+                  Monitored apps
+                </Text>
+                <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
+                  Choose which apps Riddhi reads notifications from
+                </Text>
+              </View>
+              <MI.arrow size={18} color={t.text3} />
+            </ListRow>
+          </ListCard>
         </SpringIn>
       ) : null}
 
