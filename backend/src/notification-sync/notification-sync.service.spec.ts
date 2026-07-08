@@ -3,6 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotificationSyncService } from './notification-sync.service';
 import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
+import { Account } from '../accounts/account.entity';
+import { NotificationAnalysisService } from './notification-analysis.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('NotificationSyncService.ingest', () => {
   it('inserts new captures and ignores dedup collisions within and across batches', async () => {
@@ -39,6 +42,9 @@ describe('NotificationSyncService.ingest', () => {
         NotificationSyncService,
         { provide: getRepositoryToken(CapturedNotification), useValue: capRepo },
         { provide: getRepositoryToken(DetectedTransaction), useValue: {} },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: NotificationAnalysisService, useValue: {} },
+        { provide: NotificationsService, useValue: {} },
       ],
     }).compile();
     const svc = moduleRef.get(NotificationSyncService);
