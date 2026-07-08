@@ -199,28 +199,28 @@ export function AddTxSheet() {
 
   // Reset amount/note/receipt on open (MobileApp.jsx:88–90), and seed type /
   // amount / note / category from any prefill (transfer action, scanned receipt).
+  // Account selection is computed in the same effect (rather than a sibling
+  // effect) so a prefilled accountId always wins over the "default to primary
+  // account" fallback: sibling effects run in the same commit and can't see
+  // each other's setState, so splitting this into two effects would let the
+  // default clobber the prefill whenever accounts had already loaded.
   useEffect(() => {
     if (!addOpen) return;
     setReceipt(null);
     setAmount(addPrefill?.amount ? String(addPrefill.amount) : "");
     setNote(addPrefill?.desc ?? "");
-    setAccountId(addPrefill?.accountId);
+    const target =
+      addPrefill?.accountId ??
+      accounts.find((a) => a.type !== "credit")?.id ??
+      accounts[0]?.id;
+    setAccountId(target != null ? String(target) : undefined);
     const nextType = addPrefill?.type ?? "expense";
     applyTypeAndCat(
       nextType,
       matchChip(nextType, addPrefill?.category) ?? QA_CATS[nextType][0].l,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addOpen, addPrefill]);
-
-  // Default to the primary (first non-credit) bank account once accounts have
-  // loaded, when the opener didn't prefill a specific account. Accounts load
-  // asynchronously, so this can resolve after the sheet has already opened.
-  useEffect(() => {
-    if (!addOpen || accountId || accounts.length === 0) return;
-    const primary = accounts.find((a) => a.type !== "credit") ?? accounts[0];
-    setAccountId(String(primary.id));
-  }, [addOpen, accountId, accounts]);
+  }, [addOpen, addPrefill, accounts]);
 
   // Reset cat to the new type's first category (MobileApp.jsx:92–94), except
   // when the type change was a programmatic seed.
