@@ -29,7 +29,7 @@ export class ReceiptsService {
   ) {}
 
   private get model(): string {
-    return this.config.get<string>('AI_MODEL') ?? 'claude-opus-4-8';
+    return this.config.get<string>('AI_MODEL') ?? 'claude-sonnet-5';
   }
 
   async scan(

@@ -23,7 +23,7 @@ function setup(opts: {
               .mockResolvedValue({ content: [{ type: 'text', text: opts.aiText }] }),
           },
         } as any);
-  const config = { get: jest.fn().mockReturnValue('claude-opus-4-8') } as any;
+  const config = { get: jest.fn().mockReturnValue('claude-sonnet-5') } as any;
   const prefsRepo = { find: jest.fn().mockResolvedValue([{ userId: 'u1' }]) } as any;
   const scheduler = new NotificationsScheduler(
     notifications,

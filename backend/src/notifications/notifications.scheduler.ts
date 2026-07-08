@@ -41,7 +41,7 @@ export class NotificationsScheduler {
   ) {}
 
   private get model(): string {
-    return this.config.get<string>('AI_MODEL') ?? 'claude-opus-4-8';
+    return this.config.get<string>('AI_MODEL') ?? 'claude-sonnet-5';
   }
 
   @Cron('0 9 * * *', { timeZone: 'Asia/Kolkata' })

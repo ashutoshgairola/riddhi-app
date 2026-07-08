@@ -87,7 +87,7 @@ export class AiChatService {
   ) {}
 
   private get model(): string {
-    return this.configService.get<string>('AI_MODEL') ?? 'claude-opus-4-8';
+    return this.configService.get<string>('AI_MODEL') ?? 'claude-sonnet-5';
   }
 
   private toolCtx(userId: string): ToolCtx {
