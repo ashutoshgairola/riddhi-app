@@ -106,3 +106,9 @@ export enum StartOfWeek {
   SUNDAY = 'sunday',
   MONDAY = 'monday',
 }
+
+export enum DetectedStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  DISMISSED = 'dismissed',
+}
