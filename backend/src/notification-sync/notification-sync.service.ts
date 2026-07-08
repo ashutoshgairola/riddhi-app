@@ -12,6 +12,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { Account } from '../accounts/account.entity';
 import { resolvePaymentSource } from './payment-source-resolver';
 import { DetectedStatus, NotificationType, TransactionType } from '../common/enums';
+import { NOTIFICATION_CATALOG, CatalogEntry } from './catalog.constant';
 
 @Injectable()
 export class NotificationSyncService {
@@ -26,6 +27,13 @@ export class NotificationSyncService {
     private readonly notifications: NotificationsService,
     private readonly transactions: TransactionsService,
   ) {}
+
+  /** The canonical app catalog the mobile client fetches to build its
+   * notification allowlist. Static today; a DB-backed catalog can replace
+   * this without changing the controller contract. */
+  getCatalog(): CatalogEntry[] {
+    return NOTIFICATION_CATALOG;
+  }
 
   /**
    * Persist a batch of raw captures, dropping rows that collide on
@@ -114,7 +122,7 @@ export class NotificationSyncService {
 
     if (detected > 0) {
       await this.notifications.create(userId, {
-        type: NotificationType.LARGE_TRANSACTION,
+        type: NotificationType.MUNSHI_SUGGESTION,
         title: 'New transactions to review',
         body: `Munshi found ${detected} transaction${detected === 1 ? '' : 's'} from your notifications.`,
         data: { screen: 'sync' },

@@ -10,6 +10,11 @@ import { ConfirmDetectedDto } from './dto/confirm.dto';
 export class NotificationSyncController {
   constructor(private readonly service: NotificationSyncService) {}
 
+  @Get('catalog')
+  catalog() {
+    return this.service.getCatalog();
+  }
+
   @Post('ingest')
   ingest(
     @CurrentUser() user: { userId: string; email: string },
