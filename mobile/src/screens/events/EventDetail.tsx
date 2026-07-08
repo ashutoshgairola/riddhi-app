@@ -71,7 +71,7 @@ import { MPageShell } from '../_MPageShell';
 import { EventItemSheet, type EventItemSaved } from './EventItemSheet';
 import { ExpenseRow, evFmt } from './ExpenseRow';
 import { ExpenseDragList } from './ExpenseDragList';
-import { formatDayShort, formatRange } from './eventDates';
+import { eachDayYMD, formatDayShort, formatRange } from './eventDates';
 import type { EventDayGroup, EventDetailView, EventExpenseView } from '../../api/types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -181,7 +181,10 @@ function recomputeDayGroups(expenses: EventExpenseView[], multiDay: boolean): Ev
 // Optimistic clone: reassign one expense's dayDate and recompute the groups.
 // Top-level totals are unchanged by a day move, so they carry over as-is.
 function applyMove(base: EventDetailView, expenseId: string, toDayDate: string | null): EventDetailView {
-  const expenses = base.expenses.map((x) => (x.id === expenseId ? { ...x, dayDate: toDayDate } : x));
+  const moved = base.expenses.find((x) => x.id === expenseId);
+  if (!moved) return base;
+  const rest = base.expenses.filter((x) => x.id !== expenseId);
+  const expenses = [...rest, { ...moved, dayDate: toDayDate }];
   return { ...base, expenses, dayGroups: recomputeDayGroups(expenses, base.multiDay) };
 }
 
@@ -290,6 +293,21 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
   // from `ev` while the expense list reads from `view`.
   const view = optimistic ?? ev;
 
+  // Every in-range day rendered as a section (even ones with zero expenses),
+  // so a day with no expenses yet still has a drop target — `view.dayGroups`
+  // (server + `recomputeDayGroups` alike) omits empty days entirely.
+  // Unscheduled (dayDate === null) is appended last, only if present.
+  const displayGroups: EventDayGroup[] =
+    view.multiDay && view.date && view.endDate
+      ? [
+          ...eachDayYMD(view.date, view.endDate).map((d) => {
+            const g = view.dayGroups.find((x) => x.dayDate === d);
+            return g ?? { dayDate: d, planned: 0, paid: 0, count: 0, paidCount: 0 };
+          }),
+          ...view.dayGroups.filter((g) => g.dayDate === null),
+        ]
+      : view.dayGroups;
+
   const pct = ev.budget > 0 ? Math.round((ev.paid / ev.budget) * 100) : 0;
   const ringColor = ev.over ? t.red : pct >= 85 ? t.amber : ev.color;
   const leftOrOver = ev.over ? ev.projected - ev.budget : ev.budget - ev.paid;
@@ -374,7 +392,7 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
         </GlassCard>
       ) : view.multiDay ? (
         <ExpenseDragList
-          groups={view.dayGroups}
+          groups={displayGroups}
           expenses={view.expenses}
           renderRow={(x) => <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />}
           onMove={moveExpense}

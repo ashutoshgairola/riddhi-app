@@ -169,6 +169,11 @@ export function ExpenseDragList({ groups, expenses, renderRow, onMove }: Expense
                   {renderRow(x)}
                 </DraggableRow>
               ))}
+              {rows.length === 0 ? (
+                <View style={[styles.dayEmpty, { borderColor: t.border }]}>
+                  <Text style={[styles.dayEmptyText, { color: t.text3 }]}>Drop an expense here</Text>
+                </View>
+              ) : null}
             </View>
           </View>
         );
@@ -280,4 +285,13 @@ const styles = StyleSheet.create({
   dayHeaderTitle: { fontSize: 12.5, textTransform: 'uppercase', letterSpacing: 0.6 },
   dayHeaderSub: { fontSize: 11.5 },
   dayRows: { gap: 9 },
+  dayEmpty: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayEmptyText: { fontSize: 11.5 },
 });
