@@ -49,7 +49,7 @@
  *    shared money-formatting module exists in `mobile/src/lib/` yet).
  */
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedProps,
   useSharedValue,
@@ -69,15 +69,14 @@ import { api } from '../../api';
 import { useApiData } from '../../api/useApi';
 import { MPageShell } from '../_MPageShell';
 import { EventItemSheet, type EventItemSaved } from './EventItemSheet';
+import { ExpenseRow, evFmt } from './ExpenseRow';
+import { ExpenseDragList } from './ExpenseDragList';
 import { formatDayShort, formatRange } from './eventDates';
-import type { EventDetailView, EventExpenseView } from '../../api/types';
+import type { EventDayGroup, EventDetailView, EventExpenseView } from '../../api/types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-// evFmt/evFmtK — MobileStore.jsx:45–46.
-function evFmt(n: number): string {
-  return '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
-}
+// evFmtK — MobileStore.jsx:46 (evFmt lives in ./ExpenseRow, imported above).
 function evFmtK(n: number): string {
   const a = Math.abs(n);
   if (a >= 100000) return `₹${(a / 100000).toFixed(2)}L`;
@@ -144,88 +143,46 @@ function Stat({ label, value, color }: { label: string; value: number; color?: s
   );
 }
 
-// One checklist row (MobileEvents.jsx:330–370).
-function ExpenseRow({
-  x,
-  onToggle,
-  onPress,
-}: {
-  x: EventExpenseView;
-  onToggle: () => void;
-  onPress: () => void;
-}) {
-  const { t } = useTheme();
-  const shown = x.paid ? x.actual : x.planned;
-  const delta = x.paid ? x.actual - x.planned : 0;
-  const deltaColor = delta > 0 ? t.red : delta < 0 ? t.em : t.text3;
+// Client-side mirror of the backend's computeDayGroups (events.totals.ts) for
+// the interim optimistic frame only — the authoritative groups return on the
+// bumpData() refresh that updateExpense triggers. Days ascending, Unscheduled
+// (null) last; per-day planned = sum planned, paid = sum of actual where paid.
+const r2 = (n: number): number => Math.round(n * 100) / 100;
 
-  return (
-    <GlassCard style={[styles.expenseCard, { opacity: x.paid ? 0.82 : 1 }]} contentStyle={styles.expenseCardContent}>
-      <Pressable onPress={onPress}>
-        {({ pressed }) => (
-          <View style={[styles.expenseRow, { backgroundColor: pressed ? t.glassBg2 : 'transparent' }]}>
-            {/* checkbox — a separate Pressable nested inside the row's own
-                press target, matching the source's `e.stopPropagation()`
-                split between "toggle paid" and "open edit sheet"; RN's
-                responder system routes a tap here to this inner Pressable
-                only, so the outer row's onPress never fires for it. */}
-            <Pressable onPress={onToggle} hitSlop={8} style={styles.checkboxBtn}>
-              <View
-                style={[
-                  styles.checkbox,
-                  {
-                    backgroundColor: x.paid ? t.em : 'transparent',
-                    borderColor: x.paid ? t.em : t.text3,
-                  },
-                ]}
-              >
-                {x.paid ? <MI.check size={14} color="#1a1228" strokeWidth={3.5} /> : null}
-              </View>
-            </Pressable>
+function recomputeDayGroups(expenses: EventExpenseView[], multiDay: boolean): EventDayGroup[] {
+  if (!multiDay) return [];
+  const byDay = new Map<string | null, EventDayGroup>();
+  for (const e of expenses) {
+    const key = e.dayDate ?? null;
+    let g = byDay.get(key);
+    if (!g) {
+      g = { dayDate: key, planned: 0, paid: 0, count: 0, paidCount: 0 };
+      byDay.set(key, g);
+    }
+    g.planned += e.planned || 0;
+    if (e.paid) {
+      g.paid += e.actual || 0;
+      g.paidCount += 1;
+    }
+    g.count += 1;
+  }
+  const groups = [...byDay.values()];
+  groups.forEach((g) => {
+    g.planned = r2(g.planned);
+    g.paid = r2(g.paid);
+  });
+  return groups.sort((a, b) => {
+    if (a.dayDate === null) return 1;
+    if (b.dayDate === null) return -1;
+    return a.dayDate < b.dayDate ? -1 : a.dayDate > b.dayDate ? 1 : 0;
+  });
+}
 
-            <View style={[styles.expenseIconBox, { backgroundColor: x.color + '22' }]}>
-              <Text style={styles.expenseIconGlyph}>{x.icon}</Text>
-            </View>
-
-            <View style={styles.expenseTextBlock}>
-              <Text
-                style={[
-                  styles.expenseLabel,
-                  {
-                    color: t.text1,
-                    fontFamily: weight(600),
-                    textDecorationLine: x.paid ? 'line-through' : 'none',
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {x.label}
-              </Text>
-              <View style={styles.expenseSubRow}>
-                <Text style={[styles.expenseSubText, { color: t.text3 }]}>{x.categoryName}</Text>
-                {x.paid ? (
-                  <Text style={[styles.expenseSubText, { color: deltaColor }]}>
-                    {delta === 0 ? 'on budget' : `${delta > 0 ? '+' : ''}${evFmt(delta)} vs plan`}
-                  </Text>
-                ) : (
-                  <Text style={[styles.expenseSubText, { color: t.amber }]}>to pay</Text>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.expenseAmountBlock}>
-              <Text style={[styles.expenseAmount, { color: t.text1, fontFamily: weight(700) }]}>
-                {evFmt(shown)}
-              </Text>
-              {x.paid && x.planned !== x.actual ? (
-                <Text style={[styles.expensePlannedStrike, { color: t.text3 }]}>{evFmt(x.planned)}</Text>
-              ) : null}
-            </View>
-          </View>
-        )}
-      </Pressable>
-    </GlassCard>
-  );
+// Optimistic clone: reassign one expense's dayDate and recompute the groups.
+// Top-level totals are unchanged by a day move, so they carry over as-is.
+function applyMove(base: EventDetailView, expenseId: string, toDayDate: string | null): EventDetailView {
+  const expenses = base.expenses.map((x) => (x.id === expenseId ? { ...x, dayDate: toDayDate } : x));
+  return { ...base, expenses, dayGroups: recomputeDayGroups(expenses, base.multiDay) };
 }
 
 export function EventDetail({ entry }: { entry: ScreenEntry }) {
@@ -238,6 +195,16 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editItem, setEditItem] = useState<EventExpenseView | null>(null);
+  // Optimistic override for a day-move, layered over `ev` until the server's
+  // authoritative `ev` arrives (cleared by the useEffect below on every fresh
+  // `ev`). Null = render `ev` directly.
+  const [optimistic, setOptimistic] = useState<EventDetailView | null>(null);
+
+  // Whenever a fresh `ev` arrives (initial load or a bumpData() refresh),
+  // drop any optimistic override — the server is now the source of truth.
+  useEffect(() => {
+    setOptimistic(null);
+  }, [ev]);
 
   const openNew = () => {
     setEditItem(null);
@@ -258,6 +225,19 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
     api.events
       .updateExpense(id, x.id, { paid: !x.paid })
       .catch(() => toast("Couldn't update — try again", '📡'));
+  };
+
+  // Drag-to-reschedule: reflect the move immediately (optimistic), persist,
+  // and on failure revert + toast. The bumpData() refresh that updateExpense
+  // triggers restores server truth (and clears `optimistic` via the effect).
+  const moveExpense = (expenseId: string, toDayDate: string | null) => {
+    setOptimistic((prev) => applyMove(prev ?? ev, expenseId, toDayDate));
+    api.events
+      .updateExpense(id, expenseId, { dayDate: toDayDate })
+      .catch(() => {
+        setOptimistic(null);
+        toast("Couldn't move — try again", '📡');
+      });
   };
 
   const saveItem = (patch: EventItemSaved) => {
@@ -304,6 +284,11 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
   // Guard render until the event has loaded — no placeholder mock to fall
   // back to (useApiData's `null` fallback while the first fetch is in flight).
   if (!ev) return null;
+
+  // Optimistic view layered over `ev`: a day-move only changes expenses +
+  // dayGroups (top-level totals are identical), so the hero/stats/banner read
+  // from `ev` while the expense list reads from `view`.
+  const view = optimistic ?? ev;
 
   const pct = ev.budget > 0 ? Math.round((ev.paid / ev.budget) * 100) : 0;
   const ringColor = ev.over ? t.red : pct >= 85 ? t.amber : ev.color;
@@ -379,7 +364,7 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
       {/* Checklist (MobileEvents.jsx:316–372) */}
       <SectionHead title="Expenses" link={`${ev.paidCount}/${ev.count} paid`} />
 
-      {ev.expenses.length === 0 ? (
+      {view.expenses.length === 0 ? (
         <GlassCard contentStyle={styles.emptyCard}>
           <Text style={styles.emptyIcon}>🧾</Text>
           <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(600) }]}>No expenses yet</Text>
@@ -387,34 +372,16 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
             Add your first line item to start planning.
           </Text>
         </GlassCard>
-      ) : ev.multiDay ? (
-        <View style={styles.expenseList}>
-          {ev.dayGroups.map((g) => {
-            const rows = ev.expenses.filter((x) => (x.dayDate ?? null) === g.dayDate);
-            return (
-              <View key={g.dayDate ?? 'unscheduled'}>
-                <View style={styles.dayHeader}>
-                  <Text style={[styles.dayHeaderTitle, { color: t.text2, fontFamily: weight(700) }]}>
-                    {g.dayDate === null ? 'Unscheduled' : formatDayShort(g.dayDate)}
-                  </Text>
-                  <Text style={[styles.dayHeaderSub, { color: t.text3 }]}>
-                    {evFmt(g.paid)} / {evFmt(g.planned)}
-                  </Text>
-                </View>
-                <View style={styles.dayRows}>
-                  {rows.map((x, i) => (
-                    <SpringIn key={x.id} delay={40 + i * 20}>
-                      <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />
-                    </SpringIn>
-                  ))}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+      ) : view.multiDay ? (
+        <ExpenseDragList
+          groups={view.dayGroups}
+          expenses={view.expenses}
+          renderRow={(x) => <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />}
+          onMove={moveExpense}
+        />
       ) : (
         <View style={styles.expenseList}>
-          {ev.expenses.map((x, i) => (
+          {view.expenses.map((x, i) => (
             <SpringIn key={x.id} delay={50 + i * 30}>
               <ExpenseRow x={x} onToggle={() => togglePaid(x)} onPress={() => openEdit(x)} />
             </SpringIn>
@@ -572,84 +539,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Expense list/rows
+  // Expense list (single-day flat list; multi-day rows live in ExpenseDragList).
   expenseList: {
     flexDirection: 'column',
     gap: 9,
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    marginBottom: 8,
-    paddingHorizontal: 2,
-  },
-  dayHeaderTitle: { fontSize: 12.5, textTransform: 'uppercase', letterSpacing: 0.6 },
-  dayHeaderSub: { fontSize: 11.5 },
-  dayRows: { gap: 9 },
-  expenseCard: {
-    padding: 0,
-  },
-  expenseCardContent: {
-    padding: 0,
-  },
-  expenseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-  },
-  checkboxBtn: {
-    flexShrink: 0,
-  },
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expenseIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  expenseIconGlyph: {
-    fontSize: 16,
-  },
-  expenseTextBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  expenseLabel: {
-    fontSize: 14,
-  },
-  expenseSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  expenseSubText: {
-    fontSize: 11,
-  },
-  expenseAmountBlock: {
-    alignItems: 'flex-end',
-    flexShrink: 0,
-  },
-  expenseAmount: {
-    fontSize: 14.5,
-  },
-  expensePlannedStrike: {
-    fontSize: 11,
-    textDecorationLine: 'line-through',
-    marginTop: 1,
   },
 
   // Add button + footer
