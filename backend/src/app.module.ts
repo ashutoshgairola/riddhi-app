@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { CreditCardModule } from './credit-card/credit-card.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { EventsModule } from './events/events.module';
 import { GoalsModule } from './goals/goals.module';
@@ -46,6 +47,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     AccountsModule,
     CategoriesModule,
     TransactionsModule,
+    CreditCardModule,
     BudgetsModule,
     EventsModule,
     GoalsModule,
