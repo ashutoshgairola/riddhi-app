@@ -38,12 +38,12 @@
  *  - "Auto-added" recent list rows — MobileSync.jsx:182–193.
  *  - "How it works" info row copy — MobileSync.jsx:197–204.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from '../api';
-import type { PaymentMethod } from '../api/types';
+import type { CategoryView, PaymentMethod } from '../api/types';
 import { GlassCard } from '../components/Glass';
 import { BankLogo } from '../components/BankLogo';
 import { IconButton, ListCard, ListRow, SearchButton, Toggle, TopbarActions } from '../components/ui';
@@ -60,6 +60,21 @@ import {
   rememberProcessed,
   smsSyncSupported,
 } from '../lib/smsSync';
+import {
+  notificationSyncSupported,
+  configureAllowlist,
+  uploadCaptured,
+  fetchDetected,
+  confirmDetected,
+  dismissDetected,
+  type DetectedView,
+} from '../lib/notificationSync';
+import {
+  isEnabled as isListenerEnabled,
+  openSettings as openListenerSettings,
+  clearAll as clearCaptured,
+  setAllowlist,
+} from '../../modules/notification-listener';
 import { MPageShell } from './_MPageShell';
 import { DetectedCard } from './DetectedCard';
 
@@ -117,6 +132,16 @@ const fmtR = (n: number) => '₹' + Math.abs(n).toLocaleString('en-IN');
 // Auto-sync is a client-only toggle (no backend field), persisted locally.
 const AUTO_SYNC_KEY = 'sms-sync/auto';
 
+// Whether notification capture is user-paused, persisted locally. Needed
+// because `refreshDetections` re-runs `configureAllowlist()` (restoring
+// DEFAULT_ALLOWLIST) on every screen open — without this flag a "paused"
+// state would silently un-pause itself the next time the screen mounts.
+const CAPTURE_PAUSED_KEY = 'notification-sync/paused';
+
+// Generic fallback tint for a detected category with no match in the
+// user's real category list (see `toDetectedCardTx`).
+const DEFAULT_CATEGORY_COLOR = '#6b7280';
+
 export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
@@ -132,6 +157,104 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const [justAdded, setJustAdded] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const supported = smsSyncSupported();
+
+  // ── Notification-detected transactions (Task 10/8 pipeline) ──────────
+  const notifSupported = notificationSyncSupported();
+  const [listenerEnabled, setListenerEnabled] = useState(false);
+  const [detected, setDetected] = useState<DetectedView[]>([]);
+  const [categories, setCategories] = useState<CategoryView[]>([]);
+  const [capturePaused, setCapturePaused] = useState(false);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(CAPTURE_PAUSED_KEY).then((v) => setCapturePaused(v === '1'));
+  }, []);
+
+  /** Pushes the allowlist, uploads captured notifications, and reloads the
+   * backend-detected review queue. Re-run after pause/resume/clear so the
+   * list reflects the latest server state. */
+  const refreshDetections = useCallback(async () => {
+    if (!notifSupported) return;
+    setListenerEnabled(isListenerEnabled());
+    const paused = (await AsyncStorage.getItem(CAPTURE_PAUSED_KEY)) === '1';
+    if (!paused) await configureAllowlist();
+    await uploadCaptured();
+    const [cats, det] = await Promise.all([api.categories.list(), fetchDetected()]);
+    setCategories(cats);
+    setDetected(det);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void refreshDetections();
+  }, [refreshDetections]);
+
+  const toggleCapturePaused = async (paused: boolean) => {
+    setCapturePaused(paused);
+    await AsyncStorage.setItem(CAPTURE_PAUSED_KEY, paused ? '1' : '0');
+    if (paused) await setAllowlist([]);
+    await refreshDetections();
+  };
+
+  /** Maps a backend-detected transaction into the shape `DetectedCard`
+   * already renders (icon/color come from a real category match when the
+   * suggested name exists in the user's category list). */
+  const toDetectedCardTx = useCallback(
+    (d: DetectedView): SyncDetected => {
+      const catName = d.suggestedCategory ?? 'Uncategorized';
+      const match = categories.find((c) => c.name.toLowerCase() === catName.toLowerCase());
+      const amount = Math.abs(d.amount ?? 0);
+      return {
+        id: d.id,
+        raw: `Detected from a ${d.paymentMethod} notification`,
+        bank: '',
+        amount: d.type === 'income' ? amount : -amount,
+        merchant: d.merchant ?? 'Unknown',
+        icon: match?.icon ?? '🔔',
+        cat: catName,
+        catCol: match?.color ?? DEFAULT_CATEGORY_COLOR,
+        account: d.accountId ? 'Linked account' : 'Unlinked',
+        time: d.postedAt
+          ? new Date(d.postedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+          : 'Just now',
+        conf: d.confidence,
+        paymentMethod: d.paymentMethod as PaymentMethod,
+      };
+    },
+    [categories],
+  );
+
+  /** Resolves the suggested category name to a real id (creating it if it
+   * doesn't exist yet — same behavior `transactions.create({categoryName})`
+   * already relies on elsewhere), then confirms the detection. */
+  const confirmDetectedItem = (id: string) => {
+    const d = detected.find((x) => x.id === id);
+    setDetected((cur) => cur.filter((x) => x.id !== id));
+    if (!d) return;
+    (async () => {
+      try {
+        const categoryId = await api.categories.resolveId(d.suggestedCategory ?? 'Uncategorized');
+        await confirmDetected(d.id, {
+          date: d.postedAt ? d.postedAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          description: d.merchant ?? 'Transaction',
+          amount: Math.abs(d.amount ?? 0),
+          type: d.type,
+          categoryId,
+          accountId: d.accountId ?? undefined,
+          paymentMethod: d.paymentMethod,
+        });
+        setJustAdded((n) => n + 1);
+      } catch {
+        toast("Couldn't add that transaction", '📡');
+        setDetected((cur) => [d, ...cur]);
+      }
+    })();
+  };
+
+  const dismissDetectedItem = (id: string) => {
+    const d = detected.find((x) => x.id === id);
+    setDetected((cur) => cur.filter((x) => x.id !== id));
+    if (d) void dismissDetected(d.id).catch(() => {});
+  };
 
   // Connected banks come from onboarding (prefs.selectedBanks); the last
   // slot is always the dimmed "Add" affordance from the design.
@@ -272,6 +395,30 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             toast(autoSync ? 'Auto-sync paused' : 'Auto-sync resumed');
           },
         },
+        ...(notifSupported
+          ? [
+              {
+                label: capturePaused ? 'Resume notification capture' : 'Pause notification capture',
+                icon: capturePaused ? '▶️' : '⏸',
+                onPress: () => {
+                  void toggleCapturePaused(!capturePaused).then(() => {
+                    toast(capturePaused ? 'Notification capture resumed' : 'Notification capture paused');
+                  });
+                },
+              },
+              {
+                label: 'Clear captured data',
+                icon: '🗑',
+                onPress: () => {
+                  void (async () => {
+                    await clearCaptured();
+                    await refreshDetections();
+                    toast('Captured data cleared', '🗑');
+                  })();
+                },
+              },
+            ]
+          : []),
       ],
     });
   };
@@ -331,12 +478,37 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         </GlassCard>
       </SpringIn>
 
-      {/* needs review (MobileSync.jsx:152–156) */}
+      {/* enable notification capture CTA — shown only when the platform
+          supports it and access hasn't been granted yet */}
+      {notifSupported && !listenerEnabled ? (
+        <SpringIn>
+          <Pressable onPress={() => openListenerSettings()}>
+            <GlassCard style={styles.statusCard}>
+              <View style={styles.statusRow}>
+                <View style={[styles.statusIconBox, { backgroundColor: t.emDim }]}>
+                  <MI.bell size={20} color={t.em} />
+                </View>
+                <View style={styles.statusText}>
+                  <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>
+                    Enable notification capture
+                  </Text>
+                  <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
+                    Grant Riddhi notification access so it can detect transactions from your bank & app alerts.
+                  </Text>
+                </View>
+              </View>
+            </GlassCard>
+          </Pressable>
+        </SpringIn>
+      ) : null}
+
+      {/* needs review (MobileSync.jsx:152–156) — merges SMS-detected
+          `pending` with backend notification-detected `detected` */}
       <View style={styles.sectionHeadRow}>
         <Text style={[styles.sectionTitle, { color: t.text1, fontFamily: weight(700) }]}>
           Needs review
-          {pending.length > 0 ? (
-            <Text style={{ color: t.amber }}> · {pending.length}</Text>
+          {pending.length + detected.length > 0 ? (
+            <Text style={{ color: t.amber }}> · {pending.length + detected.length}</Text>
           ) : null}
         </Text>
         {pending.length > 1 ? (
@@ -346,11 +518,19 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         ) : null}
       </View>
 
-      {pending.length > 0 ? (
+      {pending.length + detected.length > 0 ? (
         // animationDelay: .05s (MobileSync.jsx:159)
         <SpringIn delay={50}>
           {pending.map((tx) => (
             <DetectedCard key={tx.id} tx={tx} onConfirm={confirm} onDismiss={dismiss} />
+          ))}
+          {detected.map((d) => (
+            <DetectedCard
+              key={d.id}
+              tx={toDetectedCardTx(d)}
+              onConfirm={confirmDetectedItem}
+              onDismiss={dismissDetectedItem}
+            />
           ))}
         </SpringIn>
       ) : (
