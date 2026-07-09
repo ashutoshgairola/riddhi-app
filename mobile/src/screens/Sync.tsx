@@ -61,6 +61,7 @@ import {
   rememberProcessed,
   smsSyncSupported,
 } from '../lib/smsSync';
+import { nonDuplicates } from '../lib/smsSyncMap';
 import {
   notificationSyncSupported,
   configureAllowlist,
@@ -354,6 +355,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       type: tx.amount > 0 ? 'inc' : 'exp',
       categoryName: tx.cat,
       paymentMethod: tx.paymentMethod,
+      ...(tx.accountId ? { accountId: tx.accountId } : {}),
     });
 
   /** Maps a confirmed detection into an "Auto-added" list row. */
@@ -389,8 +391,10 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
     if (tx) void rememberProcessed([tx.id]);
   };
   const addAll = () => {
-    const batch = pending;
-    setPending([]);
+    const batch = nonDuplicates(pending);
+    if (batch.length === 0) return;
+    const remaining = pending.filter((p) => p.possibleDuplicate);
+    setPending(remaining);
     Promise.all(batch.map(saveDetected))
       .then(() => {
         setJustAdded((n) => n + batch.length);
@@ -399,7 +403,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       })
       .catch(() => {
         toast("Couldn't add all transactions", '📡');
-        setPending(batch);
+        setPending((p) => [...batch, ...p]);
       });
   };
 
@@ -595,7 +599,14 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         // animationDelay: .05s (MobileSync.jsx:159)
         <SpringIn delay={50}>
           {pending.map((tx) => (
-            <DetectedCard key={tx.id} tx={tx} onConfirm={confirm} onDismiss={dismiss} />
+            <View key={tx.id}>
+              <DetectedCard tx={tx} onConfirm={confirm} onDismiss={dismiss} />
+              {tx.possibleDuplicate ? (
+                <Text style={[styles.duplicateHint, { color: t.amber, fontFamily: weight(600) }]}>
+                  Possible duplicate
+                </Text>
+              ) : null}
+            </View>
           ))}
           {detected.map((d) => (
             <DetectedCard
@@ -812,6 +823,15 @@ const styles = StyleSheet.create({
   recentAmount: {
     fontSize: 14,
     flexShrink: 0,
+  },
+  // Sits in the gap DetectedCard's idle `marginBottom: 12` already leaves
+  // below the card, so it reads as a caption for that row rather than a
+  // new section.
+  duplicateHint: {
+    fontSize: 11,
+    marginTop: -8,
+    marginBottom: 8,
+    paddingHorizontal: 15,
   },
   infoRow: {
     flexDirection: 'row',
