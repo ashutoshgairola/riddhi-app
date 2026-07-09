@@ -217,30 +217,62 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
     });
   };
 
+  // Enable biometric only once a PIN exists — biometric may never be the sole
+  // unlock factor (spec: PIN Required With Biometric).
+  const enableBiometric = () => {
+    void setBiometricEnabled(true).then(() => {
+      setBioOn(true);
+      setPref({ biometricEnabled: true }, `${bioLabel} unlock on`, "🔒");
+    });
+  };
+
+  const promptSetPinThenEnable = () => {
+    form({
+      title: "Set a backup PIN",
+      fields: [
+        { key: "pin", label: "New PIN (4–6 digits)" },
+        { key: "confirm", label: "Confirm new PIN" },
+      ],
+      submitLabel: "Set PIN & enable",
+      onSubmit: async (v) => {
+        if (!/^\d{4,6}$/.test(v["pin"] ?? ""))
+          throw new Error("PIN must be 4–6 digits");
+        if (v["pin"] !== v["confirm"]) throw new Error("PINs don't match");
+        await savePin(v["pin"]!);
+        setPinSet(true);
+        enableBiometric();
+        toast("Backup PIN set — app lock is on", "🔒");
+      },
+    });
+  };
+
   const toggleBiometric = async (v: boolean) => {
-    if (v) {
-      // Needs an enrolled face/fingerprint before it can be an unlock method.
-      if (!(await LocalAuthentication.isEnrolledAsync())) {
-        toast(`Set up ${bioLabel} in your device settings first`, "🔒");
-        return;
-      }
-      // Prove the biometric works before trusting it as an unlock method,
-      // mirroring the onboarding Secure step.
-      const auth = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Confirm to enable app lock",
-      });
-      if (!auth.success) {
-        toast(`${bioLabel} check failed`, "⚠️");
-        return;
-      }
+    if (!v) {
+      await setBiometricEnabled(false);
+      setBioOn(false);
+      setPref({ biometricEnabled: false }, `${bioLabel} unlock off`, "🔒");
+      return;
     }
-    await setBiometricEnabled(v);
-    setBioOn(v);
-    setPref(
-      { biometricEnabled: v },
-      v ? `${bioLabel} unlock on` : `${bioLabel} unlock off`,
-      "🔒",
-    );
+    // Needs an enrolled face/fingerprint before it can be an unlock method.
+    if (!(await LocalAuthentication.isEnrolledAsync())) {
+      toast(`Set up ${bioLabel} in your device settings first`, "🔒");
+      return;
+    }
+    // Prove the biometric works before trusting it as an unlock method,
+    // mirroring the onboarding Secure step.
+    const auth = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Confirm to enable app lock",
+    });
+    if (!auth.success) {
+      toast(`${bioLabel} check failed`, "⚠️");
+      return;
+    }
+    // Biometric can't stand alone — require a backup PIN first if none exists.
+    if (!(await hasPin())) {
+      promptSetPinThenEnable();
+      return;
+    }
+    enableBiometric();
   };
 
   const changePin = async () => {
