@@ -134,7 +134,15 @@ export function LockScreen() {
       setBackfill('create');
       return;
     }
-    await savePin(candidate);
+    try {
+      await savePin(candidate);
+    } catch {
+      toast("Couldn't save your PIN — try again", '⚠️');
+      firstPin.current = '';
+      setPin('');
+      setBackfill('create');
+      return;
+    }
     finishUnlock();
   };
 
