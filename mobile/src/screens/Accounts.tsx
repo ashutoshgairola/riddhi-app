@@ -47,6 +47,7 @@ import { useNav, type ScreenEntry } from '../app/navContext';
 import { useCountUp } from '../hooks/useCountUp';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
+import type { FormFieldSpec } from '../components/FormSheet';
 import { MPageShell } from './_MPageShell';
 
 // ── Data (MobileScreens.jsx:342–349) ─────────────────────────────────
@@ -67,6 +68,12 @@ export interface Account {
 // Renders empty while the api loads (or is unreachable) — no mock data.
 const EMPTY_ACCOUNTS: Account[] = [];
 
+/** Per-credit-account due-hint lookup (accountId -> daysUntilDue/hasBill),
+ * fetched once per accounts-list load — see the `dueHints` useApiData call
+ * below for why this isn't a per-row fetch. */
+type DueHintMap = Record<string, { daysUntilDue: number; hasBill: boolean }>;
+const EMPTY_DUE_HINTS: DueHintMap = {};
+
 // Balance formatting (MobileScreens.jsx:401–403): abs >= 100000 -> L (2dp),
 // else grouped (en-IN), with a leading '-' for negative balances.
 function fmtBalance(bal: number): string {
@@ -82,12 +89,56 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
 
   const { data: accounts } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
 
+  // Due hint for the credit-account rows below: fetch each credit account's
+  // card summary ONCE per accounts-list load (keyed on the credit-account id
+  // set), not per render/per row — a plain per-row `api.cards.get` call
+  // inside the list would re-fire on every re-render and get chattier as
+  // more cards are added.
+  const creditAccountIds = accounts.filter((a) => a.type === 'credit').map((a) => String(a.id));
+  const { data: dueHints } = useApiData<DueHintMap>(
+    async () => {
+      if (creditAccountIds.length === 0) return EMPTY_DUE_HINTS;
+      const entries = await Promise.all(
+        creditAccountIds.map(async (id) => {
+          try {
+            const s = await api.cards.get(id);
+            return [id, { daysUntilDue: s.daysUntilDue, hasBill: s.hasBill }] as const;
+          } catch {
+            // Best-effort enrichment — a missing/unreachable card summary
+            // just omits that row's hint rather than failing the list.
+            return null;
+          }
+        }),
+      );
+      const map: DueHintMap = {};
+      for (const e of entries) {
+        if (e) map[e[0]] = e[1];
+      }
+      return map;
+    },
+    EMPTY_DUE_HINTS,
+    [creditAccountIds.join(',')],
+  );
+
   const total = accounts.reduce((s, a) => s + a.bal, 0);
   const totalCount = useCountUp(total, 1100);
   const totalAssets = accounts.filter((a) => a.bal > 0).reduce((s, a) => s + a.bal, 0);
   const totalLiab = Math.abs(accounts.filter((a) => a.bal < 0).reduce((s, a) => s + a.bal, 0));
 
   const addAccount = (type: 'savings' | 'credit' | 'cash', title: string) => {
+    // Credit cards need a limit + statement day (the backend seeds the
+    // CreditCard row from these); last4/network are optional cosmetic
+    // fields. Bank/wallet flows keep the original 3-field shape.
+    const creditFields: FormFieldSpec[] =
+      type === 'credit'
+        ? [
+            { kind: 'amount', key: 'creditLimit', label: 'Credit limit (₹)' },
+            { kind: 'amount', key: 'statementDay', label: 'Statement day (1-31)', placeholder: 'e.g. 5' },
+            { key: 'last4', label: 'Last 4 digits', placeholder: '1234', optional: true },
+            { key: 'network', label: 'Network', placeholder: 'Visa / Mastercard / RuPay', optional: true },
+          ]
+        : [];
+
     form({
       title,
       fields: [
@@ -98,16 +149,32 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
           key: 'balance',
           label: type === 'credit' ? 'Outstanding (₹)' : 'Current balance (₹)',
         },
+        ...creditFields,
       ],
       submitLabel: 'Add account',
       onSubmit: async (v) => {
         const balance = Number(v['balance']);
+        let statementDay: number | undefined;
+        if (type === 'credit') {
+          statementDay = Number(v['statementDay']);
+          if (!Number.isInteger(statementDay) || statementDay < 1 || statementDay > 31) {
+            throw new Error('Statement day must be a whole number between 1 and 31');
+          }
+        }
         await api.accounts.create({
           name: v['name']!,
           type,
           // Credit accounts carry negative balances (amounts owed).
           balance: type === 'credit' ? -Math.abs(balance) : balance,
           institutionName: v['institutionName'] || undefined,
+          ...(type === 'credit'
+            ? {
+                creditLimit: Number(v['creditLimit']),
+                statementDay,
+                last4: v['last4'] || undefined,
+                network: v['network'] || undefined,
+              }
+            : {}),
         });
         toast(`Added ${v['name']}`, '🏦');
       },
@@ -190,7 +257,13 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
                     </View>
                     <View style={styles.accountRight}>
                       <Text style={styles.accountBal}>{fmtBalance(a.bal)}</Text>
-                      {a.change !== 0 ? (
+                      {a.type === 'credit' && dueHints[String(a.id)]?.hasBill ? (
+                        <Text style={styles.accountDueHint}>
+                          {dueHints[String(a.id)]!.daysUntilDue <= 0
+                            ? 'Due today'
+                            : `Due in ${dueHints[String(a.id)]!.daysUntilDue}d`}
+                        </Text>
+                      ) : a.change !== 0 ? (
                         <Text style={styles.accountChange}>
                           {a.change > 0 ? '↑ +' : '↓ '}₹{Math.abs(a.change).toLocaleString('en-IN')}
                           <Text style={styles.accountChangeSub}> · 30d</Text>
@@ -320,5 +393,13 @@ const styles = StyleSheet.create({
   accountChangeSub: {
     fontWeight: '500',
     opacity: 0.8,
+  },
+  accountDueHint: {
+    fontSize: 11,
+    opacity: 0.85,
+    marginTop: 2,
+    fontFamily: weight(600),
+    fontWeight: '600',
+    color: '#fff',
   },
 });

@@ -470,6 +470,12 @@ export interface NewAccountInput {
   type: ApiAccount['type'];
   balance: number;
   institutionName?: string;
+  /** Credit-card config (type === 'credit' only) — backend seeds the
+   * CreditCard row from these when present. */
+  creditLimit?: number;
+  statementDay?: number;
+  last4?: string;
+  network?: string;
 }
 
 export interface NewGoalInput {
