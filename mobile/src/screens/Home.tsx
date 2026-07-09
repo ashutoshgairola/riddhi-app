@@ -64,6 +64,7 @@ import { SourceTag } from "../components/SourceTag";
 import { SpringIn } from "../components/SpringIn";
 import { WeekChart } from "../components/charts";
 import { useCountUp } from "../hooks/useCountUp";
+import { pluralize } from "../lib/pluralize";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, weight } from "../theme/tokens";
 import { useNav, type ScreenEntry } from "../app/navContext";
@@ -304,7 +305,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
                     { color: t.text1, fontFamily: weight(700) },
                   ]}
                 >
-                  {daysLeft} days left
+                  {pluralize(daysLeft, "day left", "days left")}
                 </Text>
               </View>
             </View>

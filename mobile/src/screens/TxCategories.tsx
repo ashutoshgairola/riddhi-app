@@ -150,7 +150,7 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
                     {c.name}
                   </Text>
                   <Text style={[styles.meta, { color: t.text3 }]}>
-                    {c.txs} txns{c.subs.length > 0 ? ` · ${c.subs.length} sub-cat` : ''}
+                    {c.txs} txn{c.txs !== 1 ? 's' : ''}{c.subs.length > 0 ? ` · ${c.subs.length} sub-cat` : ''}
                   </Text>
                 </View>
                 <Text style={[styles.total, { color: c.color, fontFamily: weight(700) }]}>

@@ -121,7 +121,11 @@ function sparkable(values: number[]): number[] {
 }
 
 function fmtKpi(n: number): string {
-  return n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : `₹${Math.round(n / 1000)}K`;
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(2)}L`;
+  if (abs >= 1000) return `${sign}₹${Math.round(abs / 1000)}K`;
+  return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
 }
 
 export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
@@ -376,7 +380,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                       Income vs Expenses
                     </Text>
                     <Text style={[styles.cardSubtitle, { color: t.text1, fontFamily: weight(700) }]}>
-                      Last {series.labels.length || '—'} months
+                      Last {series.labels.length || '—'} month{series.labels.length === 1 ? '' : 's'}
                     </Text>
                   </View>
                   <View style={styles.legendRow}>
