@@ -64,7 +64,7 @@ export function OnboardingWizard() {
   const summary = [
     { i: '🎯', l: 'Focus', v: goals.length ? `${goals.length} goal${goals.length > 1 ? 's' : ''} selected` : 'Getting started' },
     { i: '💰', l: 'Monthly income', v: fmtAmt(income) },
-    { i: '🏦', l: 'Accounts', v: accounts.length ? `${accounts.length} connected` : 'Add later' },
+    { i: '🏦', l: 'Accounts', v: accounts.length ? `${accounts.length} selected` : 'Add later' },
     { i: '🌱', l: 'First goal', v: goalName ? `${goalName} · ${fmtAmt(goalTarget)}` : 'Skipped' },
     { i: '🔒', l: 'Security', v: `PIN${biometric ? ` + ${bioLabel}` : ''}` },
   ];
@@ -114,11 +114,11 @@ export function OnboardingWizard() {
       );
     case 2:
       return (
-        <OBStep {...common} kicker="Connect" title="Link your accounts" sub="Select the banks and wallets you use. You can add more anytime."
+        <OBStep {...common} kicker="Your banks" title="Which banks do you use?" sub="Select the ones you use. We'll save this as a preference — you can connect them for real anytime."
           footer={
             <OBFooter
               canNext
-              label={accounts.length ? `Connect ${accounts.length} account${accounts.length > 1 ? 's' : ''}` : 'Continue'}
+              label={accounts.length ? `Continue with ${accounts.length}` : 'Continue'}
               onNext={next}
               onSkip={accounts.length === 0 ? next : undefined}
             />

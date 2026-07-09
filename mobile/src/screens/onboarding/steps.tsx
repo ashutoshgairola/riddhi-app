@@ -146,14 +146,16 @@ export function OBAccounts({ value, onChange }: { value: string[]; onChange: (v:
                 ]}
               >
                 <BankLogo name={b.n} size={36} radius={10} fallbackColor={b.col} fallbackText={b.logo} />
-                <Text style={{ flex: 1, fontSize: 13, color: t.text1, fontFamily: weight(700) }} numberOfLines={1}>
+                <Text
+                  style={{ flex: 1, fontSize: 13, lineHeight: 16, color: t.text1, fontFamily: weight(700) }}
+                  numberOfLines={2}
+                >
                   {b.n}
                 </Text>
-                {on ? (
-                  <View style={[styles.bankCheck, { backgroundColor: t.em }]}>
-                    <CheckSm size={11} strokeWidth={3.6} />
-                  </View>
-                ) : null}
+                {/* Same-width slot in both states so selecting never reflows the name (#11). */}
+                <View style={[styles.bankCheck, { backgroundColor: on ? t.em : 'transparent' }]}>
+                  {on ? <CheckSm size={11} strokeWidth={3.6} /> : null}
+                </View>
               </View>
             </PressableScale>
           );
@@ -404,9 +406,9 @@ const styles = StyleSheet.create({
   bankRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
+    gap: 8,
     paddingVertical: 13,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -416,6 +418,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   securityNote: {
     flexDirection: 'row',
