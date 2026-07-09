@@ -1,13 +1,25 @@
-import { classifyLineItems, ExistingTxn, ParsedLineItem } from './statement-dedup';
+import { classifyLineItems, ExistingTxn, ParsedLineItem, Verdict } from './statement-dedup';
 
-/** True when a new incoming charge (from SMS/notification) already exists on the
- * account — including one imported from a statement. Reuses the same
- * deterministic matcher so both dedup directions agree. */
+/** Classify one incoming charge (from SMS/notification) against an account's
+ * existing transactions using the same deterministic matcher as statement
+ * import, so both dedup directions agree. */
+export function reverseDedupVerdict(
+  candidate: ParsedLineItem,
+  existing: ExistingTxn[],
+  windowDays = 3,
+): Verdict {
+  return classifyLineItems('rev', [candidate], existing, { windowDays })[0].verdict;
+}
+
+/** True only when the incoming charge is an EXACT duplicate of an existing
+ * transaction — the predicate used to SILENTLY suppress a detection. Ambiguous
+ * ('possible') matches are deliberately NOT suppressed, so a genuine 2nd
+ * identical charge within the window is never dropped without the user seeing
+ * it. */
 export function isLikelyDuplicateOfExisting(
   candidate: ParsedLineItem,
   existing: ExistingTxn[],
   windowDays = 3,
 ): boolean {
-  const [r] = classifyLineItems('rev', [candidate], existing, { windowDays });
-  return r.verdict !== 'new';
+  return reverseDedupVerdict(candidate, existing, windowDays) === 'duplicate';
 }
