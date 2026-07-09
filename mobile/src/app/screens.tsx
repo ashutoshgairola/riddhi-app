@@ -24,6 +24,7 @@ import { Notifications } from '../screens/Notifications';
 import { Reports } from '../screens/Reports';
 import { Search } from '../screens/Search';
 import { Settings } from '../screens/Settings';
+import { StatementReview } from '../screens/StatementReviewScreen';
 import { Sync } from '../screens/Sync';
 import { TxCategories } from '../screens/TxCategories';
 import { TxDetail } from '../screens/TxDetail';
@@ -45,6 +46,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   accounts: Accounts,
   'account-detail': AccountDetail,
   'card-detail': CardDetail,
+  'statement-review': StatementReview,
   'monitored-apps': MonitoredApps,
   'tx-cats': TxCategories,
   'cat-detail': CategoryDetail,

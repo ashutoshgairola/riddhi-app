@@ -53,6 +53,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { usePrefs } from '../prefs/PrefsProvider';
 import {
   ensureSmsPermission,
@@ -142,6 +143,10 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { pop, push } = useNav();
   const { toast, sheet } = useFeedback();
   const { prefs } = usePrefs();
+
+  // Task 10: pick → decrypt → parse → StatementReview. No accountId here —
+  // the backend resolves by last4, falling back to an account-picker sheet.
+  const { launch: launchStatementImport, sheet: statementImportSheet } = useStatementImportLauncher();
 
   const [pending, setPending] = useState<SyncDetected[]>(NO_DETECTED);
   // Transactions confirmed from SMS during this session (the "Auto-added"
@@ -444,7 +449,8 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   };
 
   return (
-    <MPageShell
+    <>
+      <MPageShell
       title="Auto-sync"
       onBack={pop}
       right={
@@ -456,6 +462,28 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         </TopbarActions>
       }
     >
+      {/* Import a statement (Task 10) — no accountId; the backend resolves
+          by last4, and the launcher falls back to an account-picker sheet
+          when it can't. */}
+      <SpringIn>
+        <ListCard>
+          <ListRow last onPress={() => launchStatementImport()}>
+            <View style={[styles.statusIconBox, { backgroundColor: t.emDim }]}>
+              <Text style={styles.recentIconGlyph}>📄</Text>
+            </View>
+            <View style={styles.statusText}>
+              <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>
+                Import a statement
+              </Text>
+              <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
+                Add transactions from a bank or card PDF statement
+              </Text>
+            </View>
+            <MI.arrow size={18} color={t.text3} />
+          </ListRow>
+        </ListCard>
+      </SpringIn>
+
       {/* status card (MobileSync.jsx:126–150) */}
       <SpringIn>
         <GlassCard style={styles.statusCard}>
@@ -638,7 +666,12 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
           Riddhi reads transaction alerts from your bank's SMS and parses the amount & merchant. Nothing is added until you confirm it.
         </Text>
       </View>
-    </MPageShell>
+      </MPageShell>
+
+      {/* Sibling of MPageShell, not inside its ScrollView — same reasoning
+       * CardDetail's PayBillSheet comment gives. */}
+      {statementImportSheet}
+    </>
   );
 }
 

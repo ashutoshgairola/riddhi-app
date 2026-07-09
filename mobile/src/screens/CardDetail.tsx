@@ -51,6 +51,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { PayBillSheet } from '../app/PayBillSheet';
+import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
@@ -101,6 +102,11 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
 
   // Seam for Task 8's PayBillSheet — the button below only opens it.
   const [payOpen, setPayOpen] = useState(false);
+
+  // Task 10: pick → decrypt → parse → StatementReview, scoped to this card.
+  // Called before the `!summary` early return below so hook order stays
+  // stable across renders.
+  const { launch: launchStatementImport, sheet: statementImportSheet } = useStatementImportLauncher();
 
   // Renders empty while the summary loads (or is unreachable) — mirrors
   // EventDetail's `if (!ev) return null;` guard.
@@ -239,6 +245,23 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
           </View>
         </GlassCard>
       ) : null}
+
+      {/* Import statement (Task 10) — adds card spends/bill payments from a
+       * PDF statement, scoped to this card's account. */}
+      <ListCard>
+        <ListRow last onPress={() => launchStatementImport(String(a.id))}>
+          <View style={[styles.rewardsIconBox, { backgroundColor: t.emDim }]}>
+            <Text style={styles.rewardsIconGlyph}>📄</Text>
+          </View>
+          <View style={styles.rewardsTextBlock}>
+            <Text style={[styles.rewardsTitle, { color: t.text1 }]}>Import statement</Text>
+            <Text style={[styles.rewardsSub, { color: t.text3 }]}>
+              Add spends & bill figures from a PDF
+            </Text>
+          </View>
+          <MI.arrow size={18} color={t.text3} />
+        </ListRow>
+      </ListCard>
 
       {/* Card transactions (MobileCards.jsx:363–380) — swipes (debit) and bill
        * payments (credit) merged server-side in `summary.transactions`, since

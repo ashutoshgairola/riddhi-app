@@ -33,6 +33,7 @@ export type ScreenKind =
   | 'accounts'
   | 'account-detail'
   | 'card-detail'
+  | 'statement-review'
   | 'monitored-apps'
   | 'tx-cats'
   | 'cat-detail'

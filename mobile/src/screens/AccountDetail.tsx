@@ -39,17 +39,21 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
 import { shareTxCsv } from '../lib/exportCsv';
 import { MPageShell } from './_MPageShell';
 import type { Account } from './Accounts';
 
-// Quick actions (MobileScreens.jsx:442)
-type QuickActionKey = 'transfer' | 'statement' | 'settings';
+// Quick actions (MobileScreens.jsx:442). `import` is a Task 10 addition —
+// no source parity, it slots in alongside the other three the same way the
+// grid already flexes to fit.
+type QuickActionKey = 'transfer' | 'statement' | 'settings' | 'import';
 const QUICK_ACTIONS: { l: string; i: string; c: string; k: QuickActionKey }[] = [
   { l: 'Transfer', i: '↔', c: '#8197c4', k: 'transfer' },
   { l: 'Statement', i: '📄', c: '#c9a86a', k: 'statement' },
+  { l: 'Import', i: '📥', c: '#7bb88f', k: 'import' },
   { l: 'Settings', i: '⚙', c: '#9d8bd6', k: 'settings' },
 ];
 
@@ -68,6 +72,9 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, openAdd } = useNav();
   const { toast, sheet, form } = useFeedback();
+
+  // Task 10: pick → decrypt → parse → StatementReview, scoped to this account.
+  const { launch: launchStatementImport, sheet: statementImportSheet } = useStatementImportLauncher();
 
   // This account's latest transactions (accountId-scoped backend query).
   const { data: recentTxs } = useApiData(
@@ -140,16 +147,20 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
     });
   };
 
-  // Quick-action row: Transfer opens the add-transaction sheet (transfer type),
-  // Statement exports a CSV, Settings opens the account's more menu.
+  // Quick-action row: Transfer opens the add-transaction sheet (transfer
+  // type), Statement exports a CSV, Import launches the statement-import
+  // picker (Task 10) scoped to this account, Settings opens the account's
+  // more menu.
   const runQuickAction = (k: QuickActionKey) => {
     if (k === 'transfer') openAdd({ type: 'transfer', accountId: String(a.id) });
     else if (k === 'statement') downloadStatement();
+    else if (k === 'import') launchStatementImport(String(a.id));
     else openMoreSheet();
   };
 
   return (
-    <MPageShell
+    <>
+      <MPageShell
       title={a.name}
       onBack={pop}
       right={
@@ -229,7 +240,12 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
           </ListRow>
         ))}
       </ListCard>
-    </MPageShell>
+      </MPageShell>
+
+      {/* Sibling of MPageShell, not inside its ScrollView — same reasoning
+       * CardDetail's PayBillSheet comment gives. */}
+      {statementImportSheet}
+    </>
   );
 }
 
