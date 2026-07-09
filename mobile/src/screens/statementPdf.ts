@@ -14,12 +14,17 @@
 // there. Keeping `isEncrypted` (and every other export's import-time surface)
 // free of pdfjs lets the unit test exercise real logic without mocking.
 //
-// Runtime note: the exact pdfjs-dist entry point, worker configuration (RN/
-// Hermes has no Worker thread to hand it), and any Hermes-specific polyfills
-// (e.g. `Promise.withResolvers`) are DEVICE-VERIFIED IN TASK 10 — they cannot
-// be exercised in this sandbox. `extractText`/`prepareUpload`'s pdfjs-backed
-// paths are implemented against the installed pdfjs-dist API (v6, see
-// mobile/package.json) but not run end-to-end here.
+// Version: pdfjs-dist is pinned to v3.11.174 (see mobile/package.json) — the
+// last major line that ships a CommonJS `legacy/build/pdf.js` build, which is
+// the RN-proven path. (v4+ dropped CJS and is ESM-only, pulling in native
+// optional deps like @napi-rs/canvas and .mjs interop risk under Metro/Hermes.)
+//
+// Runtime note: the worker configuration (RN/Hermes has no Worker thread to
+// hand pdfjs) and any Hermes-specific polyfills are DEVICE-VERIFIED IN TASK 10
+// — they cannot be exercised in this sandbox. `extractText`/`prepareUpload`'s
+// pdfjs-backed paths are implemented against the installed pdfjs-dist v3 API
+// but not run end-to-end here; the documented fallback if the on-device path
+// proves infeasible is server-side decrypt (qpdf) for encrypted PDFs only.
 
 export class PdfPasswordError extends Error {
   constructor(message = 'PDF password required or incorrect') {
@@ -52,8 +57,12 @@ export function isEncrypted(bytes: Uint8Array): boolean {
  * pdfjs-dist is imported dynamically here — see the module doc comment above.
  */
 export async function extractText(bytes: Uint8Array, password?: string): Promise<string> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const { getDocument, PasswordException, GlobalWorkerOptions, VerbosityLevel } = pdfjs;
+  // v3's CJS legacy build. Under Metro/ts-jest a dynamic `import()` of a CJS
+  // module may hand back the API on `.default` (esModuleInterop wrapping) or
+  // directly as the namespace, so resolve it defensively before use.
+  const mod = await import('pdfjs-dist/legacy/build/pdf.js');
+  const lib = (mod as any).default ?? mod;
+  const { getDocument, PasswordException, GlobalWorkerOptions, VerbosityLevel } = lib;
 
   // RN/Hermes has no Worker thread for pdfjs to offload parsing to; pointing
   // workerSrc at an empty string is a placeholder to force the main-thread
@@ -68,7 +77,7 @@ export async function extractText(bytes: Uint8Array, password?: string): Promise
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
       const content = await page.getTextContent();
-      out += content.items.map((item) => ('str' in item ? item.str : '')).join(' ') + '\n';
+      out += content.items.map((item: any) => ('str' in item ? item.str : '')).join(' ') + '\n';
     }
     return out.trim();
   } catch (e) {
@@ -120,7 +129,7 @@ for (let i = 0; i < B64_CHARS.length; i++) B64_LOOKUP[B64_CHARS[i]] = i;
  * mobile/src/app/AddTxSheet.tsx). This bit-buffer decoder is self-contained
  * and behaves identically in the node test environment and on-device.
  */
-function base64ToBytes(base64: string): Uint8Array {
+export function base64ToBytes(base64: string): Uint8Array {
   const out: number[] = [];
   let buffer = 0;
   let bits = 0;
