@@ -51,8 +51,10 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { PayBillSheet } from '../app/PayBillSheet';
+import { CardSetupSheet } from '../app/CardSetupSheet';
 import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { api } from '../api';
+import { ApiError } from '../api/client';
 import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
 import type { Account } from './Accounts';
@@ -94,7 +96,7 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
 
-  const { data: summary } = useApiData<CardSummaryView | null>(
+  const { data: summary, error } = useApiData<CardSummaryView | null>(
     () => api.cards.get(String(a.id)),
     null,
     [a.id],
@@ -103,14 +105,38 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
   // Seam for Task 8's PayBillSheet — the button below only opens it.
   const [payOpen, setPayOpen] = useState(false);
 
+  // Task 7: legacy credit accounts have no `credit_card` row yet, so the
+  // GET 404s — this gates the "set up this card" empty state below.
+  const [setupOpen, setSetupOpen] = useState(false);
+
   // Task 10: pick → decrypt → parse → StatementReview, scoped to this card.
   // Called before the `!summary` early return below so hook order stays
   // stable across renders.
   const { launch: launchStatementImport, sheet: statementImportSheet } = useStatementImportLauncher();
 
-  // Renders empty while the summary loads (or is unreachable) — mirrors
-  // EventDetail's `if (!ev) return null;` guard.
-  if (!summary) return null;
+  // A legacy credit account has no credit_card row yet → GET 404s. Offer a
+  // one-time "set up" instead of rendering blank. Any other error (transient)
+  // falls through to the existing null (the app's inline-retry pattern).
+  if (!summary) {
+    const notSetUp = error instanceof ApiError && error.status === 404;
+    if (!notSetUp) return null;
+    return (
+      <>
+        <MPageShell title={a.name} onBack={pop} right={<SearchButton />}>
+          <GlassCard style={styles.cycleEmptyCard}>
+            <Text style={[styles.noDuesTitle, { color: t.text1 }]}>Set up this card</Text>
+            <Text style={[styles.noDuesSub, { color: t.text3, textAlign: 'center' }]}>
+              Add your credit limit and statement day to track dues and spending.
+            </Text>
+            <Btn variant="em" onPress={() => setSetupOpen(true)} style={styles.payBillBtn}>
+              Set up this card
+            </Btn>
+          </GlassCard>
+        </MPageShell>
+        <CardSetupSheet open={setupOpen} onClose={() => setSetupOpen(false)} accountId={String(a.id)} />
+      </>
+    );
+  }
 
   const catTotal = summary.cycleByCategory.reduce((s, d) => s + d.value, 0) || 1;
   const dueColor = dueToneColor(t, summary.dueTone);
