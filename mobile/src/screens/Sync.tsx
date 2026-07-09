@@ -588,7 +588,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             <Text style={{ color: t.amber }}> · {pending.length + detected.length}</Text>
           ) : null}
         </Text>
-        {pending.length > 1 ? (
+        {nonDuplicates(pending).length > 1 ? (
           <Text style={[styles.sectionLink, { color: t.em, fontFamily: weight(600) }]} onPress={addAll}>
             Add all
           </Text>

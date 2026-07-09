@@ -6,16 +6,10 @@ import { BANK_MAP, CATEGORY_KEYWORD_MAP, Category } from './keyword-map';
 import { AccountsService } from '../accounts/accounts.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreditCard } from '../credit-card/credit-card.entity';
-import { AccountType, TransactionType } from '../common/enums';
+import { TransactionType } from '../common/enums';
 import { resolvePaymentSource } from '../notification-sync/payment-source-resolver';
 import { reverseDedupVerdict } from '../statements/reverse-dedup';
 import { ExistingTxn } from '../statements/statement-dedup';
-
-export interface ParsedSms extends ParseSmsResult {
-  /** Echoes the client-provided id so the device can de-dupe/track. */
-  id: string;
-  raw: string;
-}
 
 @Injectable()
 export class SmsSyncService {
