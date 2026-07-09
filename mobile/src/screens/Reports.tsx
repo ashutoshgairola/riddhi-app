@@ -189,30 +189,21 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
     refetchIncomeTxs();
   };
 
-  // Only show the "couldn't load" banner when *nothing* on the screen is
-  // real yet — if any query has last-good data, prefer a stale-but-real
-  // screen over an error wall (fallbacks are stable module-level
-  // constants, so this identity check is reliable across renders).
-  const hasError = Boolean(
-    overviewError ||
-      seriesError ||
-      catDataError ||
-      nwTrendError ||
-      goalsError ||
-      eventsError ||
-      accountsError ||
-      incomeTxsError,
-  );
-  const allFallback =
-    overview === EMPTY_OVERVIEW &&
-    series === EMPTY_SERIES &&
-    catData === EMPTY_SLICES &&
-    nwTrend === EMPTY_TREND &&
-    goals === EMPTY_GOALS &&
-    events === EMPTY_EVENTS &&
-    accounts === EMPTY_ACCOUNTS &&
-    incomeTxs === EMPTY_INCOME_TXS;
-  const showRetry = hasError && allFallback;
+  // Show one screen-level "couldn't load" banner when *any* query failed
+  // and that query has nothing real to show (still on its stable fallback).
+  // Sections that DID load keep rendering their real/stale data — this is a
+  // top banner, not a full-screen error wall, so it coexists with them and
+  // never hides real data (fallbacks are stable module-level constants, so
+  // the identity check is reliable across renders).
+  const showRetry =
+    (Boolean(overviewError) && overview === EMPTY_OVERVIEW) ||
+    (Boolean(seriesError) && series === EMPTY_SERIES) ||
+    (Boolean(catDataError) && catData === EMPTY_SLICES) ||
+    (Boolean(nwTrendError) && nwTrend === EMPTY_TREND) ||
+    (Boolean(goalsError) && goals === EMPTY_GOALS) ||
+    (Boolean(eventsError) && events === EMPTY_EVENTS) ||
+    (Boolean(accountsError) && accounts === EMPTY_ACCOUNTS) ||
+    (Boolean(incomeTxsError) && incomeTxs === EMPTY_INCOME_TXS);
 
   const totalCat = catData.reduce((s, d) => s + d.value, 0);
 

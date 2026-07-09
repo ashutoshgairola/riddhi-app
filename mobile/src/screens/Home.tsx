@@ -181,19 +181,17 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
     refetchNotifs();
   };
 
-  // Only show the "couldn't load" banner when *nothing* on the screen is
-  // real yet — if any query has last-good data, prefer a stale-but-real
-  // screen over an error wall (fallbacks are stable module-level
-  // constants/`null`, so this identity check is reliable across renders).
-  const hasError = Boolean(
-    recentTxError || weekError || summaryError || notifsError,
-  );
-  const allFallback =
-    recentTx === EMPTY_RECENT &&
-    week === EMPTY_WEEK &&
-    summary === null &&
-    notifs === EMPTY_NOTIFS;
-  const showRetry = hasError && allFallback;
+  // Show one screen-level "couldn't load" banner when *any* query failed
+  // and that query has nothing real to show (still on its stable fallback).
+  // Sections that DID load keep rendering their real/stale data — this is a
+  // top banner, not a full-screen error wall, so it coexists with them and
+  // never hides real data (fallbacks are stable module-level constants/
+  // `null`, so the identity check is reliable across renders).
+  const showRetry =
+    (Boolean(recentTxError) && recentTx === EMPTY_RECENT) ||
+    (Boolean(weekError) && week === EMPTY_WEEK) ||
+    (Boolean(summaryError) && summary === null) ||
+    (Boolean(notifsError) && notifs === EMPTY_NOTIFS);
 
   // "Safe to spend today" — current budget's remainder spread over the
   // days left in its period; zeros until a budget exists.
