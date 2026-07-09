@@ -63,6 +63,16 @@ export interface Tokens {
    * platform shadow props. */
   glassHi: string;
 
+  // ── Liquid glass (refraction shader knobs) ───────────────
+  /** Edge-lensing displacement strength, in normalized surface units. */
+  refraction: number;
+  /** Specular rim-light color (rgba/hex). */
+  specularColor: string;
+  /** Specular rim width, 0–1 (fraction of surface half-min-dimension). */
+  specularWidth: number;
+  /** Chromatic dispersion at the rim, in normalized units (0 disables). */
+  chromatic: number;
+
   // ── Surface extras (theme-specific composites) ───────────
   /** `.m-page` background gradient stops, top -> bottom. */
   pageGradient: string[];
@@ -199,6 +209,11 @@ export const dark: Tokens = {
   glassBrd2: 'rgba(255,255,255,0.18)',
   glassHi: 'inset 0 1px 0 rgba(255,255,255,0.10)',
 
+  refraction: 0.045,
+  specularColor: 'rgba(255,255,255,0.55)',
+  specularWidth: 0.12,
+  chromatic: 0.006,
+
   // .m-page background: linear-gradient(180deg, #1d1733 0%, #14101f 46%, #0b0912 100%)
   pageGradient: ['#181328', '#100c18', '#08060d'],
   // .m-page::before radial-gradient overlay colors (top-left, top-right, bottom-center).
@@ -209,12 +224,12 @@ export const dark: Tokens = {
   cardShadow: 'inset 0 1px 0 rgba(255,255,255,0.10)',
   // .m-tabbar background
   tabbarBg: 'rgba(24,19,34,0.55)',
-  // .m-tabbar border-top: 1px solid var(--glass-brd)
+  // .m-tabbar border: 1px solid var(--glass-brd)
   tabbarBorder: 'rgba(255,255,255,0.10)',
-  // .m-tabbar box-shadow: inset 0 1px 0 rgba(255,255,255,0.08)
-  tabbarShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+  // .m-tabbar box-shadow top inset sheen: inset 0 1.5px 0 rgba(255,255,255,0.16)
+  tabbarShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.16)',
   // .m-topbar.scrolled background
-  topbarScrolledBg: 'rgba(23,19,31,0.55)',
+  topbarScrolledBg: 'rgba(23,19,31,0.8)',
   // .m-topbar.scrolled border-bottom-color: var(--glass-brd)
   topbarScrolledBorder: 'rgba(255,255,255,0.10)',
   // .m-sheet background
@@ -272,6 +287,11 @@ export const light: Tokens = {
   glassBrd2: 'rgba(255,255,255,0.95)',
   glassHi: 'inset 0 1px 0 rgba(255,255,255,0.9)',
 
+  refraction: 0.04,
+  specularColor: 'rgba(255,255,255,0.9)',
+  specularWidth: 0.1,
+  chromatic: 0.004,
+
   // [data-theme="light"] .m-page background:
   // linear-gradient(180deg, #e7e0fb 0%, #f1edfb 48%, #e9e4f6 100%)
   pageGradient: ['#e7e0fb', '#f1edfb', '#e9e4f6'],
@@ -286,12 +306,12 @@ export const light: Tokens = {
   cardShadow: '0 6px 22px rgba(80,60,160,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',
   // [data-theme="light"] .m-tabbar background
   tabbarBg: 'rgba(255,255,255,0.62)',
-  // [data-theme="light"] .m-tabbar border-top-color
-  tabbarBorder: 'rgba(26,18,38,0.06)',
-  // [data-theme="light"] .m-tabbar box-shadow: inset 0 1px 0 rgba(255,255,255,0.9)
-  tabbarShadow: 'inset 0 1px 0 rgba(255,255,255,0.9)',
+  // [data-theme="light"] .m-tabbar border-color
+  tabbarBorder: 'rgba(255,255,255,0.9)',
+  // [data-theme="light"] .m-tabbar box-shadow top inset sheen: inset 0 1.5px 0 rgba(255,255,255,0.95)
+  tabbarShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95)',
   // [data-theme="light"] .m-topbar.scrolled background
-  topbarScrolledBg: 'rgba(255,255,255,0.6)',
+  topbarScrolledBg: 'rgba(255,255,255,0.85)',
   // [data-theme="light"] .m-topbar.scrolled border-bottom-color
   topbarScrolledBorder: 'rgba(26,18,38,0.06)',
   // [data-theme="light"] .m-sheet background

@@ -7,4 +7,7 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.jest.json' }],
   },
+  moduleNameMapper: {
+    '^react-native-reanimated$': '<rootDir>/jest/mocks/react-native-reanimated.js',
+  },
 };
