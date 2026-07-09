@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 
 import { GlassCard } from '../components/Glass';
+import { InlineRetry } from '../components/InlineRetry';
 import { IconButton, ListCard, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
@@ -103,11 +104,19 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
   const [source, setSource] = useState<SourceValue>('all');
   const [scrolled, setScrolled] = useState(false);
 
-  const { data: txData } = useApiData(
+  const {
+    data: txData,
+    error: txError,
+    refetch: refetchTx,
+  } = useApiData(
     () => api.transactions.list({ period, source: source === 'all' ? undefined : source }),
     EMPTY_TXNS,
     [period, source],
   );
+  // Only show the "couldn't load" banner when there's nothing real to show
+  // (EMPTY_TXNS is a stable module-level constant, so this identity check
+  // is reliable across renders) — a stale-but-real list beats an error wall.
+  const showRetry = Boolean(txError) && txData === EMPTY_TXNS;
 
   const filtered = txData.filter((tx) => filter === 'all' || tx.type === filter);
   const totalInc = filtered.filter((t2) => t2.type === 'inc').reduce((s, t2) => s + t2.amount, 0);
@@ -212,6 +221,13 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
           />
         </SpringIn>
 
+        {/* Read-path error state (nothing real to show yet) */}
+        {showRetry ? (
+          <View style={styles.retryWrap}>
+            <InlineRetry onRetry={refetchTx} message="Couldn't load transactions — tap to retry" />
+          </View>
+        ) : null}
+
         {/* Groups — MobileTxns.jsx:131–143, animationDelay: `${0.08 + gi*0.04}s` */}
         {groups.map((group, gi) => (
           <SpringIn key={group.label} delay={80 + gi * 40} style={styles.groupWrap}>
@@ -287,6 +303,9 @@ const styles = StyleSheet.create({
   },
   segWrap: {
     marginTop: 16,
+  },
+  retryWrap: {
+    marginTop: 20,
   },
   groupWrap: {
     marginTop: 20,

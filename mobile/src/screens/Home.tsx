@@ -54,6 +54,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../auth/AuthProvider";
 import { GlassView } from "../components/Glass";
+import { InlineRetry } from "../components/InlineRetry";
 import { IconButton } from "../components/ui";
 import { MASKED_AMOUNT, usePrefs } from "../prefs/PrefsProvider";
 import { MI } from "../components/icons";
@@ -149,20 +150,50 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
   const hide = prefs.hideBalances;
   const masked = (formatted: string) => (hide ? MASKED_AMOUNT : formatted);
 
-  const { data: recentTx } = useApiData(
-    () => api.transactions.recent(),
-    EMPTY_RECENT,
-  );
-  const { data: week } = useApiData(() => api.reports.weekSpend(), EMPTY_WEEK);
-  const { data: summary } = useApiData(
-    () => api.budgets.currentSummary(),
-    null,
-  );
-  const { data: notifs } = useApiData(
-    () => api.notifications.list(),
-    EMPTY_NOTIFS,
-  );
+  const {
+    data: recentTx,
+    error: recentTxError,
+    refetch: refetchRecentTx,
+  } = useApiData(() => api.transactions.recent(), EMPTY_RECENT);
+  const {
+    data: week,
+    error: weekError,
+    refetch: refetchWeek,
+  } = useApiData(() => api.reports.weekSpend(), EMPTY_WEEK);
+  const {
+    data: summary,
+    error: summaryError,
+    refetch: refetchSummary,
+  } = useApiData(() => api.budgets.currentSummary(), null);
+  const {
+    data: notifs,
+    error: notifsError,
+    refetch: refetchNotifs,
+  } = useApiData(() => api.notifications.list(), EMPTY_NOTIFS);
   const hasUnread = notifs.some((n) => n.unread);
+
+  // Refetch every Home query — used by both pull-to-refresh and the inline
+  // retry banner below.
+  const refetchAll = () => {
+    refetchRecentTx();
+    refetchWeek();
+    refetchSummary();
+    refetchNotifs();
+  };
+
+  // Only show the "couldn't load" banner when *nothing* on the screen is
+  // real yet — if any query has last-good data, prefer a stale-but-real
+  // screen over an error wall (fallbacks are stable module-level
+  // constants/`null`, so this identity check is reliable across renders).
+  const hasError = Boolean(
+    recentTxError || weekError || summaryError || notifsError,
+  );
+  const allFallback =
+    recentTx === EMPTY_RECENT &&
+    week === EMPTY_WEEK &&
+    summary === null &&
+    notifs === EMPTY_NOTIFS;
+  const showRetry = hasError && allFallback;
 
   // "Safe to spend today" — current budget's remainder spread over the
   // days left in its period; zeros until a budget exists.
@@ -191,7 +222,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
       <PageBackground />
 
       <PullToRefresh
-        onRefresh={() => {}}
+        onRefresh={refetchAll}
         onScroll={handleScroll}
         topInset={topbarHeight}
         contentStyle={[styles.scrollContent, { paddingTop: topbarHeight + 8 }]}
@@ -333,6 +364,13 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
             </View>
           </View>
         </SpringIn>
+
+        {/* ── Read-path error state (nothing real to show yet) ── */}
+        {showRetry ? (
+          <View style={styles.retryWrap}>
+            <InlineRetry onRetry={refetchAll} />
+          </View>
+        ) : null}
 
         {/* ── SMS auto-sync banner (MobileHome.jsx:128–141, animationDelay: .03s) ── */}
         <SpringIn delay={30}>
@@ -763,6 +801,11 @@ const styles = StyleSheet.create({
   },
   progressSpent: {
     fontSize: 12.5,
+  },
+
+  // Read-path error banner
+  retryWrap: {
+    marginTop: 14,
   },
 
   // SMS sync banner

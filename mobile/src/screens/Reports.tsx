@@ -46,6 +46,7 @@ import {
 
 import { MDonut, MGroupedBars, MSparkline } from '../components/charts';
 import { GlassCard } from '../components/Glass';
+import { InlineRetry } from '../components/InlineRetry';
 import { Chip, HScroll, IconButton, ListCard, ListRow, ProgressBar, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
@@ -92,6 +93,14 @@ const EMPTY_OVERVIEW: ReportOverviewView = {
 const EMPTY_SERIES: IncomeExpenseSeriesView = { labels: [], income: [], expense: [] };
 const EMPTY_SLICES: CategorySliceView[] = [];
 const EMPTY_TREND: NetWorthTrendView = { points: [], current: 0, deltaPct: 0 };
+// Hoisted (rather than inline `[] as T[]` literals) so each is a stable
+// reference across renders — the InlineRetry wiring below needs to
+// identity-compare a query's `data` against its fallback to tell "still
+// empty/fallback" apart from "genuinely empty real data".
+const EMPTY_GOALS: GoalView[] = [];
+const EMPTY_EVENTS: EventView[] = [];
+const EMPTY_ACCOUNTS: AccountView[] = [];
+const EMPTY_INCOME_TXS: TxView[] = [];
 
 /** Reports periods map onto the transactions period filter for By Source. */
 function txPeriodFor(period: PeriodValue): TxPeriod {
@@ -123,18 +132,87 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const [scrolled, setScrolled] = useState(false);
   const [period, setPeriod] = useState<PeriodValue>('6m');
 
-  const { data: overview } = useApiData(() => api.reports.overview(period), EMPTY_OVERVIEW, [period]);
-  const { data: series } = useApiData(() => api.reports.incomeVsExpense(period), EMPTY_SERIES, [period]);
-  const { data: catData } = useApiData(() => api.reports.categories(period), EMPTY_SLICES, [period]);
-  const { data: nwTrend } = useApiData(() => api.reports.netWorthTrend(period), EMPTY_TREND, [period]);
-  const { data: goals } = useApiData(() => api.goals.list(), [] as GoalView[]);
-  const { data: events } = useApiData(() => api.events.list(), [] as EventView[]);
-  const { data: accounts } = useApiData(() => api.accounts.list(), [] as AccountView[]);
-  const { data: incomeTxs } = useApiData(
+  const {
+    data: overview,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useApiData(() => api.reports.overview(period), EMPTY_OVERVIEW, [period]);
+  const {
+    data: series,
+    error: seriesError,
+    refetch: refetchSeries,
+  } = useApiData(() => api.reports.incomeVsExpense(period), EMPTY_SERIES, [period]);
+  const {
+    data: catData,
+    error: catDataError,
+    refetch: refetchCatData,
+  } = useApiData(() => api.reports.categories(period), EMPTY_SLICES, [period]);
+  const {
+    data: nwTrend,
+    error: nwTrendError,
+    refetch: refetchNwTrend,
+  } = useApiData(() => api.reports.netWorthTrend(period), EMPTY_TREND, [period]);
+  const {
+    data: goals,
+    error: goalsError,
+    refetch: refetchGoals,
+  } = useApiData(() => api.goals.list(), EMPTY_GOALS);
+  const {
+    data: events,
+    error: eventsError,
+    refetch: refetchEvents,
+  } = useApiData(() => api.events.list(), EMPTY_EVENTS);
+  const {
+    data: accounts,
+    error: accountsError,
+    refetch: refetchAccounts,
+  } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
+  const {
+    data: incomeTxs,
+    error: incomeTxsError,
+    refetch: refetchIncomeTxs,
+  } = useApiData(
     () => api.transactions.list({ filter: 'inc', period: txPeriodFor(period) }),
-    [] as TxView[],
+    EMPTY_INCOME_TXS,
     [period],
   );
+
+  // Refetch every Reports query — used by the inline retry banner.
+  const refetchAllReports = () => {
+    refetchOverview();
+    refetchSeries();
+    refetchCatData();
+    refetchNwTrend();
+    refetchGoals();
+    refetchEvents();
+    refetchAccounts();
+    refetchIncomeTxs();
+  };
+
+  // Only show the "couldn't load" banner when *nothing* on the screen is
+  // real yet — if any query has last-good data, prefer a stale-but-real
+  // screen over an error wall (fallbacks are stable module-level
+  // constants, so this identity check is reliable across renders).
+  const hasError = Boolean(
+    overviewError ||
+      seriesError ||
+      catDataError ||
+      nwTrendError ||
+      goalsError ||
+      eventsError ||
+      accountsError ||
+      incomeTxsError,
+  );
+  const allFallback =
+    overview === EMPTY_OVERVIEW &&
+    series === EMPTY_SERIES &&
+    catData === EMPTY_SLICES &&
+    nwTrend === EMPTY_TREND &&
+    goals === EMPTY_GOALS &&
+    events === EMPTY_EVENTS &&
+    accounts === EMPTY_ACCOUNTS &&
+    incomeTxs === EMPTY_INCOME_TXS;
+  const showRetry = hasError && allFallback;
 
   const totalCat = catData.reduce((s, d) => s + d.value, 0);
 
@@ -260,6 +338,13 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
             onChange={setPeriod}
           />
         </SpringIn>
+
+        {/* Read-path error state (nothing real to show yet) */}
+        {showRetry ? (
+          <View style={styles.retryWrap}>
+            <InlineRetry onRetry={refetchAllReports} message="Couldn't load reports — tap to retry" />
+          </View>
+        ) : null}
 
         {tab === 'overview' && (
           <>
@@ -605,6 +690,9 @@ const styles = StyleSheet.create({
 
   // Period selector
   periodWrap: {
+    marginBottom: 18,
+  },
+  retryWrap: {
     marginBottom: 18,
   },
 
