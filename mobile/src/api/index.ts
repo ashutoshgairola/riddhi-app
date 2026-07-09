@@ -22,6 +22,7 @@
  *                 netWorthTrend
  *   prefs:        get / update
  *   users:        updateProfile / deleteAccount
+ *   statements:   parse / import
  */
 
 import { apiClient, setAuthToken as _setAuthToken } from './client';
@@ -39,6 +40,7 @@ import {
   toEventView,
   toEventDetailView,
   toCardSummaryView,
+  toStatementParseResultView,
 } from './adapters';
 import type {
   TxView,
@@ -68,6 +70,7 @@ import type {
   ApiUserPreferences,
   ApiEvent,
   ApiCardSummary,
+  ApiStatementParseResult,
   CardSummaryView,
   NewTxInput,
   UpdateTxInput,
@@ -83,6 +86,7 @@ import type {
   NewEventInput,
   NewEventExpenseInput,
 } from './types';
+import type { StatementParseResultView, ImportStatementPayload } from '../screens/statementReview';
 
 // ── Feature flag ──────────────────────────────────────────────────────
 /** The app is backend-only now; Login still branches on this, so it
@@ -800,6 +804,32 @@ export const api = {
         image: imageBase64,
         mimeType,
       });
+    },
+  },
+
+  statements: {
+    /** Parse a statement. `input` is the already-prepared upload from
+     * statementPdf.prepareUpload — { pdf } for an unencrypted PDF (raw base64),
+     * or { text } for an encrypted PDF decrypted on-device. Decryption/passwords
+     * never touch this layer. */
+    async parse(
+      input: { pdf: string } | { text: string },
+      accountId?: string,
+    ): Promise<StatementParseResultView> {
+      const dto = await apiClient.post<ApiStatementParseResult>('/statements/parse', {
+        ...input,
+        accountId,
+      });
+      return toStatementParseResultView(dto);
+    },
+
+    async import(payload: ImportStatementPayload): Promise<{ imported: number; skipped: number }> {
+      const res = await apiClient.post<{ imported: number; skipped: number }>(
+        '/statements/import',
+        payload,
+      );
+      bumpData();
+      return res;
     },
   },
 

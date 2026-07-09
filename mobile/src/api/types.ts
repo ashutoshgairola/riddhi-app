@@ -231,6 +231,45 @@ export interface ApiCardSummary {
   transactions: ApiCardTxn[];
 }
 
+/** `POST /statements/parse` response — one classified line item.
+ * `category` is a required key (may be `null`); `matchedTransactionId` is
+ * present only when `verdict !== 'new'`. */
+export interface ApiStatementLineItem {
+  isoDate: string; // YYYY-MM-DD
+  amount: number; // always positive
+  direction: 'debit' | 'credit';
+  descriptor: string;
+  category: string | null;
+  verdict: 'new' | 'duplicate' | 'possible';
+  matchedTransactionId?: string;
+}
+
+/** `POST /statements/parse` response summary — same shape for card and
+ * bank statements; fields unused by the statement type are `null`. */
+export interface ApiStatementSummary {
+  statementDate: string | null;
+  statementBilled: number | null;
+  statementMinDue: number | null;
+  statementDueDate: string | null;
+  statementRewards: number | null;
+  openingBalance: number | null;
+  closingBalance: number | null;
+}
+
+/** `POST /statements/parse` response. */
+export interface ApiStatementParseResult {
+  account: {
+    id: string | null;
+    matchedByLast4: boolean;
+    ambiguous: boolean;
+    mismatchWarning: boolean;
+  };
+  statementType: 'card' | 'bank';
+  period: { from: string | null; to: string | null };
+  summary: ApiStatementSummary;
+  items: ApiStatementLineItem[];
+}
+
 // ── View-model types (shapes screens use) ────────────────────────────
 
 /** Transaction view — matches SwipeTx in SwipeRow.tsx and MT_DATA shape */

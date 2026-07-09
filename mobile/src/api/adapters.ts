@@ -23,6 +23,7 @@ import type {
   ApiCardSummary,
   ApiCardTxn,
   ApiCycleCategory,
+  ApiStatementParseResult,
   CardSummaryView,
   CardTxnView,
   CycleCategoryView,
@@ -42,6 +43,7 @@ import type {
 } from './types';
 
 import { deriveSource } from './paymentSource';
+import type { StatementParseResultView } from '../screens/statementReview';
 
 // ── Category color lookup ─────────────────────────────────────────────
 // Canonical category colors matching the mock data palette.
@@ -367,6 +369,26 @@ export function toCardSummaryView(dto: ApiCardSummary): CardSummaryView {
     cycleByCategory: dto.cycleByCategory.map(toCycleCategoryView),
     transactions: dto.transactions.map(toCardTxnView),
     dueTone,
+  };
+}
+
+// ── Statement-import adapter ──────────────────────────────────────────
+
+/**
+ * Maps the backend statement-parse result → StatementParseResultView.
+ * Near-passthrough: field names/shapes already match between the wire DTO
+ * and the screen view (see ApiStatementParseResult / StatementParseResultView).
+ */
+export function toStatementParseResultView(dto: ApiStatementParseResult): StatementParseResultView {
+  return {
+    account: dto.account,
+    statementType: dto.statementType,
+    period: dto.period,
+    // ApiStatementSummary is a closed shape; the view's summary is a loose
+    // Record (mirrors what CardOverrideDto accepts on import) — values are
+    // structurally compatible (string | number | null), just no index sig.
+    summary: dto.summary as unknown as Record<string, number | string | null>,
+    items: dto.items,
   };
 }
 
