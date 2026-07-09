@@ -40,4 +40,15 @@ describe('CreditCardService.pay', () => {
       amount: 1000, paymentMethod: PaymentMethod.NETBANKING, categoryId: 'cat-other',
     }));
   });
+  it('rejects paying a card bill from a credit-card source account', async () => {
+    const { svc, txCreate, accountsService } = make();
+    accountsService.findOne = jest
+      .fn()
+      .mockResolvedValueOnce({ id: 'card-1', type: AccountType.CREDIT, name: 'ICICI', balance: -34280 }) // target card
+      .mockResolvedValueOnce({ id: 'card-2', type: AccountType.CREDIT, name: 'HDFC CC', balance: 100000 }); // source
+    await expect(
+      svc.pay('card-1', 'u1', { fromAccountId: 'card-2', amount: 500 } as any),
+    ).rejects.toThrow('Cannot pay a card bill from a credit card');
+    expect(txCreate).not.toHaveBeenCalled();
+  });
 });

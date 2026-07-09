@@ -131,6 +131,9 @@ export class CreditCardService {
     const card = await this.accountsService.findOne(cardAccountId, userId);
     if (card.type !== AccountType.CREDIT) throw new BadRequestException('Not a credit card account');
     const from = await this.accountsService.findOne(dto.fromAccountId, userId);
+    if (from.type === AccountType.CREDIT) {
+      throw new BadRequestException('Cannot pay a card bill from a credit card');
+    }
     if (from.balance < dto.amount) throw new BadRequestException('Not enough balance in the source account');
     const categories = await this.categoriesService.findAll(userId);
     const category = categories.find((c) => c.name.toLowerCase() === 'other') ?? categories[0];
