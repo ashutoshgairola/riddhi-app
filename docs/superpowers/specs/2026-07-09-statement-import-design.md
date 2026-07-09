@@ -71,12 +71,16 @@ never double-counts.
    CardDetail (target card implicit), a bank AccountDetail (target account
    implicit), or the Sync screen (target account auto-matched from the parsed
    number).
-2. User picks a PDF (`expo-document-picker`); mobile uploads it base64.
-3. Backend **detects encryption**. If the PDF is encrypted and no password was
-   supplied, it responds `422` (`{ error: 'password_required' }`). Mobile prompts
-   for the password and resubmits the same request with `password`.
-4. Backend **decrypts** the PDF transiently (password held only for the request,
-   never persisted) and sends the decrypted PDF to Claude as a **document block**.
+2. User picks a PDF (`expo-document-picker`); mobile reads it as bytes and runs a
+   cheap **on-device encryption check** (byte-scan for the `/Encrypt` trailer).
+3. **If unencrypted** (the common case) → mobile uploads the raw PDF base64.
+   **If encrypted** → mobile prompts for the password and **decrypts + extracts the
+   statement text on-device** via `pdfjs-dist` (the password never leaves the
+   phone); it uploads the extracted **text** instead of the PDF. A wrong password
+   is caught and re-prompted locally — no round-trip.
+4. Backend sends what it received to Claude: a **PDF document block** (raw bytes) or
+   a **text block** (extracted text). No server-side decryption, no password ever
+   reaches the backend.
 5. Claude returns a structured `ParsedStatement`: an account hint (last4 /
    masked number, inferred type), statement period, summary block (card:
    billed/minDue/dueDate/rewards/statementDate; bank: opening/closing balance),
@@ -127,12 +131,10 @@ A dedicated **`statements` module** (`backend/src/statements/`), separate from
 `AccountsModule`, `TransactionsModule`, and `CreditCardModule` (to PATCH the card
 override fields), and defines its own Anthropic client provider mirroring receipts.
 
-- `pdf-crypto.ts` — `isEncrypted(buffer)` and `decrypt(buffer, password)`,
-  backed by `qpdf` (via a node wrapper or a spawned binary). Password is a
-  function argument only, never stored or logged.
-  *Infra note:* the backend runtime/image must have `qpdf` available.
-- `statement-parser.service.ts` — sends the decrypted PDF to Claude as a document
-  block and parses the JSON reply into a typed `ParsedStatement`, with a
+- `statement-parser.service.ts` — sends the received input to Claude — a **PDF
+  document block** when the client uploaded raw bytes, or a **text block** when the
+  client uploaded on-device-extracted text — and parses the JSON reply into a typed
+  `ParsedStatement`, with a
   hallucination guard modelled on notification-sync `parseGroups` (drops items
   with non-positive amounts, bad dates, or missing required fields). Uses the
   `STATEMENTS_ANTHROPIC_CLIENT` DI token (defined in the service file to avoid a
@@ -143,10 +145,15 @@ override fields), and defines its own Anthropic client provider mirroring receip
   isoDate, descriptor)` and a `normalizeDescriptor` helper.
 - `account-resolve.ts` — pure/thin `resolveAccountByLast4(accounts, last4)` used
   by both this module and the SMS/notification path (see Cross-module).
-- `statements.service.ts` — orchestrates `parse()` (decrypt → parse → resolve
-  account → dedup → return) and `import()` (create transactions with fingerprint →
-  patch card override / set balance → return counts).
+- `statements.service.ts` — orchestrates `parse()` (Claude parse → resolve account
+  → dedup → return) and `import()` (create transactions with fingerprint → patch
+  card override / set balance → return counts). No decryption on the server —
+  encrypted PDFs are decrypted on-device (see §6).
 - `statements.controller.ts` — the two endpoints below.
+
+Decryption lives entirely on the mobile client (see §6): a pure `pdfjs-dist` route
+prompts for the password and extracts text locally, so the backend never sees a
+password and needs no `qpdf` dependency.
 
 ### 3. Dedup rule (pure, deterministic)
 
@@ -182,15 +189,15 @@ the same statement.
 
 ### 5. Endpoints (backend)
 
-- `POST /statements/parse` — body `{ accountId?, pdf (base64), mimeType:
-  'application/pdf', password? }`. Returns `StatementParseResult`
+- `POST /statements/parse` — body `{ accountId?, pdf? (base64, when unencrypted),
+  text? (on-device-extracted, when the client decrypted an encrypted PDF) }`
+  — exactly one of `pdf`/`text` is present. Returns `StatementParseResult`
   `{ account: { id, matchedByLast4, mismatchWarning? }, statementType:
   'card'|'bank', period: { from, to }, summary: {...}, items:
   [{ isoDate, amount, direction, descriptor, category, verdict,
-  matchedTransactionId? }] }`. Returns `422 { error: 'password_required' }` when
-  the PDF is encrypted and no/invalid password is supplied. `400` on an
-  unresolvable account or a non-PDF. `503` when the Anthropic client is not
-  configured (mirrors receipts).
+  matchedTransactionId? }] }`. `400` when neither/both inputs are present or the
+  account is unresolvable. `503` when the Anthropic client is not configured
+  (mirrors receipts). No password ever reaches this endpoint.
 - `POST /statements/import` — body `{ accountId, statementType, items: [the
   user-vetted subset, each with final category + direction], summary?
   (card override figures to apply), setBalance? (bank closing balance to set) }`.
@@ -205,14 +212,21 @@ the same statement.
 
 - `api.statements` resource: `parse(payload)` and `import(payload)`; adapters map
   the parse-result DTO → a `StatementReviewView` (summary + three verdict buckets).
-- **PDF selection** via `expo-document-picker` (Expo v56 docs read before coding,
-  per `mobile/AGENTS.md`).
+- **PDF selection** via `expo-document-picker` + `expo-file-system` base64 read
+  (Expo v56 docs read before coding, per `mobile/AGENTS.md`).
+- **On-device decryption (`statementPdf.ts` helper):** a pure `isEncrypted(bytes)`
+  byte-scan branches the flow. Unencrypted → upload raw base64 (`{ pdf }`).
+  Encrypted → prompt for the password and use `pdfjs-dist` to open the PDF with it
+  and extract page text; upload the text (`{ text }`). A wrong password throws
+  `pdfjs`'s `PasswordException`, caught locally to re-prompt. The password never
+  leaves the device and is never persisted. *Feasibility risk:* `pdfjs-dist` under
+  Hermes is fiddly — this is a spike with a documented fallback (see Risks).
 - **Entry points (shared flow):** an "Import statement" action on `CardDetail`
   (card implicit) and on the bank `AccountDetail` (account implicit), plus an
   "Import a statement" tile on the `Sync` screen (account auto-matched from the
   parsed number, prompting the user to pick/confirm if ambiguous).
-- **Password prompt** — a small sheet shown when `parse` returns `422`; resubmits
-  the same file with the entered password. The password is never persisted.
+- **Password prompt** — a small sheet shown for an encrypted PDF; feeds the password
+  to the on-device `pdfjs` decrypt, retries locally on a wrong password.
 - **StatementReview screen:**
   - An editable **summary header**. Card: the override figures
     (billed/minDue/dueDate/rewards/statementDate) to confirm before applying. Bank:
@@ -272,18 +286,29 @@ the same statement.
 - **Backend (service):** `import()` creates transactions carrying
   `importFingerprint`, patches the card override when `statementType==='card'`, and
   sets the balance only when `setBalance` is provided; re-import of the same items
-  creates nothing new. `parse()` returns `422` for an encrypted PDF without
-  password. Reverse-dedup: the SMS/notification path skips a charge already imported.
+  creates nothing new. `parse()` accepts either `pdf` or `text` and rejects when
+  neither/both are present. Reverse-dedup: the SMS/notification path skips a charge
+  already imported.
 - **Mobile:** parse-result adapter mapping (verdict buckets + summary); review
-  include/exclude pure logic; 422 → password-prompt handling.
+  include/exclude pure logic; `isEncrypted` byte-scan (encrypted vs plain fixtures)
+  and the encrypted → text-extraction path (node fixture; device-verified).
 - **Cross-module:** an SMS-detected card spend now carries `accountId` and lands
   under the "Cards" filter (follow-up #1 regression); re-importing a statement →
   all lines Duplicate; import-then-SMS for the same charge → deduped.
 
 ## Risks / edge cases
 
-- **Wrong/again-encrypted PDF password** → clear `422`/`400` and a retry prompt; no
-  partial state (parse is stateless).
+- **Wrong PDF password** → caught on-device (`pdfjs` `PasswordException`) and
+  re-prompted locally; nothing is uploaded until decryption succeeds.
+- **`pdfjs-dist` under Hermes (feasibility risk)** → the encrypted-PDF path depends
+  on `pdfjs-dist` running in React Native. This is a spike: if the legacy build +
+  polyfills prove unworkable on device, the fallback is server-side decrypt (the
+  originally-specced `qpdf` route) for encrypted PDFs only — the unencrypted path
+  (raw bytes → document block) is unaffected either way.
+- **Extracted-text fidelity** → an encrypted statement is parsed from `pdfjs`
+  text extraction rather than the richer PDF document block, so tabular layout is
+  flattened; Claude reconstructs line items from reading order, and the user reviews
+  every line before import, so a layout quirk cannot silently create a wrong entry.
 - **LLM misparse** (wrong amount/date/merchant) → the user reviews every line before
   anything is saved; a misread never silently creates a wrong transaction.
 - **Statement descriptor ≠ SMS merchant** → dedup keys on amount + date + account;
@@ -297,8 +322,6 @@ the same statement.
   the user can exclude any line in review.
 - **Balance reconcile is always opt-in** → import never overwrites a bank balance
   the user maintains unless they toggle it on.
-- **qpdf dependency** → decryption needs `qpdf` in the backend environment; absence
-  is surfaced as a configuration error, not a crash.
 - **Large multi-page statements** → cap pages / handle token limits gracefully so a
   long statement degrades to a clear error rather than a truncated silent parse.
 - **Account-mismatch** (parsed last4 ≠ the account the user launched from) → a

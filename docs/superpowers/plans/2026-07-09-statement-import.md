@@ -4,9 +4,9 @@
 
 **Goal:** Let a user upload a monthly statement PDF (credit-card *or* bank), parse it with Claude, dedup its line items against transactions Riddhi already has, review, and import the rest exactly once — plus populate the Slice B card statement-override figures.
 
-**Architecture:** A dedicated stateless `statements` backend module mirrors the `receipts` pattern (upload → Claude structured extraction → return → confirm-before-save). Deduplication is a pure, deterministic function (amount + date window + account, merchant as a tiebreaker); the LLM only parses the PDF. Imported transactions carry a stable `importFingerprint` that guards both re-import and later SMS/notification collisions. Mobile adds a review screen fed by a stateless `POST /statements/parse`, committing via `POST /statements/import`.
+**Architecture:** A dedicated stateless `statements` backend module mirrors the `receipts` pattern (upload → Claude structured extraction → return → confirm-before-save). Deduplication is a pure, deterministic function (amount + date window + account, merchant as a tiebreaker); the LLM only parses the statement. Imported transactions carry a stable `importFingerprint` that guards both re-import and later SMS/notification collisions. **Encrypted PDFs are decrypted on-device** (`pdfjs-dist`, password never leaves the phone) and uploaded as extracted text; unencrypted PDFs upload raw bytes and are read as a Claude document block. Mobile adds a review screen fed by a stateless `POST /statements/parse`, committing via `POST /statements/import`.
 
-**Tech Stack:** NestJS + TypeORM (Postgres, `synchronize: true`), `@anthropic-ai/sdk` ^0.109.0 (PDF document blocks), `qpdf` for decrypt; Expo v56 / React Native, `expo-document-picker`; backend Jest, mobile ts-jest pure-logic harness.
+**Tech Stack:** NestJS + TypeORM (Postgres, `synchronize: true`), `@anthropic-ai/sdk` ^0.109.0 (PDF document block **or** text block); Expo v56 / React Native, `expo-document-picker` + `expo-file-system`, `pdfjs-dist` for on-device decrypt+text-extract; backend Jest, mobile ts-jest pure-logic harness.
 
 ## Global Constraints
 
@@ -26,8 +26,7 @@
 - `import-fingerprint.ts` — pure: `computeImportFingerprint`, `normalizeDescriptor`.
 - `statement-dedup.ts` — pure: `classifyLineItems` + shared types.
 - `account-resolve.ts` — pure: `resolveAccountByLast4`.
-- `pdf-crypto.ts` — `isEncrypted`, `decryptPdf` (qpdf-backed).
-- `statement-parser.service.ts` — Claude PDF parse + `STATEMENTS_ANTHROPIC_CLIENT` token + hallucination guard.
+- `statement-parser.service.ts` — Claude parse (PDF **or** text) + `STATEMENTS_ANTHROPIC_CLIENT` token + hallucination guard.
 - `statements.service.ts` — `parse()` + `import()` orchestration.
 - `statements.controller.ts` — `POST /statements/parse`, `POST /statements/import`.
 - `statements.module.ts` — wires the above + Anthropic factory.
@@ -43,6 +42,7 @@
 **Mobile — modified/new:**
 - `src/api/index.ts` — add `statements` resource.
 - `src/api/adapters.ts` (or a new `statementAdapter.ts`) — parse-result → review view.
+- `src/screens/statementPdf.ts` (new) + `.spec.ts` — `isEncrypted` byte-scan + `pdfjs-dist` decrypt+text-extract (on-device).
 - `src/screens/StatementReview.tsx` (new) + `src/screens/statementReview.ts` (RN-free helpers) + `.spec.ts`.
 - Entry points: `CardDetail`, bank `AccountDetail`, `Sync` — an "Import statement" action.
 
@@ -448,61 +448,71 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
 
 ---
 
-## Task 4: PDF encryption detection + decrypt (`pdf-crypto.ts`)
+## Task 4: Mobile on-device PDF decrypt + text extraction (`statementPdf.ts`)
+
+> **This is a MOBILE task** (no backend dependency) — it can be executed here or
+> deferred to run alongside Tasks 9–10. It is placed early because its output (the
+> `{ pdf }`-vs-`{ text }` upload decision) defines the shape Task 6's parse DTO must
+> accept.
 
 **Files:**
-- Create: `backend/src/statements/pdf-crypto.ts`
-- Create: `backend/src/statements/pdf-crypto.spec.ts`
-- Modify: `backend/package.json` (add `node-qpdf2` dependency)
+- Create: `mobile/src/screens/statementPdf.ts`
+- Create: `mobile/src/screens/statementPdf.spec.ts`
+- Modify: `mobile/package.json` (add `pdfjs-dist`)
 
 **Interfaces:**
 - Produces:
-  - `isEncrypted(pdf: Buffer): boolean`
-  - `decryptPdf(pdf: Buffer, password: string): Promise<Buffer>` (throws `PdfPasswordError` on a wrong password)
-  - `class PdfPasswordError extends Error`
+  - `isEncrypted(bytes: Uint8Array): boolean`
+  - `class PdfPasswordError extends Error` (wrong/again-needed password)
+  - `extractText(bytes: Uint8Array, password?: string): Promise<string>` (throws `PdfPasswordError` when a password is needed/incorrect)
+  - `type PreparedUpload = { pdf: string } | { text: string }` and `prepareUpload(base64: string, password?: string): Promise<PreparedUpload>`
 
-**Background:** Indian card/bank statements are usually emailed as encrypted PDFs. Claude cannot read an encrypted PDF, so the backend must decrypt first. `isEncrypted` is a cheap byte-scan for the PDF `/Encrypt` trailer entry (unit-testable with a tiny fixture); `decryptPdf` shells out through `node-qpdf2` (which wraps the `qpdf` binary — an infra dependency the runtime image must include).
+**Background:** the user chose **on-device decryption** — the password must never leave the phone. Pure on-device *decryption to PDF bytes* isn't feasible in Expo/RN (`pdf-lib` can't decrypt), but `pdfjs-dist` **can** open an encrypted PDF with a password and extract text. So the flow is a hybrid: unencrypted PDFs upload raw bytes (best fidelity, Claude document block); encrypted PDFs are opened locally with the password and their **text** uploaded.
 
-- [ ] **Step 1: Add dependency**
+> **Feasibility spike:** `pdfjs-dist` under Hermes is fiddly (needs the `legacy`
+> build and a couple of globals/polyfills — e.g. `Promise.withResolvers`, a no-op
+> worker). **Do this spike first.** If it can't be made to run on device after a
+> reasonable effort, STOP and escalate to the human: the documented fallback is
+> server-side decrypt for encrypted PDFs only (the `qpdf`/`node-qpdf2` route from
+> the spec's Risks section) while the unencrypted path ships unchanged. Do not
+> silently ship a broken encrypted path.
 
-Run: `cd backend && npm install node-qpdf2`
-(If the sandbox blocks network, note it and proceed — the implementer must install it; the code below targets its API.)
+- [ ] **Step 1: Read Expo v56 docs** for reading a picked file as base64 (`expo-file-system` `readAsStringAsync` + `EncodingType.Base64`), and skim the `pdfjs-dist` legacy-build usage. Install: `cd mobile && npx expo install expo-document-picker expo-file-system && npm install pdfjs-dist`.
 
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 2: Write the failing test** (pure `isEncrypted`; `extractText` is node-testable against a fixture but device-verified)
 
 ```ts
-// backend/src/statements/pdf-crypto.spec.ts
-import { isEncrypted } from './pdf-crypto';
+// mobile/src/screens/statementPdf.spec.ts
+import { isEncrypted } from './statementPdf';
+
+const bytes = (s: string) => new Uint8Array(Buffer.from(s, 'latin1'));
 
 describe('isEncrypted', () => {
-  it('true when the PDF trailer references an /Encrypt dictionary', () => {
-    const buf = Buffer.from('%PDF-1.6\n... trailer\n<< /Root 1 0 R /Encrypt 9 0 R >>\n%%EOF');
-    expect(isEncrypted(buf)).toBe(true);
+  it('true when the trailer references /Encrypt', () => {
+    expect(isEncrypted(bytes('%PDF-1.6 ... << /Root 1 0 R /Encrypt 9 0 R >> %%EOF'))).toBe(true);
   });
   it('false for a plain PDF', () => {
-    const buf = Buffer.from('%PDF-1.6\n... trailer\n<< /Root 1 0 R /Size 10 >>\n%%EOF');
-    expect(isEncrypted(buf)).toBe(false);
+    expect(isEncrypted(bytes('%PDF-1.6 ... << /Root 1 0 R /Size 10 >> %%EOF'))).toBe(false);
   });
   it('false for non-PDF bytes', () => {
-    expect(isEncrypted(Buffer.from('hello'))).toBe(false);
+    expect(isEncrypted(bytes('hello'))).toBe(false);
   });
 });
 ```
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `cd backend && npx jest pdf-crypto`
+Run: `cd mobile && npx jest statementPdf`
 Expected: FAIL — module not found.
 
-- [ ] **Step 4: Write minimal implementation**
+- [ ] **Step 4: Write the implementation**
 
 ```ts
-// backend/src/statements/pdf-crypto.ts
-import { decrypt } from 'node-qpdf2';
-import { promises as fs } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
+// mobile/src/screens/statementPdf.ts
+// On-device statement PDF handling. Unencrypted → upload raw bytes; encrypted →
+// decrypt + extract text locally with pdfjs-dist so the password never leaves
+// the device. See plan Task 4 for the Hermes feasibility caveats/fallback.
+import { getDocument, PasswordException, GlobalWorkerOptions, VerbosityLevel } from 'pdfjs-dist/legacy/build/pdf';
 
 export class PdfPasswordError extends Error {
   constructor(message = 'PDF password required or incorrect') {
@@ -511,52 +521,67 @@ export class PdfPasswordError extends Error {
   }
 }
 
-/** Cheap detection: a PDF is encrypted iff its trailer references an /Encrypt
- * object. Scans the last 4KB (where the trailer lives) to avoid false hits in
- * stream data. */
-export function isEncrypted(pdf: Buffer): boolean {
-  if (!pdf.slice(0, 5).toString('latin1').startsWith('%PDF-')) return false;
-  const tail = pdf.slice(Math.max(0, pdf.length - 4096)).toString('latin1');
+export type PreparedUpload = { pdf: string } | { text: string };
+
+/** A PDF is encrypted iff its trailer references an /Encrypt object. Scan the
+ * last 4KB (where the trailer lives) to avoid stream-data false positives. */
+export function isEncrypted(bytes: Uint8Array): boolean {
+  const head = String.fromCharCode(...bytes.slice(0, 5));
+  if (!head.startsWith('%PDF-')) return false;
+  const tailBytes = bytes.slice(Math.max(0, bytes.length - 4096));
+  const tail = String.fromCharCode(...tailBytes);
   return /\/Encrypt\b/.test(tail);
 }
 
-/**
- * Decrypt an encrypted PDF with the user-supplied password. The password is a
- * function argument only — never stored or logged. Writes to a temp file
- * (qpdf works on paths), decrypts, reads back, and cleans up. Throws
- * PdfPasswordError on a wrong password.
- */
-export async function decryptPdf(pdf: Buffer, password: string): Promise<Buffer> {
-  const inPath = join(tmpdir(), `stmt-${randomUUID()}.pdf`);
-  const outPath = join(tmpdir(), `stmt-${randomUUID()}-dec.pdf`);
+/** Open an (encrypted) PDF with the password and concatenate page text.
+ * Throws PdfPasswordError when a password is required or wrong. */
+export async function extractText(bytes: Uint8Array, password?: string): Promise<string> {
+  GlobalWorkerOptions.workerSrc = undefined as any; // run on the JS thread (no worker in RN)
   try {
-    await fs.writeFile(inPath, pdf);
-    await decrypt({ input: inPath, output: outPath, password });
-    return await fs.readFile(outPath);
-  } catch (err) {
-    throw new PdfPasswordError((err as Error)?.message);
-  } finally {
-    await fs.rm(inPath, { force: true }).catch(() => {});
-    await fs.rm(outPath, { force: true }).catch(() => {});
+    const doc = await getDocument({ data: bytes, password, verbosity: VerbosityLevel.ERRORS }).promise;
+    let out = '';
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      out += content.items.map((i: any) => ('str' in i ? i.str : '')).join(' ') + '\n';
+    }
+    return out.trim();
+  } catch (e) {
+    if (e instanceof PasswordException) throw new PdfPasswordError();
+    throw e;
   }
+}
+
+/** Decide the upload shape from raw base64 PDF bytes. Unencrypted → { pdf };
+ * encrypted → decrypt locally and return { text }. `password` is required for
+ * the encrypted case (caller prompts and retries on PdfPasswordError). */
+export async function prepareUpload(base64: string, password?: string): Promise<PreparedUpload> {
+  const bytes = Uint8Array.from(Buffer.from(base64, 'base64'));
+  if (!isEncrypted(bytes)) return { pdf: base64 };
+  const text = await extractText(bytes, password);
+  return { text };
 }
 ```
 
+> **Implementer notes:** (1) `Buffer` may need the RN polyfill already used elsewhere in the app — check `client.ts`/existing base64 handling and reuse that path; if `Buffer` isn't available, use `expo-file-system`/`atob` equivalents. (2) Confirm the exact `pdfjs-dist` legacy import path against the installed version, and whether it needs a `Promise.withResolvers` polyfill under Hermes (add one in the app entry if so). (3) `verbosity`/`VerbosityLevel` are optional — drop if the version differs.
+
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd backend && npx jest pdf-crypto`
-Expected: PASS (the `isEncrypted` cases; `decryptPdf` is exercised via the service integration in Task 6 and manual verification, since it needs the qpdf binary + a real encrypted fixture).
+Run: `cd mobile && npx jest statementPdf`
+Expected: `isEncrypted` cases PASS. (`extractText`/`prepareUpload` are exercised on-device in Task 10 with a real encrypted fixture — add a node fixture test if `pdfjs-dist` loads cleanly under ts-jest, otherwise document it as device-verified.)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Typecheck + commit**
+
+Run: `cd mobile && npx tsc --noEmit 2>&1 | grep -v notification-listener/index.test` (no new errors).
 
 ```bash
-git add backend/src/statements/pdf-crypto.ts backend/src/statements/pdf-crypto.spec.ts backend/package.json backend/package-lock.json
-git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backend): PDF encryption detection + qpdf decrypt"
+git add mobile/src/screens/statementPdf.ts mobile/src/screens/statementPdf.spec.ts mobile/package.json mobile/package-lock.json
+git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(mobile): on-device PDF encryption check + pdfjs text extraction"
 ```
 
 ---
 
-## Task 5: Statement parser service (Claude PDF document block)
+## Task 5: Statement parser service (Claude PDF document block **or** text)
 
 **Files:**
 - Create: `backend/src/statements/statement-parser.service.ts`
@@ -568,7 +593,8 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
   - `const STATEMENTS_ANTHROPIC_CLIENT = 'STATEMENTS_ANTHROPIC_CLIENT'`
   - `interface ParsedStatementSummary { statementDate: string | null; statementBilled: number | null; statementMinDue: number | null; statementDueDate: string | null; statementRewards: number | null; openingBalance: number | null; closingBalance: number | null }`
   - `interface ParsedStatement { last4: string | null; inferredType: 'card' | 'bank'; period: { from: string | null; to: string | null }; summary: ParsedStatementSummary; items: ParsedLineItem[] }`
-  - `class StatementParserService { parse(pdfBase64: string): Promise<ParsedStatement> }` (throws `ServiceUnavailableException` when the client is null)
+  - `type StatementInput = { pdf: string } | { text: string }`
+  - `class StatementParserService { parse(input: StatementInput): Promise<ParsedStatement> }` (throws `ServiceUnavailableException` when the client is null). `{ pdf }` → Claude PDF document block; `{ text }` → Claude text block (on-device-extracted text from an encrypted PDF).
 
 - [ ] **Step 1: Write the failing test** (Anthropic client mocked; assert prompt-agnostic parsing + hallucination guard)
 
@@ -606,7 +632,7 @@ describe('StatementParserService.parse', () => {
         { date: '2026-06-03', amount: 200, direction: 'credit', descriptor: 'Refund', category: null },
       ],
     })));
-    const r = await svc.parse('BASE64');
+    const r = await svc.parse({ pdf: 'BASE64' });
     expect(r.last4).toBe('1234');
     expect(r.inferredType).toBe('card');
     expect(r.summary.statementBilled).toBe(15230.5);
@@ -617,14 +643,14 @@ describe('StatementParserService.parse', () => {
 
   it('returns an empty-but-valid statement when the model emits no JSON', async () => {
     const svc = await build(clientReturning('sorry, cannot read this'));
-    const r = await svc.parse('BASE64');
+    const r = await svc.parse({ pdf: 'BASE64' });
     expect(r.items).toEqual([]);
     expect(r.inferredType).toBe('bank'); // default
   });
 
   it('throws when the client is not configured', async () => {
     const svc = await build(null);
-    await expect(svc.parse('BASE64')).rejects.toThrow();
+    await expect(svc.parse({ pdf: 'BASE64' })).rejects.toThrow();
   });
 });
 ```
@@ -663,6 +689,9 @@ export interface ParsedStatement {
   items: ParsedLineItem[];
 }
 
+/** Either raw PDF base64 (document block) or on-device-extracted text. */
+export type StatementInput = { pdf: string } | { text: string };
+
 const EMPTY_SUMMARY: ParsedStatementSummary = {
   statementDate: null, statementBilled: null, statementMinDue: null,
   statementDueDate: null, statementRewards: null, openingBalance: null, closingBalance: null,
@@ -681,10 +710,17 @@ export class StatementParserService {
     return this.config.get<string>('AI_MODEL') ?? 'claude-sonnet-5';
   }
 
-  async parse(pdfBase64: string): Promise<ParsedStatement> {
+  async parse(input: StatementInput): Promise<ParsedStatement> {
     if (!this.client) {
       throw new ServiceUnavailableException('Statement import is not configured');
     }
+    // Build the source block: a PDF document block for raw bytes, or a text
+    // block for on-device-extracted text (encrypted PDFs decrypted on-device).
+    const sourceBlock =
+      'pdf' in input
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: input.pdf } }
+        : { type: 'text', text: `STATEMENT TEXT (extracted on device):\n${input.text}` };
+
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: 8192,
@@ -701,7 +737,7 @@ export class StatementParserService {
         {
           role: 'user',
           content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+            sourceBlock as any,
             { type: 'text', text: 'Extract the statement as JSON.' },
           ],
         },
@@ -799,43 +835,44 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
 - Modify: the module registry (`backend/src/app.module.ts`) to import `StatementsModule`
 
 **Interfaces:**
-- Consumes: `isEncrypted`, `decryptPdf`, `PdfPasswordError` (T4); `StatementParserService`, `ParsedStatement` (T5); `classifyLineItems`, `ClassifiedLineItem`, `ExistingTxn` (T2); `resolveAccountByLast4` (T3); `AccountsService`, `TransactionsService`, `CreditCardService`.
+- Consumes: `StatementParserService`, `ParsedStatement`, `StatementInput` (T5); `classifyLineItems`, `ClassifiedLineItem`, `ExistingTxn` (T2); `resolveAccountByLast4` (T3); `AccountsService`, `TransactionsService`, `CreditCardService`. (No decrypt — encrypted PDFs are handled on-device, T4.)
 - Produces:
   - `interface StatementParseResult { account: { id: string | null; matchedByLast4: boolean; ambiguous: boolean; mismatchWarning: boolean }; statementType: 'card' | 'bank'; period: { from: string | null; to: string | null }; summary: ParsedStatementSummary; items: ClassifiedLineItem[] }`
-  - `StatementsService.parse(userId, dto): Promise<StatementParseResult>` (throws `PasswordRequiredException` → HTTP 422)
-  - a `422`-mapping exception (custom `HttpException` with `{ error: 'password_required' }`)
+  - `StatementsService.parse(userId, dto): Promise<StatementParseResult>` (throws `BadRequestException` when neither/both of `pdf`/`text` are present)
 
 - [ ] **Step 1: Write the DTO**
 
 ```ts
 // backend/src/statements/dto/parse-statement.dto.ts
-import { IsBase64, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
-const MAX_BASE64_LEN = 20 * 1024 * 1024; // ~15MB decoded PDF
+const MAX_LEN = 20 * 1024 * 1024; // ~15MB base64 PDF or extracted text
 
 export class ParseStatementDto {
-  /** Base64 PDF bytes (no data: URI prefix). */
-  @IsString() @IsNotEmpty() @MaxLength(MAX_BASE64_LEN)
-  pdf: string;
+  /** Base64 PDF bytes (no data: URI prefix) — present when the PDF is
+   * unencrypted. Exactly one of pdf/text is sent. */
+  @IsOptional() @IsString() @MaxLength(MAX_LEN)
+  pdf?: string;
 
-  @IsIn(['application/pdf'])
-  mimeType: 'application/pdf';
+  /** Statement text extracted on-device from an encrypted PDF (password never
+   * leaves the phone). Exactly one of pdf/text is sent. */
+  @IsOptional() @IsString() @MaxLength(MAX_LEN)
+  text?: string;
 
   /** Target account when launched from CardDetail / AccountDetail (implicit). */
   @IsOptional() @IsUUID()
   accountId?: string;
-
-  /** PDF decryption password (used transiently, never stored). */
-  @IsOptional() @IsString() @MaxLength(200)
-  password?: string;
 }
 ```
 
-- [ ] **Step 2: Write the failing test** (mock deps; cover 422, dedup wiring, account resolve, mismatch warning)
+The "exactly one of pdf/text" rule is enforced in the service (`BadRequestException`), not the DTO, so the error message is explicit.
+
+- [ ] **Step 2: Write the failing test** (mock deps; cover missing-input rejection, pdf/text pass-through, dedup wiring, account resolve, mismatch warning)
 
 ```ts
 // backend/src/statements/statements.service.spec.ts
-import { StatementsService, PasswordRequiredException } from './statements.service';
+import { StatementsService } from './statements.service';
+import { BadRequestException } from '@nestjs/common';
 import { AccountType } from '../common/enums';
 
 // Minimal fakes for collaborators:
@@ -846,27 +883,33 @@ const cards = { updateConfig: jest.fn() };
 
 const svc = new StatementsService(parser as any, accounts as any, transactions as any, cards as any);
 
-const encPdfB64 = Buffer.from('%PDF-1.6 << /Encrypt 9 0 R >> %%EOF').toString('base64');
-const plainPdfB64 = Buffer.from('%PDF-1.6 << /Root 1 0 R >> %%EOF').toString('base64');
-
 beforeEach(() => jest.clearAllMocks());
 
-it('encrypted PDF without password → PasswordRequiredException', async () => {
-  await expect(svc.parse('u1', { pdf: encPdfB64, mimeType: 'application/pdf' } as any))
-    .rejects.toBeInstanceOf(PasswordRequiredException);
+it('rejects when neither pdf nor text is supplied', async () => {
+  await expect(svc.parse('u1', { accountId: 'c1' } as any)).rejects.toBeInstanceOf(BadRequestException);
 });
 
-it('resolves the card by last4 and classifies items as dedup verdicts', async () => {
+it('passes {pdf} straight to the parser, resolves the card by last4, classifies items', async () => {
   parser.parse.mockResolvedValue({
     last4: '1234', inferredType: 'card', period: { from: '2026-05-13', to: '2026-06-12' },
     summary: {}, items: [{ isoDate: '2026-06-01', amount: 499, direction: 'debit', descriptor: 'Swiggy', category: 'Food' }],
   });
   accounts.findAll.mockResolvedValue([{ id: 'c1', type: AccountType.CREDIT, institutionName: 'HDFC', last4: '1234' }]);
   transactions.findForAccountInRange.mockResolvedValue([]); // nothing existing → 'new'
-  const r = await svc.parse('u1', { pdf: plainPdfB64, mimeType: 'application/pdf' } as any);
+  const r = await svc.parse('u1', { pdf: 'BASE64' } as any);
+  expect(parser.parse).toHaveBeenCalledWith({ pdf: 'BASE64' });
   expect(r.account.id).toBe('c1');
   expect(r.account.matchedByLast4).toBe(true);
   expect(r.items[0].verdict).toBe('new');
+});
+
+it('passes {text} straight to the parser (encrypted → on-device-extracted)', async () => {
+  parser.parse.mockResolvedValue({ last4: null, inferredType: 'bank', period: {}, summary: {}, items: [] });
+  accounts.findOne.mockResolvedValue({ id: 'b1', type: AccountType.SAVINGS, institutionName: 'ICICI' });
+  accounts.findAll.mockResolvedValue([{ id: 'b1', type: AccountType.SAVINGS, institutionName: 'ICICI', last4: null }]);
+  transactions.findForAccountInRange.mockResolvedValue([]);
+  await svc.parse('u1', { text: 'STATEMENT TEXT', accountId: 'b1' } as any);
+  expect(parser.parse).toHaveBeenCalledWith({ text: 'STATEMENT TEXT' });
 });
 
 it('flags mismatch when the passed accountId differs from the parsed last4 account', async () => {
@@ -877,7 +920,7 @@ it('flags mismatch when the passed accountId differs from the parsed last4 accou
     { id: 'c2', type: AccountType.CREDIT, institutionName: 'ICICI', last4: '9999' },
   ]);
   transactions.findForAccountInRange.mockResolvedValue([]);
-  const r = await svc.parse('u1', { pdf: plainPdfB64, mimeType: 'application/pdf', accountId: 'c1' } as any);
+  const r = await svc.parse('u1', { pdf: 'BASE64', accountId: 'c1' } as any);
   expect(r.account.id).toBe('c1');
   expect(r.account.mismatchWarning).toBe(true);
 });
@@ -892,24 +935,15 @@ Expected: FAIL — module not found.
 
 ```ts
 // backend/src/statements/statements.service.ts
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { AccountsService } from '../accounts/accounts.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreditCardService } from '../credit-card/credit-card.service';
 import { StatementParserService, ParsedStatement, ParsedStatementSummary } from './statement-parser.service';
-import { isEncrypted, decryptPdf, PdfPasswordError } from './pdf-crypto';
 import { classifyLineItems, ClassifiedLineItem, ExistingTxn, LineDirection } from './statement-dedup';
 import { resolveAccountByLast4, ResolvableAccount } from './account-resolve';
-import { AccountType, TransactionType } from '../common/enums';
+import { TransactionType } from '../common/enums';
 import { ParseStatementDto } from './dto/parse-statement.dto';
-
-/** Thrown when the uploaded PDF is encrypted and no/incorrect password given.
- * Mapped to HTTP 422 with a machine-readable body so mobile can prompt. */
-export class PasswordRequiredException extends HttpException {
-  constructor() {
-    super({ error: 'password_required' }, HttpStatus.UNPROCESSABLE_ENTITY);
-  }
-}
 
 export interface StatementParseResult {
   account: { id: string | null; matchedByLast4: boolean; ambiguous: boolean; mismatchWarning: boolean };
@@ -929,19 +963,14 @@ export class StatementsService {
   ) {}
 
   async parse(userId: string, dto: ParseStatementDto): Promise<StatementParseResult> {
-    const pdf = Buffer.from(dto.pdf, 'base64');
-    let working = pdf;
-    if (isEncrypted(pdf)) {
-      if (!dto.password) throw new PasswordRequiredException();
-      try {
-        working = await decryptPdf(pdf, dto.password);
-      } catch (e) {
-        if (e instanceof PdfPasswordError) throw new PasswordRequiredException();
-        throw e;
-      }
+    // Exactly one input: raw PDF bytes (unencrypted) or on-device-extracted text
+    // (encrypted PDF, decrypted on the phone). No decryption happens here.
+    const hasPdf = typeof dto.pdf === 'string' && dto.pdf.length > 0;
+    const hasText = typeof dto.text === 'string' && dto.text.length > 0;
+    if (hasPdf === hasText) {
+      throw new BadRequestException('Provide exactly one of pdf or text');
     }
-
-    const parsed: ParsedStatement = await this.parser.parse(working.toString('base64'));
+    const parsed: ParsedStatement = await this.parser.parse(hasPdf ? { pdf: dto.pdf! } : { text: dto.text! });
 
     // Resolve the target account.
     const all = await this.accounts.findAll(userId);
@@ -1350,7 +1379,7 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
 
 - [ ] **Step 1: Add DTO/view types to `types.ts`**
 
-Mirror the backend `StatementParseResult` shape as an `ApiStatementParseResult` interface (account, statementType, period, summary, items with `verdict`/`matchedTransactionId`), and a `StatementParseResultView` the screen consumes. Add `PasswordRequired` discriminant (see api layer). Reuse the existing type conventions in `types.ts` (`Api*` for wire, `*View` for screen).
+Mirror the backend `StatementParseResult` shape as an `ApiStatementParseResult` interface (account, statementType, period, summary, items with `verdict`/`matchedTransactionId`), and a `StatementParseResultView` the screen consumes. Reuse the existing type conventions in `types.ts` (`Api*` for wire, `*View` for screen). No password/422 type — decryption is on-device (Task 4); `api.statements.parse` receives the already-prepared `{ pdf }` or `{ text }`.
 
 - [ ] **Step 2: Write the failing test for the pure helpers**
 
@@ -1448,19 +1477,14 @@ export function buildImportPayload(
 
 ```ts
   statements: {
-    /** Parse a statement PDF. Resolves { passwordRequired: true } when the PDF
-     * is encrypted and no/incorrect password was supplied. */
-    async parse(payload: { pdf: string; accountId?: string; password?: string }):
-      Promise<{ passwordRequired: true } | StatementParseResultView> {
-      try {
-        const dto = await apiClient.post<ApiStatementParseResult>('/statements/parse', {
-          pdf: payload.pdf, mimeType: 'application/pdf', accountId: payload.accountId, password: payload.password,
-        });
-        return toStatementParseResultView(dto);
-      } catch (e: any) {
-        if (e?.status === 422 && e?.body?.error === 'password_required') return { passwordRequired: true };
-        throw e;
-      }
+    /** Parse a statement. `input` is the already-prepared upload from
+     * statementPdf.prepareUpload — { pdf } for an unencrypted PDF (raw base64),
+     * or { text } for an encrypted PDF decrypted on-device. Decryption/passwords
+     * never touch this layer. */
+    async parse(input: { pdf: string } | { text: string }, accountId?: string):
+      Promise<StatementParseResultView> {
+      const dto = await apiClient.post<ApiStatementParseResult>('/statements/parse', { ...input, accountId });
+      return toStatementParseResultView(dto);
     },
     async import(payload: ImportStatementPayload): Promise<{ imported: number; skipped: number }> {
       const res = await apiClient.post<{ imported: number; skipped: number }>('/statements/import', payload);
@@ -1470,7 +1494,7 @@ export function buildImportPayload(
   },
 ```
 
-Add `toStatementParseResultView` to `adapters.ts` (near `toCardSummaryView`) — a near-passthrough that maps the wire DTO to the view. Confirm how `apiClient` surfaces HTTP status/body for the 422 check (inspect `client.ts`); adapt the `e.status`/`e.body` access to the client's actual error shape.
+Add `toStatementParseResultView` to `adapters.ts` (near `toCardSummaryView`) — a near-passthrough that maps the wire DTO to the view.
 
 - [ ] **Step 6: Run tests + build**
 
@@ -1494,18 +1518,18 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(mobil
 - Modify: `mobile/src/screens/AccountDetail.tsx` (bank — add "Import statement" action)
 - Modify: `mobile/src/screens/Sync.tsx` (add "Import a statement" tile)
 - Modify: nav registry `mobile/src/app/navContext.tsx` + `mobile/src/app/screens.tsx` — register a `statement-review` kind (mirror how `card-detail` is registered there)
-- Add dependency: `expo-document-picker` + `expo-file-system` (base64 read)
+- (`expo-document-picker`, `expo-file-system`, `pdfjs-dist` already added in Task 4)
 
 **Interfaces:**
-- Consumes: `api.statements` (Task 9), `bucketByVerdict`/`defaultIncluded`/`buildImportPayload` (Task 9), `categories.resolveId` (existing, used on confirm), the Slice B `bumpData` refresh.
+- Consumes: `prepareUpload`/`PdfPasswordError` (Task 4), `api.statements` (Task 9), `bucketByVerdict`/`defaultIncluded`/`buildImportPayload` (Task 9), `categories.resolveId` (existing, used on confirm), the Slice B `bumpData` refresh.
 
 Since mobile RN components aren't unit-tested here, this task is structural + `tsc` + on-device driving. Steps:
 
-- [ ] **Step 1: Read Expo v56 docs** for `expo-document-picker` (`getDocumentAsync`, `copyToCacheDirectory`) and reading the picked file as base64 (`expo-file-system` `readAsStringAsync` with `EncodingType.Base64`). Per `mobile/AGENTS.md`. Install: `cd mobile && npx expo install expo-document-picker expo-file-system` (if not already present).
+- [ ] **Step 1: Read Expo v56 docs** for `expo-document-picker` (`getDocumentAsync`, `copyToCacheDirectory`) and reading the picked file as base64 (`expo-file-system` `readAsStringAsync` with `EncodingType.Base64`). Per `mobile/AGENTS.md`. (Deps installed in Task 4.)
 
 - [ ] **Step 2: Add the nav kind** — register `{ kind: 'statement-review', data: { accountId?: string } }` in the nav registry alongside `card-detail` (mirror how `card-detail` was added). The review screen receives the parse result via route data or an in-memory handoff (match the pattern the codebase uses for passing large objects between screens — check how `CardDetail` receives its account).
 
-- [ ] **Step 3: Build the launcher flow** (shared helper the three entry points call): pick PDF → read base64 → `api.statements.parse({ pdf, accountId? })`. If `{ passwordRequired: true }`, show a **password sheet**; on submit, re-call `parse` with `password`. On a resolved view, navigate to `StatementReview` with the view. Wrap in try/catch + toast on error (mirror `Sync.tsx runSync` convention). Never persist the password.
+- [ ] **Step 3: Build the launcher flow** (shared helper the three entry points call): pick PDF → read base64 → `prepareUpload(base64)` (Task 4). If it throws `PdfPasswordError`, show a **password sheet** and retry `prepareUpload(base64, password)` locally (the password stays on-device; never persist it). Once it resolves to `{ pdf }` or `{ text }`, call `api.statements.parse(prepared, accountId?)`, then navigate to `StatementReview` with the returned view. Wrap in try/catch + toast on error (mirror `Sync.tsx runSync` convention).
 
 - [ ] **Step 4: Build `StatementReview.tsx`:**
   - **Summary header** (editable). Card: show the parsed override figures (billed/minDue/dueDate/rewards/statementDate) with a "Apply these figures" toggle (default on). Bank: a "Set balance to ₹{closingBalance}" toggle (default off).
@@ -1519,12 +1543,12 @@ Since mobile RN components aren't unit-tested here, this task is structural + `t
 
 Run: `cd mobile && npx tsc --noEmit 2>&1 | grep -v notification-listener/index.test`
 Expected: no new errors.
-Then **drive the app** (per the `superpowers:verification-before-completion` + `run` skills): launch, open a card, Import statement, pick a sample PDF (use an unlocked test statement, and a locked one to exercise the password sheet), confirm the review screen buckets items and import creates transactions that appear in the ledger and update the card summary. Note any device-only gaps in the progress ledger.
+Then **drive the app** (per the `superpowers:verification-before-completion` + `run` skills): launch, open a card, Import statement, pick a sample PDF — **an unlocked statement (→ `{ pdf }` document-block path) and a password-protected one (→ on-device `pdfjs` decrypt + password sheet + `{ text }` path)**. Confirm the review screen buckets items and import creates transactions that appear in the ledger and update the card summary. This device run is where the `pdfjs-dist`-under-Hermes spike is proven; if the encrypted path fails on device, escalate per the Task 4 fallback. Note any device-only gaps in the progress ledger.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add mobile/src/screens/StatementReview.tsx mobile/src/screens/CardDetail.tsx mobile/src/screens/Sync.tsx <exact bank AccountDetail + nav registry paths> mobile/package.json
+git add mobile/src/screens/StatementReview.tsx mobile/src/screens/CardDetail.tsx mobile/src/screens/AccountDetail.tsx mobile/src/screens/Sync.tsx mobile/src/app/navContext.tsx mobile/src/app/screens.tsx
 git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(mobile): statement import — review screen, password prompt, entry points"
 ```
 
@@ -1540,5 +1564,5 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(mobil
 
 ## Self-review notes (author)
 
-- **Spec coverage:** flow (T6/T10), fingerprint column (T1), dedup rule incl. twin-charge/ambiguity (T2), account resolve + follow-up #1 (T3/T8), server-side decrypt + password 422 (T4/T6), Claude PDF parse + guard (T5), parse/import endpoints (T6/T7), card override + bank reconcile (T7), reverse dedup (T8), mobile api/adapter/helpers (T9), review screen + password prompt + both+Sync entry points (T10), cross-module consistency + testing (Final review). All spec sections map to a task.
-- **Open verification for the implementer (flagged inline, not placeholders):** exact `req.user` property on the JWT guard; `AccountsService.update` accepting a `{ balance }` patch (else add `setBalance`); existence/addition of `TransactionsService.findForAccountInRange`; the `apiClient` error shape for the 422 branch; the Anthropic PDF document-block type against SDK ^0.109.0; `node-qpdf2` install + the `qpdf` binary in the backend runtime. Each has a concrete fallback in its task.
+- **Spec coverage:** flow (T6/T10), fingerprint column (T1), dedup rule incl. twin-charge/ambiguity (T2), account resolve + follow-up #1 (T3/T8), on-device decrypt + text extraction (T4), Claude PDF/text parse + guard (T5), parse/import endpoints incl. pdf|text input (T6/T7), card override + bank reconcile (T7), reverse dedup (T8), mobile api/adapter/helpers (T9), review screen + local password prompt + both+Sync entry points (T10), cross-module consistency + testing (Final review). All spec sections map to a task.
+- **Open verification for the implementer (flagged inline, not placeholders):** exact `req.user` property on the JWT guard; `AccountsService.update` accepting a `{ balance }` patch (else add `setBalance`); existence/addition of `TransactionsService.findForAccountInRange`; the Anthropic PDF document-block type against SDK ^0.109.0; **`pdfjs-dist` running under Hermes (the one real feasibility risk — spiked in T4, device-proven in T10, with a server-side-decrypt fallback for encrypted PDFs only)**. Each has a concrete fallback in its task.
