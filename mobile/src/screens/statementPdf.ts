@@ -35,6 +35,12 @@ export class PdfPasswordError extends Error {
 
 export type PreparedUpload = { pdf: string } | { text: string };
 
+// KNOWN LIMITATION: this trailer byte-scan does not catch a PDF that hides its
+// /Encrypt reference inside a compressed cross-reference / object stream. Such a
+// file is misdetected as unencrypted and uploaded raw; Claude cannot read the
+// encrypted bytes and returns no line-items, so the review screen shows "no
+// charges found" (a graceful degrade — no crash). Catching this needs a full
+// xref-stream parser and is intentionally out of scope.
 /**
  * A PDF is encrypted iff its trailer references an /Encrypt object. Scan only
  * the last 4KB (where the trailer conventionally lives) to avoid false
