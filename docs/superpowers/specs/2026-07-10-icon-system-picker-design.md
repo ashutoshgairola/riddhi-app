@@ -49,6 +49,10 @@ logo** (`assets/munshi.png`, rendered via `<Image>`).
 - **Resolver:** `<AppIcon value size color strokeWidth />` — accepts an icon **name** or a
   legacy **emoji**; resolves via `MICONS` then `M_EMOJI`; renders the SVG. Unknown value
   falls back to `<Text>{value}</Text>` so unmapped stored data never crashes.
+- **`<AppIconBox value color size />`** — the standard **prominent** presentation wrapper
+  (see Visual prominence). Renders `<AppIcon>` centered in a tinted rounded box. Used for
+  every content/category/source/budget/goal/event icon so prominence is consistent and
+  DRY, instead of each screen re-implementing the box.
 - Reuses `IconProps` from `icons.tsx`.
 
 ### 2. Picker — `mobile/src/components/IconPickerSheet.tsx` (new)
@@ -81,8 +85,28 @@ logo** (`assets/munshi.png`, rendered via `<Image>`).
   FabActions, MoreSheet, ProfileSheet, PayBillSheet.
 - **Slice E — Onboarding/auth/settings:** `screens/onboarding/*`, `screens/auth/*`, Settings.
 
-Each slice: rendered emoji glyphs → `<AppIcon>`/named icons; wire pickers where a
-selection exists.
+Each slice: category/source/budget/goal/event icons → `<AppIconBox>` (prominent, colored —
+see Visual prominence); other rendered emoji glyphs → `<AppIcon>`/named icons; wire pickers
+where a selection exists.
+
+## Visual prominence (icons must be prominent & clearly visible)
+
+Content icons must read as colored, deliberate marks — never faint, tiny, or gray.
+Codified via `<AppIconBox>` so every surface is consistent (matching the handover:
+`MobileScreens.jsx:579`, `MobileHome.jsx:215`):
+
+- **Icon box:** square `40–44`px, radius `12–14`, `background = color + '22'` (subtle
+  accent tint). Icon centered inside.
+- **Icon color = the entity's accent color** (category/source `color`), **not** muted
+  `text-3`/gray, so it stands out on the tinted box. Fallback accent `t.em` when no color.
+- **Icon size:** `18–20` inside the box (`19–20` for primary rows/detail headers,
+  `18` for compact rows). Stroke width `2` (the handover default) for a clean, legible weight.
+- **Inline icons** (chips, list meta, buttons): minimum `16` for readability; use the
+  relevant semantic/accent color, never gray-on-gray.
+- **Picker grid:** icon tiles at `20`, selected tile highlighted in the accent `color`
+  (already the handover behavior).
+- No content icon is rendered at `< 16`px or in a low-contrast muted color for a primary
+  display role.
 
 ## Guardrails
 
