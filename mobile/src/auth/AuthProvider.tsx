@@ -35,6 +35,10 @@ export interface AuthContextValue {
   biometricLogin(): Promise<boolean>;
   canBiometricLogin: boolean;
   unlockWithBiometric(): Promise<boolean>;
+  /** Runs the biometric prompt only; does not change status. */
+  authenticateBiometric(): Promise<boolean>;
+  /** Completes an app-lock unlock (status -> signedIn). */
+  finishUnlock(): void;
   unlockWithPin(pin: string): Promise<boolean>;
   completeOnboarding(payload: OnboardingPayload): Promise<void>;
   skipToApp(): void;
@@ -166,14 +170,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // App-lock unlocks: the session is already in memory; these only gate UI.
-  const unlockWithBiometric = useCallback(async (): Promise<boolean> => {
+  // `authenticateBiometric` runs the biometric prompt without unlocking, so
+  // callers can require a PIN backfill between "authenticated" and "unlocked".
+  const authenticateBiometric = useCallback(async (): Promise<boolean> => {
     const auth = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Unlock Riddhi',
     });
-    if (!auth.success) return false;
-    setStatus('signedIn');
-    return true;
+    return auth.success;
   }, []);
+
+  const finishUnlock = useCallback((): void => {
+    setStatus('signedIn');
+  }, []);
+
+  const unlockWithBiometric = useCallback(async (): Promise<boolean> => {
+    const ok = await authenticateBiometric();
+    if (ok) finishUnlock();
+    return ok;
+  }, [authenticateBiometric, finishUnlock]);
 
   const unlockWithPin = useCallback(async (pin: string): Promise<boolean> => {
     if (!(await verifyPin(pin))) return false;
@@ -214,13 +228,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       biometricLogin,
       canBiometricLogin,
       unlockWithBiometric,
+      authenticateBiometric,
+      finishUnlock,
       unlockWithPin,
       completeOnboarding,
       skipToApp,
       updateProfile,
       logout,
     }),
-    [status, user, login, register, googleSignIn, biometricLogin, canBiometricLogin, unlockWithBiometric, unlockWithPin, completeOnboarding, skipToApp, updateProfile, logout],
+    [
+      status,
+      user,
+      login,
+      register,
+      googleSignIn,
+      biometricLogin,
+      canBiometricLogin,
+      unlockWithBiometric,
+      authenticateBiometric,
+      finishUnlock,
+      unlockWithPin,
+      completeOnboarding,
+      skipToApp,
+      updateProfile,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
