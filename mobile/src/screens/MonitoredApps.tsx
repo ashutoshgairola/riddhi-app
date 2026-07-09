@@ -12,6 +12,7 @@ import { ListCard, ListRow, Toggle } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
+import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
 import { fetchCatalog } from '../lib/catalogSource';
@@ -31,6 +32,7 @@ const CATEGORY_ORDER: CatalogEntry['category'][] = ['bank', 'upi', 'wallet', 'me
 export function MonitoredApps({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop } = useNav();
+  const { toast } = useFeedback();
 
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [installed, setInstalled] = useState<Set<string>>(new Set());
@@ -59,9 +61,14 @@ export function MonitoredApps({ entry: _entry }: { entry: ScreenEntry }) {
 
   const onToggle = useCallback(async (pkg: string, enabled: boolean) => {
     setToggles((prev) => ({ ...prev, [pkg]: enabled }));
-    await setToggle(pkg, enabled);
-    await configureAllowlist();
-  }, []);
+    try {
+      await setToggle(pkg, enabled);
+      await configureAllowlist();
+    } catch {
+      setToggles((prev) => ({ ...prev, [pkg]: !enabled }));
+      toast("Couldn't update monitored apps", '📡');
+    }
+  }, [toast]);
 
   const grouped = CATEGORY_ORDER
     .map((cat) => ({ cat, items: catalog.filter((c) => c.category === cat) }))
