@@ -80,6 +80,22 @@ export class TransactionsService {
     return tx;
   }
 
+  /** An account's transactions (as source or transfer destination) within a
+   * date range — used by statement import to build dedup candidates. */
+  findForAccountInRange(
+    userId: string,
+    accountId: string,
+    from: Date,
+    to: Date,
+  ): Promise<Transaction[]> {
+    return this.transactionsRepository.findForAccountInRange(
+      userId,
+      accountId,
+      from,
+      to,
+    );
+  }
+
   async create(
     userId: string,
     dto: CreateTransactionDto,

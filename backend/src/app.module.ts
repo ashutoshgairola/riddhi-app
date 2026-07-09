@@ -23,6 +23,7 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
 import { InsightsModule } from './insights/insights.module';
 import { MailModule } from './mail/mail.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { StatementsModule } from './statements/statements.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     AiChatModule,
     InsightsModule,
     ReceiptsModule,
+    StatementsModule,
   ],
   controllers: [HealthController],
 })

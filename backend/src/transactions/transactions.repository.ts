@@ -84,6 +84,25 @@ export class TransactionsRepository {
     return this.repo.findOne({ where: { id, userId } });
   }
 
+  /** Transactions touching a given account (as source or transfer destination)
+   * within a date range, for statement-import dedup. */
+  findForAccountInRange(
+    userId: string,
+    accountId: string,
+    from: Date,
+    to: Date,
+  ): Promise<Transaction[]> {
+    return this.repo
+      .createQueryBuilder('tx')
+      .where('tx.userId = :userId', { userId })
+      .andWhere(
+        '(tx.accountId = :accountId OR tx.destinationAccountId = :accountId)',
+        { accountId },
+      )
+      .andWhere('tx.date BETWEEN :from AND :to', { from, to })
+      .getMany();
+  }
+
   create(data: Partial<Transaction>): Transaction {
     return this.repo.create(data);
   }
