@@ -466,7 +466,13 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             icon="🔑"
             color={t.amber}
             title={pinSet ? "Change PIN" : "Set PIN"}
-            sub={pinSet ? undefined : "No PIN set on this device"}
+            sub={
+              pinSet
+                ? undefined
+                : bioOn
+                  ? "Required — biometric needs a backup PIN"
+                  : "No PIN set on this device"
+            }
             last
             onPress={() => void changePin()}
           />
