@@ -6,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { TransactionType, TransactionStatus, PaymentMethod } from '../common/enums';
 import { User } from '../users/user.entity';
@@ -90,6 +91,12 @@ export class Transaction {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  /** Set on statement-imported transactions; the dedup fingerprint (see
+   * statements/import-fingerprint.ts). Null for everything else. */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Index()
+  importFingerprint: string | null;
 
   @Column({ type: 'simple-array', default: '' })
   tags: string[];

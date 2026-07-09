@@ -92,4 +92,9 @@ export class CreateTransactionDto {
   @ValidateNested()
   @Type(() => RecurringDetailsDto)
   recurringDetails?: RecurringDetailsDto;
+
+  /** Statement-import dedup fingerprint (set server-side by StatementsService). */
+  @IsOptional()
+  @IsString()
+  importFingerprint?: string;
 }
