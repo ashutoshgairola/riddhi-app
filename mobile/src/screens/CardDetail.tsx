@@ -22,10 +22,10 @@
  *  - `useApiData` for both the card summary and its transactions, with
  *    `useNav().pop` for back and `SearchButton` for the topbar action.
  *
- * Pay-bill seam (Task 8): `payOpen`/`setPayOpen` is wired to the "Pay
- * bill" button but no sheet is rendered yet — Task 8 drops in
- * `<PayBillSheet open={payOpen} onClose={() => setPayOpen(false)}
- * accountId={summary.accountId} />` (or similar) here.
+ * Pay-bill (Task 8): `payOpen`/`setPayOpen` gates `<PayBillSheet>`,
+ * rendered once `summary` has loaded. The sheet's `api.cards.pay` call
+ * bumps data on success, and both `summary` and `txs` here re-fetch via
+ * that same `useApiData` signal — no manual refresh wiring needed.
  *
  * Source values transcribed verbatim:
  *  - Card visual: "Total outstanding" label + value, bank/network top
@@ -50,6 +50,7 @@ import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { PayBillSheet } from '../app/PayBillSheet';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
@@ -117,7 +118,8 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
   const dueColor = dueToneColor(t, summary.dueTone);
 
   return (
-    <MPageShell title={summary.name || a.name} onBack={pop} right={<SearchButton />}>
+    <>
+      <MPageShell title={summary.name || a.name} onBack={pop} right={<SearchButton />}>
       {/* Credit card visual (MobileCards.jsx:262–288) */}
       <LinearGradient
         colors={a.gradient}
@@ -291,7 +293,14 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
           <Text style={[styles.cycleEmptyText, { color: t.text3 }]}>No card transactions yet.</Text>
         </GlassCard>
       )}
-    </MPageShell>
+      </MPageShell>
+
+      {/* Rendered as a sibling of MPageShell (not inside its ScrollView) so
+       * the sheet's absolute-fill backdrop/surface covers the whole screen
+       * rather than just the scroll content box — same reasoning as
+       * AddTxSheet, which AppShell mounts at the app root. */}
+      <PayBillSheet open={payOpen} onClose={() => setPayOpen(false)} card={summary} />
+    </>
   );
 }
 
