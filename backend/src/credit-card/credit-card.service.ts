@@ -121,7 +121,18 @@ export class CreditCardService {
   }
 
   async updateConfig(accountId: string, userId: string, dto: UpdateCardDto) {
-    const card = await this.loadCard(accountId, userId);
+    let card = await this.cardRepo.findOne({ where: { accountId, userId } });
+    if (!card) {
+      // Legacy credit accounts (created before Slice B) have no credit_card
+      // row. Create one on first config-save (the mobile "Set up this card"
+      // empty state), guarded to the user's own CREDIT accounts. Column
+      // defaults mirror the create-on-account-create seed.
+      const account = await this.accountsService.findOne(accountId, userId);
+      if (account.type !== AccountType.CREDIT) {
+        throw new BadRequestException('Account is not a credit card');
+      }
+      card = this.cardRepo.create({ accountId, userId });
+    }
     Object.assign(card, dto);
     await this.cardRepo.save(card);
     return this.getSummary(accountId, userId);

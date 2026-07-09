@@ -131,3 +131,63 @@ describe('CreditCardService.getSummary', () => {
     );
   });
 });
+
+describe('updateConfig upsert (legacy card)', () => {
+  let service: CreditCardService;
+  let cardRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+  let accountsService: { findOne: jest.Mock };
+
+  beforeEach(() => {
+    cardRepo = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    };
+    accountsService = {
+      findOne: jest.fn(),
+    };
+    service = new CreditCardService(
+      accountsService as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      cardRepo as never,
+    );
+  });
+
+  it('creates the row from defaults when none exists, then applies the dto', async () => {
+    cardRepo.findOne = jest.fn().mockResolvedValue(null); // no existing row
+    accountsService.findOne = jest
+      .fn()
+      .mockResolvedValue({ id: 'acc1', type: AccountType.CREDIT, name: 'HDFC', balance: -5000 });
+    const created: any = { accountId: 'acc1', userId: 'u1', creditLimit: 0, statementDay: 1, graceDays: 18 };
+    cardRepo.create = jest.fn().mockReturnValue(created);
+    cardRepo.save = jest.fn().mockImplementation(async (c) => c);
+    // getSummary re-reads the row; stub it to short-circuit after the save
+    const getSummary = jest.spyOn(service, 'getSummary').mockResolvedValue({ ok: true } as any);
+
+    await service.updateConfig('acc1', 'u1', { creditLimit: 200000, statementDay: 5 });
+
+    expect(cardRepo.create).toHaveBeenCalledWith({ accountId: 'acc1', userId: 'u1' });
+    expect(cardRepo.save).toHaveBeenCalledWith(expect.objectContaining({ creditLimit: 200000, statementDay: 5 }));
+    expect(getSummary).toHaveBeenCalledWith('acc1', 'u1');
+  });
+
+  it('rejects setting up a non-credit account', async () => {
+    cardRepo.findOne = jest.fn().mockResolvedValue(null);
+    accountsService.findOne = jest.fn().mockResolvedValue({ id: 'acc1', type: AccountType.CHECKING, name: 'SBI', balance: 100 });
+    await expect(service.updateConfig('acc1', 'u1', { creditLimit: 1 })).rejects.toThrow('Account is not a credit card');
+    expect(cardRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('updates in place when the row already exists (no create)', async () => {
+    const existing: any = { accountId: 'acc1', userId: 'u1', creditLimit: 0, statementDay: 1 };
+    cardRepo.findOne = jest.fn().mockResolvedValue(existing);
+    cardRepo.save = jest.fn().mockImplementation(async (c) => c);
+    cardRepo.create = jest.fn();
+    jest.spyOn(service, 'getSummary').mockResolvedValue({ ok: true } as any);
+    await service.updateConfig('acc1', 'u1', { creditLimit: 50000 });
+    expect(cardRepo.create).not.toHaveBeenCalled();
+    expect(cardRepo.save).toHaveBeenCalledWith(expect.objectContaining({ creditLimit: 50000 }));
+  });
+});
