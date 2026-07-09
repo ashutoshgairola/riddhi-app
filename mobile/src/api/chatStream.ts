@@ -28,9 +28,18 @@ export class ChatStreamInterrupted extends Error {
 export interface StreamChatOptions {
   threadId?: string;
   message: string;
+  /**
+   * Client-generated per-turn id. On Retry the caller reuses the SAME id so the
+   * backend dedupes the turn (replay/resume) instead of logging a second action.
+   */
+  clientMsgId?: string;
   onEvent: (event: ChatStreamEvent) => void;
   signal?: AbortSignal;
 }
+
+// No bytes for this long (heartbeats included — the backend beats every ~10s)
+// means the socket is hung. Trip a clean interrupt instead of hanging forever.
+const IDLE_TIMEOUT_MS = 25_000;
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const token = getAuthToken();
@@ -42,7 +51,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       'ngrok-skip-browser-warning': 'true',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ threadId: opts.threadId, message: opts.message }),
+    body: JSON.stringify({
+      threadId: opts.threadId,
+      message: opts.message,
+      clientMsgId: opts.clientMsgId,
+    }),
     signal: opts.signal,
   });
 
@@ -54,6 +67,25 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = '';
   let sawEvent = false;
+
+  // Idle watchdog: reset on every read that returns bytes (heartbeats count —
+  // they arrive as bytes even though flushFrame ignores them). Cancelling the
+  // reader unblocks the pending read() so the loop tears down promptly.
+  let idleTripped = false;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  const clearIdle = (): void => {
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+  };
+  const armIdle = (): void => {
+    clearIdle();
+    idleTimer = setTimeout(() => {
+      idleTripped = true;
+      void reader.cancel().catch(() => {});
+    }, IDLE_TIMEOUT_MS);
+  };
 
   const flushFrame = (frame: string): void => {
     for (const line of frame.split('\n')) {
@@ -71,9 +103,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   };
 
   try {
+    armIdle();
     for (;;) {
       const { done, value } = await reader.read();
+      // A watchdog-triggered cancel() surfaces as done/throw — treat as a drop.
+      if (idleTripped) throw new ChatStreamInterrupted();
       if (done) break;
+      armIdle(); // got bytes → the pipe is alive
       buffer += decoder.decode(value, { stream: true });
       let sep = buffer.indexOf('\n\n');
       while (sep !== -1) {
@@ -84,7 +120,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
     if (buffer.trim()) flushFrame(buffer);
   } catch (err) {
-    if (sawEvent) throw new ChatStreamInterrupted();
+    if (idleTripped || sawEvent) throw new ChatStreamInterrupted();
     throw err;
+  } finally {
+    clearIdle();
+    // Release the socket on every exit path (normal end, throw, abort).
+    await reader.cancel().catch(() => {});
   }
 }

@@ -256,6 +256,139 @@ describe('AiChatService agent loop', () => {
   });
 });
 
+describe('AiChatService turn idempotency (retry)', () => {
+  it('runs a normal turn for a first-time clientMsgId and persists it on the user row', async () => {
+    const { client, streamCalls } = scriptedClient([
+      { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Done.' }] },
+    ]);
+    const { service, messageRepo } = makeService(client);
+    const { emit } = collect();
+
+    await service.runTurn('u1', null, 'hi', emit, { clientMsgId: 'c-new' });
+
+    // Idempotency lookup found nothing → fresh turn.
+    expect(streamCalls).toHaveLength(1);
+    const userCreate = messageRepo.create.mock.calls.find(
+      (c) => c[0].role === 'user',
+    );
+    expect(userCreate).toBeDefined();
+    expect(userCreate?.[0].clientMsgId).toBe('c-new');
+  });
+
+  it('replays persisted blocks on a retry — no new user row, no model or tool call', async () => {
+    const userRow = {
+      id: 'urow1',
+      threadId: 't1',
+      role: 'user',
+      clientMsgId: 'c-dup',
+      blocks: [{ type: 'text', text: 'log a ₹1,000 pizza' }],
+      createdAt: new Date(1),
+    };
+    const assistantRow = {
+      id: 'arow1',
+      threadId: 't1',
+      role: 'assistant',
+      blocks: [
+        { type: 'text', text: 'Logged one ₹1,000 pizza. Food is now ₹1,450.' },
+      ],
+      createdAt: new Date(2),
+    };
+
+    const { client, streamCalls } = scriptedClient([
+      { stop_reason: 'end_turn', content: [{ type: 'text', text: 'unused' }] },
+    ]);
+    const { service, threadRepo, messageRepo, goals } = makeService(client);
+    threadRepo.findOne.mockResolvedValue({ id: 't1', userId: 'u1' } as never);
+    messageRepo.findOne.mockResolvedValue(userRow as never);
+    messageRepo.find.mockResolvedValue([userRow, assistantRow] as never);
+
+    const { events, emit } = collect();
+    await service.runTurn('u1', 't1', 'log a ₹1,000 pizza', emit, {
+      clientMsgId: 'c-dup',
+    });
+
+    // No second turn ran: no model call, no tool executed.
+    expect(streamCalls).toHaveLength(0);
+    expect(goals.remove).not.toHaveBeenCalled();
+    // No duplicate user row was inserted.
+    expect(
+      messageRepo.save.mock.calls.filter((c) => c[0].role === 'user'),
+    ).toHaveLength(0);
+    // Persisted assistant text was re-emitted.
+    const types = events.map((e) => e.type);
+    expect(types).toEqual(['message_start', 'text_delta', 'message_end']);
+    const delta = events.find((e) => e.type === 'text_delta');
+    expect(delta?.type === 'text_delta' && delta.delta).toBe(
+      'Logged one ₹1,000 pizza. Food is now ₹1,450.',
+    );
+  });
+
+  it('resumes narration over a committed tool_result when the prior turn was interrupted', async () => {
+    const userRow = {
+      id: 'urow2',
+      threadId: 't1',
+      role: 'user',
+      clientMsgId: 'c-inc',
+      blocks: [{ type: 'text', text: 'log a ₹1,000 pizza' }],
+      createdAt: new Date(1),
+    };
+    const assistantToolUse = {
+      id: 'arow2',
+      threadId: 't1',
+      role: 'assistant',
+      blocks: [{ type: 'tool_use', id: 'tu1', name: 'list_goals', input: {} }],
+      createdAt: new Date(2),
+    };
+    const toolRow = {
+      id: 'trow1',
+      threadId: 't1',
+      role: 'tool',
+      blocks: [{ type: 'tool_result', tool_use_id: 'tu1', content: '{}' }],
+      createdAt: new Date(3),
+    };
+
+    // One response: the model narrates from the already-committed tool_result
+    // and does NOT re-issue the tool.
+    const { client, streamCalls } = scriptedClient([
+      {
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'Already logged — Food is ₹1,450.' }],
+      },
+    ]);
+    const { service, threadRepo, messageRepo } = makeService(client);
+    threadRepo.findOne.mockResolvedValue({ id: 't1', userId: 'u1' } as never);
+    messageRepo.findOne.mockResolvedValue(userRow as never);
+    messageRepo.find.mockResolvedValue([
+      userRow,
+      assistantToolUse,
+      toolRow,
+    ] as never);
+
+    const { events, emit } = collect();
+    await service.runTurn('u1', 't1', 'log a ₹1,000 pizza', emit, {
+      clientMsgId: 'c-inc',
+    });
+
+    // Exactly one model call (the resumed narration), no duplicate user row.
+    expect(streamCalls).toHaveLength(1);
+    expect(
+      messageRepo.save.mock.calls.filter((c) => c[0].role === 'user'),
+    ).toHaveLength(0);
+    // History fed to the model already carried the committed tool_result.
+    const sentMessages = streamCalls[0].messages as {
+      role: string;
+      content: { type: string }[];
+    }[];
+    const hasToolResult = sentMessages.some((m) =>
+      m.content.some((b) => b.type === 'tool_result'),
+    );
+    expect(hasToolResult).toBe(true);
+    const types = events.map((e) => e.type);
+    expect(types).toContain('text_delta');
+    expect(types[types.length - 1]).toBe('message_end');
+  });
+});
+
 describe('AiChatService pending actions', () => {
   it('confirmAction executes the tool and persists an event row', async () => {
     const { service, actionRepo, messageRepo, goals } = makeService(

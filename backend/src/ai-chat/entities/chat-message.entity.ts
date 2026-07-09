@@ -23,6 +23,8 @@ import { ChatThread } from './chat-thread.entity';
 export type ChatMessageRole = 'user' | 'assistant' | 'tool' | 'event';
 
 @Entity('chat_message')
+// Composite index backs the (threadId, clientMsgId) idempotency lookup on retry.
+@Index(['threadId', 'clientMsgId'])
 export class ChatMessage {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -30,6 +32,14 @@ export class ChatMessage {
   @Index()
   @Column({ type: 'uuid' })
   threadId: string;
+
+  /**
+   * Client-generated turn id (NOT a server UUID). Present on 'user' rows so a
+   * Retry that reuses the same id is recognized as the same turn instead of
+   * inserting a duplicate user message. Nullable — auto-syncs (no migration).
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  clientMsgId: string | null;
 
   @ManyToOne(() => ChatThread, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'threadId' })

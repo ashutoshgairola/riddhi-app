@@ -37,6 +37,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as Crypto from "expo-crypto";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
@@ -128,12 +129,20 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const threadIdRef = useRef<string | undefined>(entryData.threadId);
   const lastSentRef = useRef<string | null>(null);
+  // clientMsgId of the last turn; Retry reuses it so the backend dedupes the
+  // turn (replay/resume) instead of logging a second action.
+  const lastClientMsgIdRef = useRef<string | null>(null);
+  // Aborts the in-flight stream when the screen unmounts (navigate-away).
+  const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const bootRef = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages, busy]);
+
+  // Abort any in-flight stream on navigate-away so we stop reading a dead pipe.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const loadThread = async (threadId: string) => {
     setBusy(true);
@@ -159,18 +168,27 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
     ]);
   };
 
-  const send = async (text?: string) => {
+  const send = async (text?: string, clientMsgId?: string) => {
     const q = (text ?? input).trim();
     if (!q || busy) return;
     setInput("");
     lastSentRef.current = q;
+    // Fresh send → a new turn id. Retry → reuse the failed turn's id so the
+    // backend recognizes it as the same turn and never double-logs.
+    const turnId = clientMsgId ?? Crypto.randomUUID();
+    lastClientMsgIdRef.current = turnId;
     setMessages((m) => [...m, userMsg(q)]);
     setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       await streamChat({
         threadId: threadIdRef.current,
         message: q,
+        clientMsgId: turnId,
+        signal: controller.signal,
         onEvent: (event) => {
           if (event.type === "message_start")
             threadIdRef.current = event.threadId;
@@ -178,12 +196,18 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
         },
       });
     } catch (err) {
+      // Screen unmounted (navigate-away) — drop silently, no error UI.
+      if (controller.signal.aborted) return;
       if (err instanceof ChatStreamInterrupted) {
         appendError("Connection dropped mid-reply.", true);
       } else {
         // Stream never started — fall back to the buffered endpoint.
         try {
-          const res = await chatApi.sendMessageBuffered(threadIdRef.current, q);
+          const res = await chatApi.sendMessageBuffered(
+            threadIdRef.current,
+            q,
+            turnId,
+          );
           threadIdRef.current = res.threadId;
           const blocks: ChatBlock[] = res.blocks.map((b) =>
             b.type === "text"
@@ -367,11 +391,14 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
               <Pressable
                 onPress={() => {
                   const retry = lastSentRef.current;
+                  // Reuse the failed turn's id → backend replays/resumes it
+                  // instead of running (and narrating) the action a second time.
+                  const retryId = lastClientMsgIdRef.current;
                   // Drop the failed turn's error bubble before retrying.
                   setMessages((m) =>
                     m.filter((msg) => !msg.blocks.includes(block)),
                   );
-                  void send(retry ?? undefined);
+                  void send(retry ?? undefined, retryId ?? undefined);
                 }}
                 style={[
                   styles.retryBtn,

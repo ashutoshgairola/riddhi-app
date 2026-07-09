@@ -18,7 +18,13 @@ import { ChatStreamEvent } from './stream-events';
 
 type AuthedUser = { userId: string; email: string };
 
-const HEARTBEAT_MS = 15_000;
+// Express only defines res.flush() when the compression middleware is active,
+// so it isn't on the base Response type — declare it as optional.
+type FlushableResponse = Response & { flush?: () => void };
+
+// Below common proxy idle timeouts (~15s on ngrok etc.), with margin so a
+// heartbeat always lands before the pipe is considered idle.
+const HEARTBEAT_MS = 10_000;
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai-chat')
@@ -33,7 +39,7 @@ export class AiChatController {
   async stream(
     @CurrentUser() user: AuthedUser,
     @Body() dto: SendMessageDto,
-    @Res() res: Response,
+    @Res() res: FlushableResponse,
   ): Promise<void> {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -41,16 +47,34 @@ export class AiChatController {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    // Prove the pipe is open on the client's first read. During the agent's
+    // opening phase (adaptive thinking + a tool call) little data flows, so an
+    // immediate heartbeat keeps proxies from treating the socket as idle before
+    // the first real event lands.
+    if (!res.writableEnded) {
+      res.write(': ping\n\n');
+      res.flush?.();
+    }
+
     const write = (event: ChatStreamEvent): void => {
       if (!res.writableEnded) {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
+        res.flush?.();
       }
     };
 
     // Keeps proxies from timing out the connection while tools execute.
     const heartbeat = setInterval(() => {
-      if (!res.writableEnded) res.write(': ping\n\n');
+      if (!res.writableEnded) {
+        res.write(': ping\n\n');
+        res.flush?.();
+      }
     }, HEARTBEAT_MS);
+
+    // If the client disconnects mid-turn, abort the in-flight agent work
+    // instead of running the loop to completion against a dead socket.
+    const abort = new AbortController();
+    res.on('close', () => abort.abort());
 
     try {
       await this.aiChatService.runTurn(
@@ -58,6 +82,7 @@ export class AiChatController {
         dto.threadId ?? null,
         dto.message,
         write,
+        { clientMsgId: dto.clientMsgId, signal: abort.signal },
       );
     } catch (err) {
       write({
@@ -79,6 +104,7 @@ export class AiChatController {
       user.userId,
       dto.threadId ?? null,
       dto.message,
+      dto.clientMsgId,
     );
   }
 

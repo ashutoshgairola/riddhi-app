@@ -38,10 +38,15 @@ export interface ActionResolution {
 }
 
 export const chatApi = {
-  sendMessageBuffered(threadId: string | undefined, message: string) {
+  sendMessageBuffered(
+    threadId: string | undefined,
+    message: string,
+    clientMsgId?: string,
+  ) {
     return apiClient.post<BufferedTurn>('/ai-chat/messages', {
       threadId,
       message,
+      clientMsgId,
     });
   },
   listThreads() {

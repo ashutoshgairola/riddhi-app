@@ -65,6 +65,13 @@ export interface ActionResolution {
   widgets: Widget[];
 }
 
+export interface RunTurnOptions {
+  /** Client-generated turn id used to dedupe retries (see runTurn). */
+  clientMsgId?: string;
+  /** Aborts the in-flight turn when the client disconnects. */
+  signal?: AbortSignal;
+}
+
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
@@ -122,14 +129,30 @@ export class AiChatService {
     threadId: string | null,
     message: string,
     emit: ChatStreamEmitter,
+    options: RunTurnOptions = {},
   ): Promise<TurnResult> {
+    const { clientMsgId, signal } = options;
     const thread = await this.findOrCreateThread(userId, threadId, message);
+
+    // ── Turn-level idempotency (Retry) ──────────────────────────────────────
+    // If this exact turn already ran (same clientMsgId in this thread), do NOT
+    // insert a duplicate user row and do NOT re-run tools. Replay the committed
+    // reply, or resume narration over the already-committed tool_result.
+    if (clientMsgId) {
+      const existing = await this.messageRepo.findOne({
+        where: { threadId: thread.id, role: 'user', clientMsgId },
+      });
+      if (existing) {
+        return this.handleRetry(userId, thread.id, existing, emit, signal);
+      }
+    }
 
     const userRow = await this.messageRepo.save(
       this.messageRepo.create({
         threadId: thread.id,
         role: 'user',
         blocks: [{ type: 'text', text: message }],
+        clientMsgId: clientMsgId ?? null,
       }),
     );
     thread.lastMessageAt = new Date();
@@ -151,7 +174,7 @@ export class AiChatService {
     }
 
     try {
-      await this.agentLoop(userId, thread.id, emit);
+      await this.agentLoop(userId, thread.id, emit, signal);
       emit({
         type: 'message_end',
         messageId: userRow.id,
@@ -171,10 +194,96 @@ export class AiChatService {
     return { threadId: thread.id, messageId: userRow.id };
   }
 
+  /**
+   * Handles a retry of an already-seen turn (matched by clientMsgId). No new
+   * user row, no tool re-execution.
+   *
+   * Heuristic (completed vs incomplete) is read from the persisted rows that
+   * follow the user row:
+   *  - **Replay** when the turn's last row is a terminal assistant message
+   *    (has visible text and no unanswered tool_use). Re-emit its persisted
+   *    text/widget/confirmation blocks. Numbers come from committed state, so
+   *    there is no second log and no wrong total.
+   *  - **Resume** otherwise (last row is a tool_result, an assistant tool_use
+   *    awaiting a result, or nothing yet). The history already contains any
+   *    committed tool_result, so the model narrates from true state without
+   *    re-calling the committed tool.
+   */
+  private async handleRetry(
+    userId: string,
+    threadId: string,
+    userRow: ChatMessage,
+    emit: ChatStreamEmitter,
+    signal?: AbortSignal,
+  ): Promise<TurnResult> {
+    const rows = await this.messageRepo.find({
+      where: { threadId },
+      order: { createdAt: 'ASC' },
+    });
+    const userIdx = rows.findIndex((r) => r.id === userRow.id);
+    const turnRows = userIdx === -1 ? [] : rows.slice(userIdx + 1);
+    const last = turnRows[turnRows.length - 1];
+    const completed =
+      !!last && last.role === 'assistant' && this.isTerminalAssistant(last);
+
+    emit({ type: 'message_start', threadId, messageId: userRow.id });
+
+    if (completed) {
+      for (const row of turnRows) {
+        if (row.role !== 'assistant') continue;
+        for (const block of row.blocks as {
+          type?: string;
+          text?: string;
+          widget?: Widget;
+        }[]) {
+          if (block?.type === 'text' && block.text) {
+            emit({ type: 'text_delta', delta: block.text });
+          } else if (block?.type === 'widget' && block.widget) {
+            emit({ type: 'widget', widget: block.widget });
+          } else if (block?.type === 'confirmation' && block.widget) {
+            emit({
+              type: 'confirmation_required',
+              widget: block.widget as ConfirmationWidget,
+            });
+          }
+        }
+      }
+      emit({ type: 'message_end', messageId: userRow.id, stopReason: 'end_turn' });
+      return { threadId, messageId: userRow.id };
+    }
+
+    // Incomplete turn (or no client key path but existing row) → resume.
+    try {
+      await this.agentLoop(userId, threadId, emit, signal);
+      emit({ type: 'message_end', messageId: userRow.id, stopReason: 'end_turn' });
+    } catch (err) {
+      this.logger.error(
+        `Agent turn resume failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      emit({
+        type: 'error',
+        message: 'Something went wrong talking to the assistant.',
+        retryable: true,
+      });
+    }
+    return { threadId, messageId: userRow.id };
+  }
+
+  /** A terminal assistant row has visible text and no unanswered tool_use. */
+  private isTerminalAssistant(row: ChatMessage): boolean {
+    const blocks = row.blocks as { type?: string; text?: string }[];
+    const hasToolUse = blocks.some((b) => b?.type === 'tool_use');
+    const hasText = blocks.some(
+      (b) => b?.type === 'text' && (b.text ?? '').trim().length > 0,
+    );
+    return hasText && !hasToolUse;
+  }
+
   private async agentLoop(
     userId: string,
     threadId: string,
     emit: ChatStreamEmitter,
+    signal?: AbortSignal,
   ): Promise<void> {
     const client = this.client!;
     const promptContext = await this.buildPromptContext(userId);
@@ -206,14 +315,21 @@ export class AiChatService {
     ];
 
     for (let iteration = 0; iteration < MAX_AGENT_ITERATIONS; iteration++) {
-      const stream = client.messages.stream({
-        model: this.model,
-        max_tokens: MAX_TOKENS,
-        thinking: { type: 'adaptive' },
-        system,
-        tools,
-        messages,
-      });
+      // Client disconnected — stop before the next model call instead of
+      // running the loop to completion against a dead socket.
+      if (signal?.aborted) return;
+
+      const stream = client.messages.stream(
+        {
+          model: this.model,
+          max_tokens: MAX_TOKENS,
+          thinking: { type: 'adaptive' },
+          system,
+          tools,
+          messages,
+        },
+        { signal },
+      );
 
       stream.on('text', (delta) => emit({ type: 'text_delta', delta }));
 
@@ -387,6 +503,7 @@ export class AiChatService {
     userId: string,
     threadId: string | null,
     message: string,
+    clientMsgId?: string,
   ): Promise<{ threadId: string; messageId: string; blocks: BufferedBlock[] }> {
     const blocks: BufferedBlock[] = [];
     const push = (event: ChatStreamEvent): void => {
@@ -406,7 +523,9 @@ export class AiChatService {
           break;
       }
     };
-    const result = await this.runTurn(userId, threadId, message, push);
+    const result = await this.runTurn(userId, threadId, message, push, {
+      clientMsgId,
+    });
     return { ...result, blocks };
   }
 
