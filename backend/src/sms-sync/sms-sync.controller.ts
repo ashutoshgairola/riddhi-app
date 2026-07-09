@@ -19,9 +19,9 @@ export class SmsSyncController {
 
   @Post('parse-batch')
   parseBatch(
-    @CurrentUser() _user: { userId: string; email: string },
+    @CurrentUser() user: { userId: string; email: string },
     @Body() dto: ParseSmsBatchDto,
   ) {
-    return this.smsSyncService.parseBatch(dto.messages);
+    return this.smsSyncService.parseBatch(user.userId, dto.messages);
   }
 }

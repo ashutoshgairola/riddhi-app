@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ParseSmsResult } from './dto/parse.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ParseSmsResult, ParsedSmsBatchItem } from './dto/parse.dto';
 import { BANK_MAP, CATEGORY_KEYWORD_MAP, Category } from './keyword-map';
+import { AccountsService } from '../accounts/accounts.service';
+import { TransactionsService } from '../transactions/transactions.service';
+import { CreditCard } from '../credit-card/credit-card.entity';
+import { AccountType, TransactionType } from '../common/enums';
+import { resolvePaymentSource } from '../notification-sync/payment-source-resolver';
+import { reverseDedupVerdict } from '../statements/reverse-dedup';
+import { ExistingTxn } from '../statements/statement-dedup';
 
 export interface ParsedSms extends ParseSmsResult {
   /** Echoes the client-provided id so the device can de-dupe/track. */
@@ -10,18 +19,86 @@ export interface ParsedSms extends ParseSmsResult {
 
 @Injectable()
 export class SmsSyncService {
+  constructor(
+    private readonly accountsService: AccountsService,
+    private readonly transactionsService: TransactionsService,
+    @InjectRepository(CreditCard)
+    private readonly cardRepo: Repository<CreditCard>,
+  ) {}
+
   /**
-   * Parse a batch of on-device SMS bodies, keeping only those that look like
-   * real transaction alerts (an amount was found). The client sends every
-   * recent message; the server does the filtering so the keyword logic lives
-   * in one place.
+   * Parse a batch of on-device SMS bodies, keep the transaction alerts, and —
+   * where the text identifies the account — resolve its `accountId` and flag a
+   * likely reverse-duplicate (a charge already recorded from SMS, notification
+   * capture, or a statement import). Flagging (not dropping) leaves the user in
+   * control on the Sync review screen.
    */
-  parseBatch(messages: { id: string; raw: string }[]): ParsedSms[] {
-    const out: ParsedSms[] = [];
-    for (const m of messages) {
-      const result = this.parse(m.raw);
-      if (result.amount === null) continue; // not a transaction alert
-      out.push({ id: m.id, raw: m.raw, ...result });
+  async parseBatch(
+    userId: string,
+    messages: { id: string; raw: string; date?: number }[],
+  ): Promise<ParsedSmsBatchItem[]> {
+    const parsed = messages
+      .map((m) => ({ m, result: this.parse(m.raw) }))
+      .filter((x) => x.result.amount !== null);
+    if (parsed.length === 0) return [];
+
+    const accounts = await this.accountsService.findAll(userId);
+    // Only credit accounts carry a last4 (on their credit_card row).
+    const cardRows = await this.cardRepo.find({ where: { userId } });
+    const last4ByAccount = new Map(cardRows.map((c) => [c.accountId, c.last4]));
+    const augmentedAccounts = accounts.map((a) => ({
+      id: a.id,
+      institutionName: a.institutionName,
+      type: a.type,
+      last4: last4ByAccount.get(a.id) ?? null,
+    }));
+
+    const out: ParsedSmsBatchItem[] = [];
+    for (const { m, result } of parsed) {
+      const { accountId } = resolvePaymentSource(
+        result.bank,
+        result.paymentMethod, // rail: 'upi' | 'card' | 'autopay'
+        augmentedAccounts,
+        result.last4,
+      );
+
+      let possibleDuplicate = false;
+      if (accountId) {
+        const when = m.date ? new Date(m.date) : new Date();
+        const from = new Date(when.getTime() - 3 * 86_400_000);
+        const to = new Date(when.getTime() + 3 * 86_400_000);
+        const rows = await this.transactionsService.findForAccountInRange(
+          userId,
+          accountId,
+          from,
+          to,
+        );
+        const existing: ExistingTxn[] = rows.map((tx) => ({
+          id: tx.id,
+          isoDate: new Date(tx.date).toISOString().slice(0, 10),
+          amount: Math.abs(tx.amount),
+          direction:
+            tx.type === TransactionType.INCOME
+              ? 'credit'
+              : tx.type === TransactionType.TRANSFER
+                ? tx.accountId === accountId
+                  ? 'debit'
+                  : 'credit'
+                : 'debit',
+          descriptor: tx.description ?? '',
+          importFingerprint: tx.importFingerprint ?? null,
+        }));
+        const candidate = {
+          isoDate: when.toISOString().slice(0, 10),
+          amount: result.amount as number,
+          direction: (result.type === 'income' ? 'credit' : 'debit') as 'credit' | 'debit',
+          descriptor: result.merchant ?? '',
+          category: null,
+        };
+        possibleDuplicate = reverseDedupVerdict(candidate, existing) !== 'new';
+      }
+
+      out.push({ id: m.id, raw: m.raw, ...result, accountId, possibleDuplicate });
     }
     return out;
   }

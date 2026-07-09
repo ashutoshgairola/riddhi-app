@@ -4,6 +4,8 @@ import {
   IsArray,
   ValidateNested,
   ArrayMaxSize,
+  IsInt,
+  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -21,6 +23,10 @@ export class SmsMessageDto {
   @IsString()
   @IsNotEmpty()
   raw: string;
+
+  @IsOptional()
+  @IsInt()
+  date?: number; // epoch ms; used as the txn date + reverse-dedup window center
 }
 
 export class ParseSmsBatchDto {
@@ -41,4 +47,11 @@ export interface ParseSmsResult {
   last4: string | null;
   confidence: number;
   paymentMethod: 'upi' | 'card' | 'autopay';
+}
+
+export interface ParsedSmsBatchItem extends ParseSmsResult {
+  id: string;
+  raw: string;
+  accountId: string | null;
+  possibleDuplicate: boolean;
 }
