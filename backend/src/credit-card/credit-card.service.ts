@@ -7,7 +7,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { Transaction } from '../transactions/transaction.entity';
 import { CreditCard } from './credit-card.entity';
 import { TransactionType, AccountType, PaymentMethod } from '../common/enums';
-import { computeCardSummary, CardTxn, CategoryMeta } from './card-summary';
+import { computeCardSummary, CardTxn, CardLedgerTxn, CategoryMeta } from './card-summary';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { PayCardDto } from './dto/pay-card.dto';
 
@@ -58,6 +58,31 @@ export class CreditCardService {
       ...paymentsIn.map((t) => toCardTxn(t, true)),
     ];
 
+    // Merged ledger for the "Card transactions" list: swipes are signed
+    // negative (a debit against the card), payments-in signed positive (a
+    // credit), newest first — so the mobile client can render both from a
+    // single list without re-querying the shared transactions repo (whose
+    // `accountId` filter can't see a payment, since its accountId is the
+    // *source* bank account, not the card).
+    const ledger: CardLedgerTxn[] = [
+      ...swipes.map((t) => ({
+        id: t.id,
+        description: t.description,
+        amount: -Math.abs(t.amount),
+        date: new Date(t.date).toISOString(),
+        categoryId: t.categoryId,
+        kind: 'swipe' as const,
+      })),
+      ...paymentsIn.map((t) => ({
+        id: t.id,
+        description: t.description,
+        amount: Math.abs(t.amount),
+        date: new Date(t.date).toISOString(),
+        categoryId: t.categoryId,
+        kind: 'payment' as const,
+      })),
+    ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
     const categoryList = await this.categoriesService.findAll(userId);
     const categories = new Map<string, CategoryMeta>(
       categoryList.map((c) => [c.id, { id: c.id, name: c.name, color: c.color }]),
@@ -88,6 +113,7 @@ export class CreditCardService {
       last4: card.last4,
       rewardRate: card.rewardRate,
       ...summary,
+      transactions: ledger,
       accountId,
       name: account.name,
       institutionName: account.institutionName,

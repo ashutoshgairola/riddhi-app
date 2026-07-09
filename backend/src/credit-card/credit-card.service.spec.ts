@@ -47,9 +47,24 @@ describe('CreditCardService.getSummary', () => {
             {
               // Today, so it always falls within the current (unbilled) cycle
               // regardless of when this test runs.
+              id: 'tx-swipe-1',
+              description: 'Grocery run',
               amount: 2000,
               date: new Date(),
               type: TransactionType.EXPENSE,
+              categoryId: 'c1',
+            },
+          ]);
+        }
+        if (opts.where.type === TransactionType.TRANSFER) {
+          return Promise.resolve([
+            {
+              id: 'tx-payment-1',
+              description: 'HDFC Card — bill paid',
+              amount: 5000,
+              // Yesterday, so it sorts after today's swipe when newest-first.
+              date: new Date(Date.now() - 86400000),
+              type: TransactionType.TRANSFER,
               categoryId: 'c1',
             },
           ]);
@@ -83,6 +98,30 @@ describe('CreditCardService.getSummary', () => {
     expect(summary.creditLimit).toBe(100000);
     expect(summary.accountId).toBe('acc-1');
     expect(summary.name).toBe('HDFC Card');
+  });
+
+  it('returns a merged, newest-first transactions ledger with signed swipe/payment amounts', async () => {
+    const { service } = makeService();
+    const summary = await service.getSummary('acc-1', 'user-1');
+
+    expect(summary.transactions).toEqual([
+      {
+        id: 'tx-swipe-1',
+        description: 'Grocery run',
+        amount: -2000,
+        date: expect.any(String),
+        categoryId: 'c1',
+        kind: 'swipe',
+      },
+      {
+        id: 'tx-payment-1',
+        description: 'HDFC Card — bill paid',
+        amount: 5000,
+        date: expect.any(String),
+        categoryId: 'c1',
+        kind: 'payment',
+      },
+    ]);
   });
 
   it('rejects a non-credit account', async () => {

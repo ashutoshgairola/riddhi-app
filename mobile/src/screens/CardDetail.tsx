@@ -55,7 +55,7 @@ import { api } from '../api';
 import { useApiData } from '../api/useApi';
 import { MPageShell } from './_MPageShell';
 import type { Account } from './Accounts';
-import type { CardSummaryView, CycleCategoryView, TxView } from '../api/types';
+import type { CardSummaryView, CardTxnView, CycleCategoryView } from '../api/types';
 
 // Money formatting (MobileCards.jsx:4) — unsigned, en-IN grouped.
 function cFmt(n: number): string {
@@ -88,8 +88,6 @@ function dueToneColor(t: ReturnType<typeof useTheme>['t'], tone: CardSummaryView
   return t.em;
 }
 
-const EMPTY_TXS: TxView[] = [];
-
 export function CardDetail({ entry }: { entry: ScreenEntry }) {
   const a = entry.data as Account;
   const { t } = useTheme();
@@ -103,12 +101,6 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
 
   // Seam for Task 8's PayBillSheet — the button below only opens it.
   const [payOpen, setPayOpen] = useState(false);
-
-  const { data: txs } = useApiData(
-    () => api.transactions.list({ accountId: String(a.id), limit: 12 }),
-    EMPTY_TXS,
-    [a.id],
-  );
 
   // Renders empty while the summary loads (or is unreachable) — mirrors
   // EventDetail's `if (!ev) return null;` guard.
@@ -204,9 +196,10 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
       {summary.cycleByCategory.length > 0 ? (
         <GlassCard style={styles.cycleCard}>
           <View style={styles.stackedBar}>
-            {summary.cycleByCategory.map((d: CycleCategoryView) => (
-              <View key={d.categoryId} style={{ flex: d.value, backgroundColor: d.color }} />
-            ))}
+            {summary.cycleByCategory.map((d: CycleCategoryView) => {
+              const flex = d.value;
+              return <View key={d.categoryId} style={{ flex, backgroundColor: d.color }} />;
+            })}
           </View>
           <View style={styles.cycleList}>
             {summary.cycleByCategory.map((d: CycleCategoryView) => {
@@ -247,27 +240,32 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
         </GlassCard>
       ) : null}
 
-      {/* Card transactions (MobileCards.jsx:363–380) */}
-      <SectionHead title="Card transactions" link={String(txs.length)} />
-      {txs.length > 0 ? (
+      {/* Card transactions (MobileCards.jsx:363–380) — swipes (debit) and bill
+       * payments (credit) merged server-side in `summary.transactions`, since
+       * a payment's `accountId` is the source bank account, not the card, so
+       * the shared transactions repo alone can't surface it here. */}
+      <SectionHead title="Card transactions" link={String(summary.transactions.length)} />
+      {summary.transactions.length > 0 ? (
         <ListCard>
-          {txs.map((tx, i) => {
-            const unbilled = tx.date >= summary.lastStatementDate;
+          {summary.transactions.map((tx: CardTxnView, i) => {
+            const isPayment = tx.kind === 'payment';
+            const unbilled = !isPayment && tx.date >= summary.lastStatementDate;
+            const kindColor = isPayment ? t.em : t.red;
             return (
-              <ListRow key={tx.id} last={i === txs.length - 1}>
-                <View style={[styles.txIconBox, { backgroundColor: tx.cCol + '22' }]}>
-                  <Text style={styles.txIconGlyph}>{tx.icon}</Text>
+              <ListRow key={tx.id} last={i === summary.transactions.length - 1}>
+                <View style={[styles.txIconBox, { backgroundColor: kindColor + '22' }]}>
+                  <Text style={styles.txIconGlyph}>{isPayment ? '↩️' : '💳'}</Text>
                 </View>
                 <View style={styles.txTextBlock}>
                   <Text
                     style={[styles.txDesc, { color: t.text1, fontFamily: weight(600) }]}
                     numberOfLines={1}
                   >
-                    {tx.desc}
+                    {tx.description}
                   </Text>
                   <View style={styles.txMetaRow}>
-                    <Text style={[styles.txCat, { color: tx.cCol, fontFamily: weight(600) }]}>
-                      {tx.cat}
+                    <Text style={[styles.txCat, { color: kindColor, fontFamily: weight(600) }]}>
+                      {isPayment ? 'Bill payment' : 'Card spend'}
                     </Text>
                     <Text style={[styles.txMetaDot, { color: t.text3 }]}>·</Text>
                     <Text style={[styles.txDate, { color: t.text3 }]}>{tx.date.slice(0, 10)}</Text>
@@ -276,12 +274,7 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
                     ) : null}
                   </View>
                 </View>
-                <Text
-                  style={[
-                    styles.txAmount,
-                    { color: tx.type === 'inc' ? t.em : t.red, fontFamily: weight(700) },
-                  ]}
-                >
+                <Text style={[styles.txAmount, { color: kindColor, fontFamily: weight(700) }]}>
                   {fmtSigned(tx.amount)}
                 </Text>
               </ListRow>

@@ -195,6 +195,17 @@ export interface ApiCycleCategory {
   color: string | null;
 }
 
+/** A single row in the merged "Card transactions" ledger — a swipe (debit,
+ * signed negative) or a bill payment (credit, signed positive), newest first. */
+export interface ApiCardTxn {
+  id: string;
+  description: string;
+  amount: number; // signed: swipe negative, payment positive
+  date: string;
+  categoryId: string;
+  kind: 'swipe' | 'payment';
+}
+
 export interface ApiCardSummary {
   accountId: string;
   name: string;
@@ -217,6 +228,7 @@ export interface ApiCardSummary {
   rewardsThisCycle: number;
   lastStatementDate: string;
   cycleByCategory: ApiCycleCategory[];
+  transactions: ApiCardTxn[];
 }
 
 // ── View-model types (shapes screens use) ────────────────────────────
@@ -357,6 +369,16 @@ export interface CycleCategoryView {
   color: string;
 }
 
+/** Credit-card ledger row view — pass-through of ApiCardTxn. */
+export interface CardTxnView {
+  id: string;
+  description: string;
+  amount: number; // signed: swipe negative, payment positive
+  date: string;
+  categoryId: string;
+  kind: 'swipe' | 'payment';
+}
+
 /** Credit-card summary view — matches ApiCardSummary plus a derived `dueTone`. */
 export interface CardSummaryView {
   accountId: string;
@@ -380,6 +402,7 @@ export interface CardSummaryView {
   rewardsThisCycle: number;
   lastStatementDate: string;
   cycleByCategory: CycleCategoryView[];
+  transactions: CardTxnView[];
   /** Derived from daysUntilDue: <=3 urgent, <=7 warn, else ok. */
   dueTone: 'ok' | 'warn' | 'urgent';
 }

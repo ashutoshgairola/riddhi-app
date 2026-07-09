@@ -19,6 +19,18 @@ export interface CardTxn {
 
 export interface CategoryMeta { id: string; name: string; color: string | null }
 
+/** A single row in the merged "Card transactions" ledger returned by
+ * `CreditCardService.getSummary` — a swipe (debit, signed negative) or a
+ * bill payment (credit, signed positive), newest first. */
+export interface CardLedgerTxn {
+  id: string;
+  description: string;
+  amount: number; // signed: swipe negative, payment positive
+  date: string; // ISO
+  categoryId: string;
+  kind: 'swipe' | 'payment';
+}
+
 export interface CycleCategory { categoryId: string; label: string; value: number; color: string | null }
 
 export interface CardSummary {

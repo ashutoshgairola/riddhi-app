@@ -21,8 +21,10 @@ import type {
   ApiReportOverview,
   ApiEvent,
   ApiCardSummary,
+  ApiCardTxn,
   ApiCycleCategory,
   CardSummaryView,
+  CardTxnView,
   CycleCategoryView,
   TxView,
   RecentTxView,
@@ -320,6 +322,19 @@ function toCycleCategoryView(c: ApiCycleCategory): CycleCategoryView {
   };
 }
 
+/** Pass-through — the merged ledger row already carries everything
+ * CardDetail needs (kind + signed amount decide render, not category). */
+function toCardTxnView(t: ApiCardTxn): CardTxnView {
+  return {
+    id: t.id,
+    description: t.description,
+    amount: t.amount,
+    date: t.date,
+    categoryId: t.categoryId,
+    kind: t.kind,
+  };
+}
+
 /**
  * Maps the backend credit-card summary → CardSummaryView.
  * Derives `dueTone` from `daysUntilDue` (<=3 urgent, <=7 warn, else ok)
@@ -350,6 +365,7 @@ export function toCardSummaryView(dto: ApiCardSummary): CardSummaryView {
     rewardsThisCycle: dto.rewardsThisCycle,
     lastStatementDate: dto.lastStatementDate,
     cycleByCategory: dto.cycleByCategory.map(toCycleCategoryView),
+    transactions: dto.transactions.map(toCardTxnView),
     dueTone,
   };
 }

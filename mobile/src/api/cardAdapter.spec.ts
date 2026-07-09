@@ -27,6 +27,24 @@ function makeDto(overrides: Partial<ApiCardSummary> = {}): ApiCardSummary {
       { categoryId: 'cat-1', label: 'Food', value: 3000, color: '#c9a86a' },
       { categoryId: 'cat-2', label: 'Shopping', value: 2000, color: null },
     ],
+    transactions: [
+      {
+        id: 'tx-1',
+        description: 'Card swipe',
+        amount: -1200,
+        date: '2026-07-06',
+        categoryId: 'cat-1',
+        kind: 'swipe',
+      },
+      {
+        id: 'tx-2',
+        description: 'HDFC Regalia — bill paid',
+        amount: 15000,
+        date: '2026-07-04',
+        categoryId: 'cat-1',
+        kind: 'payment',
+      },
+    ],
     ...overrides,
   };
 }
@@ -68,5 +86,27 @@ describe('toCardSummaryView', () => {
     expect(view.outstanding).toBe(dto.outstanding);
     expect(view.minDue).toBe(dto.minDue);
     expect(view.dueDate).toBe(dto.dueDate);
+  });
+
+  it('passes through the merged ledger with signed swipe/payment amounts intact', () => {
+    const view = toCardSummaryView(makeDto());
+    expect(view.transactions).toEqual([
+      {
+        id: 'tx-1',
+        description: 'Card swipe',
+        amount: -1200,
+        date: '2026-07-06',
+        categoryId: 'cat-1',
+        kind: 'swipe',
+      },
+      {
+        id: 'tx-2',
+        description: 'HDFC Regalia — bill paid',
+        amount: 15000,
+        date: '2026-07-04',
+        categoryId: 'cat-1',
+        kind: 'payment',
+      },
+    ]);
   });
 });
