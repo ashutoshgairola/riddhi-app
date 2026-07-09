@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../auth/AuthProvider';
 import { useBiometricLabel } from '../../auth/biometricLabel';
-import { getBiometricEnabled, getPinLength, hasPin } from '../../auth/tokenStore';
+import { needsPinBackfill, type LockMethods } from '../../auth/lockPolicy';
+import { getBiometricEnabled, getPinLength, hasPin, savePin } from '../../auth/tokenStore';
 import { PageBackground } from '../../components/PageBackground';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -20,15 +21,11 @@ import { FaceIdGlyph, PressableScale, SpringIn, Wordmark } from './authUi';
 
 const MAX_ATTEMPTS = 5;
 
-interface LockMethods {
-  pin: boolean;
-  biometric: boolean;
-}
-
 export function LockScreen() {
   const { t } = useTheme();
   const { toast, sheet } = useFeedback();
-  const { user, unlockWithBiometric, unlockWithPin, logout } = useAuth();
+  const { user, unlockWithBiometric, authenticateBiometric, finishUnlock, unlockWithPin, logout } =
+    useAuth();
   const insets = useSafeAreaInsets();
   const bioLabel = useBiometricLabel();
 
@@ -38,6 +35,12 @@ export function LockScreen() {
   const attempts = useRef(0);
   const checking = useRef(false);
   const autoPrompted = useRef(false);
+
+  // Backfill mode for biometric-only devices: after biometric auth we make the
+  // user create a 4-digit backup PIN before entering the app (spec § invariant).
+  const [backfill, setBackfill] = useState<'off' | 'create' | 'confirm'>('off');
+  const firstPin = useRef('');
+  const BACKFILL_LEN = 4;
 
   useEffect(() => {
     let cancelled = false;
@@ -57,10 +60,23 @@ export function LockScreen() {
   }, []);
 
   const promptBiometric = useCallback(async () => {
+    // Biometric-only device: authenticate, then require a backup PIN instead
+    // of unlocking straight into the app.
+    if (methods && needsPinBackfill(methods)) {
+      const ok = await authenticateBiometric();
+      if (ok) {
+        setPin('');
+        firstPin.current = '';
+        setBackfill('create');
+      } else {
+        toast(`${bioLabel} didn't match — try again`, '⚠️');
+      }
+      return;
+    }
     const ok = await unlockWithBiometric();
     if (!ok && methods?.pin) toast(`${bioLabel} didn't match — use your PIN`, '⚠️');
     else if (!ok) toast(`${bioLabel} didn't match — try again`, '⚠️');
-  }, [unlockWithBiometric, methods, bioLabel, toast]);
+  }, [unlockWithBiometric, authenticateBiometric, methods, bioLabel, toast]);
 
   // One automatic prompt as soon as we know biometric is enabled.
   useEffect(() => {
@@ -89,14 +105,37 @@ export function LockScreen() {
 
   const onKey = (k: string) => {
     if (checking.current) return;
+    const len = backfill === 'off' ? pinLength : BACKFILL_LEN;
     setPin((p) => {
       if (k === 'del') return p.slice(0, -1);
       if (k === '.') return p;
-      if (p.length >= pinLength) return p;
+      if (p.length >= len) return p;
       const next = p + k;
-      if (next.length === pinLength) void submit(next);
+      if (next.length === len) {
+        if (backfill === 'off') void submit(next);
+        else void onBackfillComplete(next);
+      }
       return next;
     });
+  };
+
+  const onBackfillComplete = async (candidate: string) => {
+    if (backfill === 'create') {
+      firstPin.current = candidate;
+      setPin('');
+      setBackfill('confirm');
+      return;
+    }
+    // confirm
+    if (candidate !== firstPin.current) {
+      toast("PINs don't match — try again", '⚠️');
+      firstPin.current = '';
+      setPin('');
+      setBackfill('create');
+      return;
+    }
+    await savePin(candidate);
+    finishUnlock();
   };
 
   const confirmLogout = () =>
@@ -136,16 +175,22 @@ export function LockScreen() {
             Welcome back{firstName ? `, ${firstName}` : ''}
           </Text>
           <Text style={[styles.sub, { color: t.text2, fontFamily: weight(500) }]}>
-            {methods.pin ? 'Enter your PIN to unlock' : `Unlock with ${bioLabel}`}
+            {backfill === 'create'
+              ? 'Create a backup PIN'
+              : backfill === 'confirm'
+                ? 'Confirm your backup PIN'
+                : methods.pin
+                  ? 'Enter your PIN to unlock'
+                  : `Unlock with ${bioLabel}`}
           </Text>
         </SpringIn>
 
         <SpringIn delay={50} style={{ marginTop: 'auto' }}>
-          {methods.pin ? (
+          {methods.pin || backfill !== 'off' ? (
             <>
               {/* PIN dots (MobileOnboard.jsx:281-286) */}
               <View style={styles.dots}>
-                {Array.from({ length: pinLength }).map((_, i) => (
+                {Array.from({ length: backfill === 'off' ? pinLength : BACKFILL_LEN }).map((_, i) => (
                   <View
                     key={i}
                     style={[
@@ -163,7 +208,7 @@ export function LockScreen() {
             </>
           ) : null}
 
-          {methods.biometric ? (
+          {methods.biometric && backfill === 'off' ? (
             <PressableScale onPress={() => void promptBiometric()}>
               <View style={[styles.bioBtn, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
                 <FaceIdGlyph color={t.text1} />
