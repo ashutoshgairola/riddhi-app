@@ -88,6 +88,12 @@ const PERIODS: { value: TxPeriod; label: string; icon: string }[] = [
   { value: 'all', label: 'All time', icon: '∞' },
 ];
 
+const SOURCES: { value: SourceValue; label: string; icon: string }[] = [
+  { value: 'all', label: 'All sources', icon: '🌐' },
+  { value: 'bank', label: 'Bank & UPI', icon: '🏦' },
+  { value: 'card', label: 'Cards', icon: '💳' },
+];
+
 export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { nav, push } = useNav();
@@ -114,12 +120,27 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
 
   const openFilterSheet = () => {
     sheet({
-      title: 'Filter by period',
-      options: PERIODS.map((p) => ({
-        label: p.label + (p.value === period ? ' · current' : ''),
-        icon: p.icon,
-        onPress: () => setPeriod(p.value),
-      })),
+      title: 'Filter',
+      sections: [
+        {
+          header: 'Period',
+          options: PERIODS.map((p) => ({
+            label: p.label,
+            icon: p.icon,
+            selected: p.value === period,
+            onPress: () => setPeriod(p.value),
+          })),
+        },
+        {
+          header: 'Source',
+          options: SOURCES.map((s) => ({
+            label: s.label,
+            icon: s.icon,
+            selected: s.value === source,
+            onPress: () => setSource(s.value),
+          })),
+        },
+      ],
     });
   };
 
@@ -148,7 +169,7 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
             <IconButton onPress={() => nav('search')}>
               <MI.search size={20} color={t.text1} />
             </IconButton>
-            <IconButton onPress={openFilterSheet}>
+            <IconButton onPress={openFilterSheet} dot={period !== 'all' || source !== 'all'}>
               <MI.filter size={20} color={t.text1} />
             </IconButton>
           </View>
@@ -188,19 +209,6 @@ export function Txns({ entry: _entry }: { entry: ScreenEntry }) {
             ]}
             value={filter}
             onChange={setFilter}
-          />
-        </SpringIn>
-
-        {/* Source seg — Bank & UPI / Cards filter, mirrors filter seg above */}
-        <SpringIn delay={60} style={styles.segWrap}>
-          <MSeg<SourceValue>
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'bank', label: 'Bank & UPI' },
-              { value: 'card', label: 'Cards' },
-            ]}
-            value={source}
-            onChange={setSource}
           />
         </SpringIn>
 
@@ -248,7 +256,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 4,
     paddingHorizontal: 18,
-    paddingBottom: 24,
+    // The centred footer hint lines up under the centre FAB, which protrudes
+    // ~21px above the tab-bar top (TabBar fabRing marginTop -29 on a 68px
+    // ring). paddingBottom is the min gap between the hint and the bar top in
+    // both scroll states, so it must clear that overhang with room to spare.
+    paddingBottom: 44,
   },
   summaryRow: {
     flexDirection: 'row',
