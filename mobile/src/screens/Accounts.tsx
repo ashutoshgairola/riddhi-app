@@ -133,7 +133,7 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
       type === 'credit'
         ? [
             { kind: 'amount', key: 'creditLimit', label: 'Credit limit (₹)' },
-            { kind: 'amount', key: 'statementDay', label: 'Statement day (1-31)', placeholder: 'e.g. 5' },
+            { kind: 'amount', key: 'statementDay', label: 'Statement day (1-28)', placeholder: 'e.g. 5' },
             { key: 'last4', label: 'Last 4 digits', placeholder: '1234', optional: true },
             { key: 'network', label: 'Network', placeholder: 'Visa / Mastercard / RuPay', optional: true },
           ]
@@ -157,8 +157,8 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
         let statementDay: number | undefined;
         if (type === 'credit') {
           statementDay = Number(v['statementDay']);
-          if (!Number.isInteger(statementDay) || statementDay < 1 || statementDay > 31) {
-            throw new Error('Statement day must be a whole number between 1 and 31');
+          if (!Number.isInteger(statementDay) || statementDay < 1 || statementDay > 28) {
+            throw new Error('Statement day must be a whole number between 1 and 28');
           }
         }
         await api.accounts.create({
