@@ -1,8 +1,9 @@
 /**
  * Txns — RN port of `project/riddhi/MobileTxns.jsx` (the `MobileTxns`
  * component, lines 87–152), including its local data constant `MT_DATA`
- * (lines 3–15) and the `groupTxByDate` helper (lines 17–31, ported
- * verbatim).
+ * (lines 3–15) and the `groupTxByDate` helper (lines 17–31; the local-date
+ * fix in `./txnGroups.ts` means it's no longer a verbatim port — see that
+ * file's header doc).
  *
  * Building blocks reused rather than reimplemented:
  *  - `PageBackground` for the `.m-page` gradient + glow.
@@ -20,9 +21,10 @@
  *
  * Source values transcribed verbatim:
  *  - `MT_DATA` — MobileTxns.jsx:3–15.
- *  - `groupTxByDate` — MobileTxns.jsx:17–31 (today hardcoded to
- *    2026-04-25, exactly as in source).
  *  - `fmt` formatter — MobileTxns.jsx:91.
+ *
+ * `groupTxByDate` (MobileTxns.jsx:17–31, today hardcoded to 2026-04-25 in
+ * source) diverges from the source: see `./txnGroups.ts`.
  */
 import { useState } from 'react';
 import {
@@ -48,32 +50,10 @@ import { useNav, type ScreenEntry } from '../app/navContext';
 import { api, type TxPeriod } from '../api';
 import { useApiData } from '../api/useApi';
 import { SwipeRow, type SwipeTx } from './SwipeRow';
+import { groupTxByDate } from './txnGroups';
 
 // Renders empty while the api loads (or is unreachable) — no mock data.
 const EMPTY_TXNS: SwipeTx[] = [];
-
-interface TxGroup {
-  label: string;
-  date: string;
-  txs: SwipeTx[];
-}
-
-// ── groupTxByDate — ported verbatim (MobileTxns.jsx:17–31) ───────────
-function groupTxByDate(txs: SwipeTx[]): TxGroup[] {
-  const groups: Record<string, TxGroup> = {};
-  txs.forEach((tx) => {
-    const d = new Date(tx.date);
-    const today = new Date(new Date().toISOString().slice(0, 10));
-    const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
-    let label: string;
-    if (diff === 0) label = 'Today';
-    else if (diff === 1) label = 'Yesterday';
-    else label = d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
-    if (!groups[label]) groups[label] = { label, date: tx.date, txs: [] };
-    groups[label].txs.push(tx);
-  });
-  return Object.values(groups);
-}
 
 function fmt(n: number): string {
   return '₹' + Math.abs(n).toLocaleString('en-IN');
