@@ -4,6 +4,7 @@ import { NotificationSyncService } from './notification-sync.service';
 import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
+import { CreditCard } from '../credit-card/credit-card.entity';
 import { NotificationAnalysisService } from './notification-analysis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TransactionsService } from '../transactions/transactions.service';
@@ -44,6 +45,7 @@ describe('NotificationSyncService.ingest', () => {
         { provide: getRepositoryToken(CapturedNotification), useValue: capRepo },
         { provide: getRepositoryToken(DetectedTransaction), useValue: {} },
         { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: getRepositoryToken(CreditCard), useValue: {} },
         { provide: NotificationAnalysisService, useValue: {} },
         { provide: NotificationsService, useValue: {} },
         { provide: TransactionsService, useValue: {} },

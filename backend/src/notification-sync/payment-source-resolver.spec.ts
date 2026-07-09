@@ -77,4 +77,40 @@ describe('resolvePaymentSource', () => {
     expect(r.accountId).toBeNull();
     expect(r.paymentMethod).toBe(PaymentMethod.UPI);
   });
+
+  it('fills accountId from a card last4 even when the institution is ambiguous', () => {
+    const accounts = [
+      { id: 'c1', institutionName: 'HDFC', type: AccountType.CREDIT, last4: '1234' },
+      { id: 'c2', institutionName: 'HDFC', type: AccountType.CREDIT, last4: '9999' },
+    ];
+    const r = resolvePaymentSource('HDFC', 'card', accounts as any, '9999');
+    expect(r.accountId).toBe('c2');
+    expect(r.paymentMethod).toBe(PaymentMethod.CARD);
+  });
+
+  it('a unique card last4 wins over the institution heuristic', () => {
+    // Institution would uniquely pick c1 (the only ICICI credit account), but a
+    // matching last4 on a DIFFERENT account takes precedence.
+    const accounts = [
+      { id: 'c1', institutionName: 'ICICI', type: AccountType.CREDIT, last4: '1111' },
+      { id: 'c2', institutionName: 'HDFC', type: AccountType.CREDIT, last4: '2222' },
+    ];
+    const r = resolvePaymentSource('ICICI', 'card', accounts as any, '2222');
+    expect(r.accountId).toBe('c2');
+  });
+
+  it('falls back to the institution heuristic when the last4 matches nothing', () => {
+    const accounts = [
+      { id: 'c2', institutionName: 'HDFC', type: AccountType.CREDIT, last4: '9999' },
+    ];
+    const r = resolvePaymentSource('HDFC', 'card', accounts as any, '0000');
+    expect(r.accountId).toBe('c2'); // no last4 match → institution uniquely picks c2
+  });
+
+  it('ignores last4 on a non-card rail (upi keeps institution behavior)', () => {
+    const accounts = [acc('a1', 'HDFC Bank', AccountType.SAVINGS)];
+    const r = resolvePaymentSource('HDFC', 'upi', accounts, '1234');
+    expect(r.accountId).toBe('a1');
+    expect(r.paymentMethod).toBe(PaymentMethod.UPI);
+  });
 });

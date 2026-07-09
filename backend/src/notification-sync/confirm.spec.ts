@@ -8,6 +8,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
+import { CreditCard } from '../credit-card/credit-card.entity';
 import { DetectedStatus, TransactionType, PaymentMethod } from '../common/enums';
 
 function build(detRepoOverrides: any, txCreate = jest.fn(async () => ({ id: 'tx1' }))) {
@@ -17,6 +18,7 @@ function build(detRepoOverrides: any, txCreate = jest.fn(async () => ({ id: 'tx1
       { provide: getRepositoryToken(CapturedNotification), useValue: {} },
       { provide: getRepositoryToken(DetectedTransaction), useValue: detRepoOverrides },
       { provide: getRepositoryToken(Account), useValue: {} },
+      { provide: getRepositoryToken(CreditCard), useValue: {} },
       { provide: NotificationAnalysisService, useValue: {} },
       { provide: NotificationsService, useValue: {} },
       { provide: TransactionsService, useValue: { create: txCreate } },

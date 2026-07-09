@@ -1,10 +1,12 @@
 import { AccountType, PaymentMethod } from '../common/enums';
+import { resolveAccountByLast4 } from '../statements/account-resolve';
 
 type Rail = 'upi' | 'card' | 'netbanking' | 'autopay' | null;
 interface AccountLite {
   id: string;
   institutionName: string | null;
   type: AccountType;
+  last4?: string | null;
 }
 
 const RAIL_TO_METHOD: Record<Exclude<Rail, null>, PaymentMethod> = {
@@ -29,8 +31,24 @@ export function resolvePaymentSource(
   institution: string | null,
   rail: Rail,
   accounts: AccountLite[],
+  last4: string | null = null,
 ): { accountId: string | null; paymentMethod: PaymentMethod } {
   const paymentMethod = rail ? RAIL_TO_METHOD[rail] : PaymentMethod.UPI;
+
+  // A card spend that carries its last-4 resolves most precisely by matching the
+  // card directly — a unique last4 match wins over the institution heuristic.
+  if (rail === 'card' && last4) {
+    const byLast4 = resolveAccountByLast4(
+      accounts.map((a) => ({
+        id: a.id,
+        type: a.type,
+        institutionName: a.institutionName,
+        last4: a.last4 ?? null,
+      })),
+      last4,
+    );
+    if (byLast4.accountId) return { accountId: byLast4.accountId, paymentMethod };
+  }
 
   let accountId: string | null = null;
   const key = instKey(institution);

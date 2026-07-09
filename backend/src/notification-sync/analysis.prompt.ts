@@ -16,6 +16,7 @@ export const ANALYSIS_SYSTEM_PROMPT = [
   '                                //  Bills, Utilities, Entertainment, Health, Income, or null',
   '  "institution": string|null,   // bank/issuer short name, e.g. "HDFC"',
   '  "rail": "upi"|"card"|"netbanking"|"autopay"|null,',
+  '  "last4": string|null,         // last 4 digits of the card/account if the text shows them, else null',
   '  "confidence": number,         // 0..1',
   '  "sourceKeys": string[]        // the "key" values of the notifications in this group',
   '}',

@@ -15,6 +15,7 @@ export interface DetectedGroup {
   category: string | null;
   institution: string | null;
   rail: 'upi' | 'card' | 'netbanking' | 'autopay' | null;
+  last4: string | null;
   confidence: number;
   sourceKeys: string[];
 }
@@ -59,6 +60,8 @@ export function parseGroups(text: string, validKeys: Set<string>): DetectedGroup
       category: typeof r['category'] === 'string' ? r['category'] : null,
       institution: typeof r['institution'] === 'string' ? r['institution'] : null,
       rail,
+      last4:
+        typeof r['last4'] === 'string' ? r['last4'].replace(/\D/g, '').slice(-4) || null : null,
       confidence:
         typeof r['confidence'] === 'number' && r['confidence'] >= 0 && r['confidence'] <= 1
           ? r['confidence']

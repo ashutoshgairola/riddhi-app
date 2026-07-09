@@ -116,6 +116,31 @@ describe('parseGroups', () => {
     expect(groups[1].rail).toBe('card');
   });
 
+  it('extracts and normalizes last4, guarding non-string values to null', () => {
+    const base = {
+      merchant: 'M',
+      amount: 10,
+      type: 'expense' as const,
+      category: null,
+      institution: null,
+      rail: 'card' as const,
+      confidence: 0.6,
+      sourceKeys: ['k-other'],
+    };
+    const text = JSON.stringify([
+      { ...base, last4: '1234' },
+      { ...base, last4: 'XX5678' }, // strips non-digits, keeps last 4
+      { ...base, last4: 1234 }, // non-string → null
+      { ...base }, // missing → null
+    ]);
+    const groups = parseGroups(text, keys);
+    expect(groups).toHaveLength(4);
+    expect(groups[0].last4).toBe('1234');
+    expect(groups[1].last4).toBe('5678');
+    expect(groups[2].last4).toBeNull();
+    expect(groups[3].last4).toBeNull();
+  });
+
   it('returns [] for valid JSON that is not a top-level array', () => {
     expect(parseGroups('{"foo": []}', keys)).toEqual([]);
   });

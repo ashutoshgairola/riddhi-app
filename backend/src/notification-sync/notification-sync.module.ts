@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
+import { CreditCard } from '../credit-card/credit-card.entity';
 import { UserPreferences } from '../users/user-preferences.entity';
 import { NotificationSyncController } from './notification-sync.controller';
 import { NotificationSyncService } from './notification-sync.service';
@@ -22,6 +23,7 @@ import {
       CapturedNotification,
       DetectedTransaction,
       Account,
+      CreditCard,
       UserPreferences,
     ]),
     NotificationsModule,
