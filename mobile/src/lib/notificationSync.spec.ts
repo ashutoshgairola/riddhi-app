@@ -20,6 +20,17 @@ jest.mock('./catalogSource', () => ({ fetchCatalog: (...a: any[]) => fetchCatalo
 const getToggles = jest.fn();
 jest.mock('./toggleStore', () => ({ getToggles: (...a: any[]) => getToggles(...a) }));
 
+const asyncStore: Record<string, string> = {};
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(async (k: string) => asyncStore[k] ?? null),
+    setItem: jest.fn(async (k: string, v: string) => {
+      asyncStore[k] = v;
+    }),
+  },
+}));
+
 import { uploadCaptured, configureAllowlist } from './notificationSync';
 
 describe('uploadCaptured', () => {
@@ -49,7 +60,13 @@ describe('uploadCaptured', () => {
 });
 
 describe('configureAllowlist', () => {
-  beforeEach(() => { setAllowlist.mockReset(); getInstalledPackages.mockReset(); fetchCatalog.mockReset(); getToggles.mockReset(); });
+  beforeEach(() => {
+    setAllowlist.mockReset();
+    getInstalledPackages.mockReset();
+    fetchCatalog.mockReset();
+    getToggles.mockReset();
+    for (const k of Object.keys(asyncStore)) delete asyncStore[k];
+  });
 
   it('pushes the resolved allowlist (installed ∩ catalog, honoring toggles)', async () => {
     fetchCatalog.mockResolvedValueOnce([
@@ -60,5 +77,12 @@ describe('configureAllowlist', () => {
     getToggles.mockResolvedValueOnce({});
     await configureAllowlist();
     expect(setAllowlist).toHaveBeenCalledWith(['com.rapido.passenger']);
+  });
+
+  it('pushes an empty allowlist and skips catalog work when capture is paused', async () => {
+    asyncStore['notification-sync/paused'] = '1';
+    await configureAllowlist();
+    expect(setAllowlist).toHaveBeenCalledWith([]);
+    expect(fetchCatalog).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,12 @@ const KEY = 'notification-sync/app-toggles';
 export async function getToggles(): Promise<Record<string, boolean>> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, boolean>;
+    }
+    return {};
   } catch {
     return {};
   }

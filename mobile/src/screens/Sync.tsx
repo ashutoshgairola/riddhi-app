@@ -67,6 +67,7 @@ import {
   fetchDetected,
   confirmDetected,
   dismissDetected,
+  CAPTURE_PAUSED_KEY,
   type DetectedView,
 } from '../lib/notificationSync';
 import {
@@ -131,12 +132,6 @@ const fmtR = (n: number) => '₹' + Math.abs(n).toLocaleString('en-IN');
 
 // Auto-sync is a client-only toggle (no backend field), persisted locally.
 const AUTO_SYNC_KEY = 'sms-sync/auto';
-
-// Whether notification capture is user-paused, persisted locally. Needed
-// because `refreshDetections` re-runs `configureAllowlist()` (restoring
-// DEFAULT_ALLOWLIST) on every screen open — without this flag a "paused"
-// state would silently un-pause itself the next time the screen mounts.
-const CAPTURE_PAUSED_KEY = 'notification-sync/paused';
 
 // Generic fallback tint for a detected category with no match in the
 // user's real category list (see `toDetectedCardTx`).

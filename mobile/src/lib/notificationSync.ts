@@ -8,6 +8,7 @@
  *   5. confirm/dismiss each one.
  */
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../api/client';
 import {
   isNotificationListenerAvailable,
@@ -22,6 +23,11 @@ import { resolveAllowlist } from './allowlistResolver';
 import { getToggles } from './toggleStore';
 
 const UPLOAD_BATCH = 100;
+
+// Whether notification capture is user-paused, persisted locally. Shared with
+// Sync.tsx (which owns the pause toggle UI) so this constant stays the single
+// source of truth for the storage key.
+export const CAPTURE_PAUSED_KEY = 'notification-sync/paused';
 
 export interface DetectedView {
   id: string;
@@ -55,6 +61,13 @@ export function notificationSyncSupported(): boolean {
  * Falls back safely (cached/seed catalog, empty install list off-Android). */
 export async function configureAllowlist(): Promise<void> {
   if (!notificationSyncSupported()) return;
+  // The pause flag is authoritative here (not just in Sync.tsx's callers) so
+  // that every caller — including MonitoredApps.onToggle — is prevented from
+  // silently resuming capture by pushing a non-empty allowlist while paused.
+  if ((await AsyncStorage.getItem(CAPTURE_PAUSED_KEY)) === '1') {
+    await setAllowlist([]);
+    return;
+  }
   const catalog = await fetchCatalog();
   const installed = await getInstalledPackages(catalog.map((c) => c.packageName));
   const toggles = await getToggles();

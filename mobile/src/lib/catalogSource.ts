@@ -22,7 +22,11 @@ export async function fetchCatalog(): Promise<CatalogEntry[]> {
   try {
     const remote = await apiClient.get<CatalogEntry[]>('/notification-sync/catalog');
     if (Array.isArray(remote) && remote.length > 0) {
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(remote));
+      try {
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(remote));
+      } catch {
+        // cache best-effort — a fresh fetch still wins even if caching fails
+      }
       return remote;
     }
   } catch {
@@ -30,7 +34,10 @@ export async function fetchCatalog(): Promise<CatalogEntry[]> {
   }
   try {
     const cached = await AsyncStorage.getItem(CACHE_KEY);
-    if (cached) return JSON.parse(cached) as CatalogEntry[];
+    if (cached) {
+      const parsed = JSON.parse(cached) as unknown;
+      if (Array.isArray(parsed)) return parsed as CatalogEntry[];
+    }
   } catch {
     // fall through to seed
   }
