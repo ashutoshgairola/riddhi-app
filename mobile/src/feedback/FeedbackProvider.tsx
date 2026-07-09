@@ -63,12 +63,22 @@ export interface SheetOption {
    * plain string, e.g. an emoji) — not one of the `MI` SVG icon names. */
   icon?: string;
   danger?: boolean;
+  /** Renders the row highlighted with a trailing check — used to mark the
+   * currently-applied choice in a filter sheet. */
+  selected?: boolean;
   onPress?: () => void;
+}
+
+export interface SheetSection {
+  header?: string;
+  options: SheetOption[];
 }
 
 export interface SheetConfig {
   title?: string;
-  options: SheetOption[];
+  options?: SheetOption[];
+  /** When present, rendered as labelled sections instead of `options`. */
+  sections?: SheetSection[];
 }
 
 export interface FeedbackContextValue {
@@ -149,11 +159,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     <FeedbackContext.Provider value={value}>
       {children}
       <BottomSheet open={sheetOpen} onClose={closeSheet} title={sheetConfig?.title ?? 'Options'}>
-        <View style={styles.sheetOptions}>
-          {(sheetConfig?.options ?? []).map((option, i) => (
-            <SheetOptionRow key={i} option={option} onSelect={() => selectOption(option)} />
-          ))}
-        </View>
+        <SheetBody config={sheetConfig} onSelect={selectOption} />
       </BottomSheet>
       <FormSheet
         open={formOpen}
@@ -256,7 +262,10 @@ function SheetOptionRow({ option, onSelect }: { option: SheetOption; onSelect: (
         }}
         style={[
           styles.optionRow,
-          { backgroundColor: t.glassBg, borderColor: t.glassBrd },
+          {
+            backgroundColor: option.selected ? t.glassBg2 : t.glassBg,
+            borderColor: option.selected ? t.glassBrd2 : t.glassBrd,
+          },
         ]}
       >
         {option.icon ? <Text style={styles.optionIcon}>{option.icon}</Text> : null}
@@ -268,8 +277,48 @@ function SheetOptionRow({ option, onSelect }: { option: SheetOption; onSelect: (
         >
           {option.label}
         </Text>
+        {option.selected ? (
+          <Text style={[styles.optionCheck, { color: t.em, fontFamily: weight(700) }]}>✓</Text>
+        ) : null}
       </Pressable>
     </Animated.View>
+  );
+}
+
+function SheetBody({
+  config,
+  onSelect,
+}: {
+  config: SheetConfig | null;
+  onSelect: (option: SheetOption) => void;
+}) {
+  const { t } = useTheme();
+  if (config?.sections) {
+    return (
+      <>
+        {config.sections.map((section, si) => (
+          <View key={si} style={si > 0 ? styles.sheetSection : undefined}>
+            {section.header ? (
+              <Text style={[styles.sheetSectionHeader, { color: t.text3, fontFamily: weight(600) }]}>
+                {section.header}
+              </Text>
+            ) : null}
+            <View style={styles.sheetOptions}>
+              {section.options.map((option, i) => (
+                <SheetOptionRow key={i} option={option} onSelect={() => onSelect(option)} />
+              ))}
+            </View>
+          </View>
+        ))}
+      </>
+    );
+  }
+  return (
+    <View style={styles.sheetOptions}>
+      {(config?.options ?? []).map((option, i) => (
+        <SheetOptionRow key={i} option={option} onSelect={() => onSelect(option)} />
+      ))}
+    </View>
   );
 }
 
@@ -335,6 +384,20 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     flex: 1,
+    fontSize: 15,
+  },
+  sheetSection: {
+    marginTop: 6,
+  },
+  sheetSectionHeader: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  optionCheck: {
+    marginLeft: 'auto',
     fontSize: 15,
   },
 });
