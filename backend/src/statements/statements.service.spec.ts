@@ -6,10 +6,11 @@ import { AccountType } from '../common/enums';
 // with NO last4 field — last4 lives on the credit_card row, so it's resolved
 // via cardRepo (see task-6 integration correction #3), not on the account.
 const parser = { parse: jest.fn() };
-const accounts = { findAll: jest.fn(), findOne: jest.fn() };
+const accounts: any = { findAll: jest.fn(), findOne: jest.fn() };
 const transactions = { create: jest.fn(), findForAccountInRange: jest.fn() };
 const cards = { updateConfig: jest.fn() };
 const cardRepo = { find: jest.fn() };
+const categories = { findAll: jest.fn() };
 
 const svc = new StatementsService(
   parser as any,
@@ -17,6 +18,7 @@ const svc = new StatementsService(
   transactions as any,
   cards as any,
   cardRepo as any,
+  categories as any,
 );
 
 beforeEach(() => jest.clearAllMocks());
@@ -134,4 +136,64 @@ it('returns a null account with unclassified items when nothing resolves', async
   expect(r.account.matchedByLast4).toBe(false);
   expect(transactions.findForAccountInRange).not.toHaveBeenCalled();
   expect(r.items[0].verdict).toBe('new');
+});
+
+describe('StatementsService.import', () => {
+  it('creates a txn per item with fingerprint, patches card override, and skips nothing extra', async () => {
+    accounts.findOne.mockResolvedValue({ id: 'c1', type: AccountType.CREDIT, name: 'HDFC' });
+    const importCategories = {
+      findAll: jest
+        .fn()
+        .mockResolvedValue([{ id: 'cat-food', name: 'Food' }, { id: 'cat-other', name: 'Other' }]),
+    };
+    const cardRepoMock = { find: jest.fn().mockResolvedValue([]) };
+    const svc2 = new StatementsService(
+      parser as any,
+      accounts as any,
+      transactions as any,
+      cards as any,
+      cardRepoMock as any,
+      importCategories as any,
+    );
+    transactions.create.mockResolvedValue({ id: 'new' });
+    cards.updateConfig.mockResolvedValue({});
+    const res = await svc2.import('u1', {
+      accountId: 'c1', statementType: 'card',
+      items: [{ isoDate: '2026-06-01', amount: 499, direction: 'debit', descriptor: 'Swiggy', category: 'Food' }],
+      summary: { statementBilled: 15230.5, statementDate: '2026-06-12' },
+    } as any);
+    expect(res).toEqual({ imported: 1, skipped: 0 });
+    const arg = transactions.create.mock.calls[0][1];
+    expect(arg).toMatchObject({ amount: 499, type: 'expense', categoryId: 'cat-food', accountId: 'c1', paymentMethod: 'card' });
+    expect(typeof arg.importFingerprint).toBe('string');
+    expect(cards.updateConfig).toHaveBeenCalledWith('c1', 'u1', expect.objectContaining({ statementBilled: 15230.5 }));
+  });
+
+  it('bank credit → income; setBalance reconciles the account', async () => {
+    accounts.findOne.mockResolvedValue({ id: 'b1', type: AccountType.SAVINGS, name: 'ICICI', balance: 100 });
+    accounts.update = jest.fn().mockResolvedValue({});
+    const importCategories = {
+      findAll: jest
+        .fn()
+        .mockResolvedValue([{ id: 'cat-income', name: 'Income' }, { id: 'cat-other', name: 'Other' }]),
+    };
+    const cardRepoMock = { find: jest.fn().mockResolvedValue([]) };
+    const svc2 = new StatementsService(
+      parser as any,
+      accounts as any,
+      transactions as any,
+      cards as any,
+      cardRepoMock as any,
+      importCategories as any,
+    );
+    transactions.create.mockResolvedValue({ id: 'n' });
+    const res = await svc2.import('u1', {
+      accountId: 'b1', statementType: 'bank',
+      items: [{ isoDate: '2026-06-03', amount: 5000, direction: 'credit', descriptor: 'Salary', category: 'Income' }],
+      setBalance: 9000,
+    } as any);
+    expect(res.imported).toBe(1);
+    expect(transactions.create.mock.calls[0][1]).toMatchObject({ type: 'income', categoryId: 'cat-income', accountId: 'b1' });
+    expect(accounts.update).toHaveBeenCalledWith('b1', 'u1', expect.objectContaining({ balance: 9000 }));
+  });
 });

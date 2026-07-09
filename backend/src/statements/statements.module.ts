@@ -6,6 +6,7 @@ import { AccountsModule } from '../accounts/accounts.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { CreditCardModule } from '../credit-card/credit-card.module';
 import { CreditCard } from '../credit-card/credit-card.entity';
+import { CategoriesModule } from '../categories/categories.module';
 import { StatementsController } from './statements.controller';
 import { StatementsService } from './statements.service';
 import { StatementParserService, STATEMENTS_ANTHROPIC_CLIENT } from './statement-parser.service';
@@ -15,6 +16,7 @@ import { StatementParserService, STATEMENTS_ANTHROPIC_CLIENT } from './statement
     AccountsModule,
     TransactionsModule,
     CreditCardModule,
+    CategoriesModule,
     TypeOrmModule.forFeature([CreditCard]),
   ],
   controllers: [StatementsController],

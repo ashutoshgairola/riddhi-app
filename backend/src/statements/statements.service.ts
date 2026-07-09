@@ -5,6 +5,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreditCardService } from '../credit-card/credit-card.service';
 import { CreditCard } from '../credit-card/credit-card.entity';
+import { CategoriesService } from '../categories/categories.service';
 import {
   StatementParserService,
   ParsedStatement,
@@ -17,8 +18,10 @@ import {
   LineDirection,
 } from './statement-dedup';
 import { resolveAccountByLast4, ResolvableAccount } from './account-resolve';
+import { computeImportFingerprint } from './import-fingerprint';
 import { TransactionType } from '../common/enums';
 import { ParseStatementDto } from './dto/parse-statement.dto';
+import { ImportStatementDto } from './dto/import-statement.dto';
 
 export interface StatementParseResult {
   account: {
@@ -42,6 +45,7 @@ export class StatementsService {
     private readonly cards: CreditCardService,
     @InjectRepository(CreditCard)
     private readonly cardRepo: Repository<CreditCard>,
+    private readonly categories: CategoriesService,
   ) {}
 
   async parse(userId: string, dto: ParseStatementDto): Promise<StatementParseResult> {
@@ -106,6 +110,59 @@ export class StatementsService {
       summary: parsed.summary,
       items,
     };
+  }
+
+  /**
+   * Create real transactions from the user-vetted line-items produced by
+   * `parse()`, stamping each with the dedup `importFingerprint`. Optionally
+   * patches the card statement-override fields and/or reconciles the account
+   * balance (bank statements). `skipped` stays 0 — mobile only sends the
+   * user-selected (non-duplicate) subset; the skipped tally lives in its own
+   * review state.
+   */
+  async import(
+    userId: string,
+    dto: ImportStatementDto,
+  ): Promise<{ imported: number; skipped: number }> {
+    const account = await this.accounts.findOne(dto.accountId, userId);
+    if (!account) throw new BadRequestException('Account not found');
+
+    const cats = await this.categories.findAll(userId);
+    const other = cats.find((c: any) => c.name.toLowerCase() === 'other') ?? cats[0];
+    const resolveCategoryId = (name?: string | null): string => {
+      if (name) {
+        const hit = cats.find((c: any) => c.name.toLowerCase() === name.toLowerCase());
+        if (hit) return hit.id;
+      }
+      if (!other) throw new BadRequestException('No category available');
+      return other.id;
+    };
+
+    let imported = 0;
+    for (const it of dto.items) {
+      const type = it.direction === 'credit' ? TransactionType.INCOME : TransactionType.EXPENSE;
+      const paymentMethod = dto.statementType === 'card' ? 'card' : 'netbanking';
+      await this.transactions.create(userId, {
+        date: new Date(it.isoDate).toISOString(),
+        description: it.descriptor || 'Statement import',
+        amount: it.amount,
+        type,
+        categoryId: resolveCategoryId(it.category),
+        accountId: dto.accountId,
+        paymentMethod: paymentMethod as any,
+        importFingerprint: computeImportFingerprint(dto.accountId, it.amount, it.isoDate, it.descriptor),
+      } as any);
+      imported++;
+    }
+
+    if (dto.statementType === 'card' && dto.summary) {
+      await this.cards.updateConfig(dto.accountId, userId, dto.summary as any);
+    }
+    if (dto.setBalance !== undefined) {
+      await this.accounts.update(dto.accountId, userId, { balance: dto.setBalance } as any);
+    }
+
+    return { imported, skipped: 0 };
   }
 
   /** Load existing account transactions as dedup candidates. Uses the period
