@@ -19,52 +19,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../api/client';
 import { getMessages, isSmsReaderAvailable } from '../../modules/sms-reader';
 import type { SyncDetected } from '../screens/Sync';
-import type { PaymentMethod } from '../api/types';
-
-/** Category → accent color, mirroring the backend keyword-map Category union. */
-const CAT_COLOR: Record<string, string> = {
-  Food: '#c9a86a',
-  Groceries: '#7faf93',
-  Utilities: '#6fb3ad',
-  Bills: '#6fb3ad',
-  Income: '#7faf93',
-  Shopping: '#c97d8c',
-  Transport: '#9d8bd6',
-  Entertainment: '#c97d8c',
-  Health: '#ef4444',
-};
-const CAT_ICON: Record<string, string> = {
-  Food: '🍽',
-  Groceries: '🛒',
-  Utilities: '⚡',
-  Bills: '⚡',
-  Income: '💼',
-  Shopping: '🛍',
-  Transport: '🚇',
-  Entertainment: '🎬',
-  Health: '💊',
-};
-const DEFAULT_COLOR = '#8a8299';
+import { toSyncDetected, type ParsedSmsWire } from './smsSyncMap';
 
 const PROCESSED_IDS_KEY = 'sms-sync/processed-ids';
 /** How far back to read on each sync. */
 const LOOKBACK_DAYS = 30;
 /** Cap the number of ids we remember so the set can't grow unbounded. */
 const MAX_REMEMBERED_IDS = 2000;
-
-interface ParsedSms {
-  id: string;
-  raw: string;
-  merchant: string | null;
-  amount: number | null;
-  type: 'income' | 'expense';
-  category: string | null;
-  account: string | null;
-  bank: string | null;
-  last4: string | null;
-  confidence: number;
-  paymentMethod: PaymentMethod;
-}
 
 /** True only where the native reader is linked (an Android dev/preview build). */
 export function smsSyncSupported(): boolean {
@@ -124,29 +85,15 @@ export async function fetchSmsSuggestions(): Promise<SyncDetected[]> {
 
   const candidates = messages
     .filter((m) => !processed.has(m.id) && looksLikeMoney(m.body))
-    .map((m) => ({ id: m.id, raw: m.body }));
+    .map((m) => ({ id: m.id, raw: m.body, date: m.date }));
   if (candidates.length === 0) return [];
 
-  const parsed = await apiClient.post<ParsedSms[]>('/sms-sync/parse-batch', {
+  const parsed = await apiClient.post<ParsedSmsWire[]>('/sms-sync/parse-batch', {
     messages: candidates,
   });
 
-  return parsed.map((p) => {
-    const cat = p.category ?? 'Other';
-    const signedAmount = p.type === 'income' ? Math.abs(p.amount ?? 0) : -Math.abs(p.amount ?? 0);
-    return {
-      id: p.id,
-      raw: p.raw,
-      bank: p.bank ?? 'Bank',
-      amount: signedAmount,
-      merchant: p.merchant ?? p.bank ?? 'Transaction',
-      icon: CAT_ICON[cat] ?? '💳',
-      cat,
-      catCol: CAT_COLOR[cat] ?? DEFAULT_COLOR,
-      account: p.account ?? '',
-      time: new Date().toISOString().slice(0, 10),
-      conf: p.confidence,
-      paymentMethod: p.paymentMethod,
-    };
-  });
+  const dateById = new Map(candidates.map((c) => [c.id, c.date]));
+  return parsed.map((p) =>
+    toSyncDetected(p, new Date(dateById.get(p.id) ?? Date.now()).toISOString().slice(0, 10)),
+  );
 }

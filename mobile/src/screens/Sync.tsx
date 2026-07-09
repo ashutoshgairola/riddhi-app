@@ -94,6 +94,10 @@ export interface SyncDetected {
   time: string;
   conf: number;
   paymentMethod: PaymentMethod;
+  /** Resolved source account (from last4/institution match), when known. */
+  accountId?: string;
+  /** True when this charge likely already exists (reverse-dedup). */
+  possibleDuplicate?: boolean;
 }
 
 interface SyncRecent {
