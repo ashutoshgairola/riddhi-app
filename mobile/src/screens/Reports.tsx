@@ -49,6 +49,7 @@ import { GlassCard } from '../components/Glass';
 import { InlineRetry } from '../components/InlineRetry';
 import { Chip, HScroll, IconButton, ListCard, ListRow, ProgressBar, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
+import { AppIcon } from '../components/contentIcons';
 import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
@@ -435,9 +436,14 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                       {netWorthDisplay}
                     </Text>
                   </View>
-                  <View style={[styles.deltaBadge, { backgroundColor: t.emDim }]}>
+                  <View style={[styles.deltaBadge, styles.deltaBadgeRow, { backgroundColor: t.emDim }]}>
+                    <AppIcon
+                      value={nwTrend.deltaPct >= 0 ? 'trendUp' : 'trendDown'}
+                      size={16}
+                      color={nwTrend.deltaPct >= 0 ? t.em : t.red}
+                    />
                     <Text style={[styles.deltaBadgeText, { color: nwTrend.deltaPct >= 0 ? t.em : t.red, fontFamily: weight(600) }]}>
-                      {nwTrend.deltaPct >= 0 ? '↑' : '↓'} {Math.abs(nwTrend.deltaPct).toFixed(1)}%
+                      {Math.abs(nwTrend.deltaPct).toFixed(1)}%
                     </Text>
                   </View>
                 </View>
@@ -465,7 +471,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                         onPress={() => nav('event-detail', { id: ev.id })}
                       >
                         <View style={styles.eventRowLeft}>
-                          <Text style={styles.eventRowEmoji}>{ev.emoji}</Text>
+                          <AppIcon value={ev.emoji} size={20} color={ev.color} />
                           <View style={styles.eventRowText}>
                             <Text
                               style={[styles.eventRowName, { color: t.text1, fontFamily: weight(600) }]}
@@ -505,9 +511,16 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 {fmtKpi(overview.totalIncome)}
               </Text>
               {incomeDelta !== null && (
-                <Text style={[styles.totalDelta, { color: incomeDelta >= 0 ? t.em : t.red }]}>
-                  {incomeDelta >= 0 ? '↑' : '↓'} {Math.abs(incomeDelta).toFixed(1)}% over the period
-                </Text>
+                <View style={styles.deltaRow}>
+                  <AppIcon
+                    value={incomeDelta >= 0 ? 'trendUp' : 'trendDown'}
+                    size={16}
+                    color={incomeDelta >= 0 ? t.em : t.red}
+                  />
+                  <Text style={[styles.totalDelta, { color: incomeDelta >= 0 ? t.em : t.red }]}>
+                    {Math.abs(incomeDelta).toFixed(1)}% over the period
+                  </Text>
+                </View>
               )}
               <View style={styles.sparklineBleedTop}>
                 <MSparkline data={sparkable(series.income)} color="#7faf93" height={64} />
@@ -548,9 +561,16 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 {fmtKpi(overview.totalExpenses)}
               </Text>
               {expenseDelta !== null && (
-                <Text style={[styles.totalDelta, { color: expenseDelta >= 0 ? t.red : t.em }]}>
-                  {expenseDelta >= 0 ? '↑' : '↓'} {Math.abs(expenseDelta).toFixed(1)}% over the period
-                </Text>
+                <View style={styles.deltaRow}>
+                  <AppIcon
+                    value={expenseDelta >= 0 ? 'trendUp' : 'trendDown'}
+                    size={16}
+                    color={expenseDelta >= 0 ? t.red : t.em}
+                  />
+                  <Text style={[styles.totalDelta, { color: expenseDelta >= 0 ? t.red : t.em }]}>
+                    {Math.abs(expenseDelta).toFixed(1)}% over the period
+                  </Text>
+                </View>
               )}
             </GlassCard>
 
@@ -628,9 +648,16 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               <Text style={[styles.savingsRateValue, { color: t.text1, fontFamily: weight(700) }]}>
                 {netWorthDisplay}
               </Text>
-              <Text style={[styles.totalDelta, { color: nwTrend.deltaPct >= 0 ? t.em : t.red }]}>
-                {nwTrend.deltaPct >= 0 ? '↑' : '↓'} {Math.abs(nwTrend.deltaPct).toFixed(1)}% over the period
-              </Text>
+              <View style={styles.deltaRow}>
+                <AppIcon
+                  value={nwTrend.deltaPct >= 0 ? 'trendUp' : 'trendDown'}
+                  size={16}
+                  color={nwTrend.deltaPct >= 0 ? t.em : t.red}
+                />
+                <Text style={[styles.totalDelta, { color: nwTrend.deltaPct >= 0 ? t.em : t.red }]}>
+                  {Math.abs(nwTrend.deltaPct).toFixed(1)}% over the period
+                </Text>
+              </View>
               <View style={styles.sparklineBleedTop}>
                 <MSparkline data={sparkable(nwTrend.points)} color="#8197c4" height={64} />
               </View>
@@ -797,6 +824,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 99,
   },
+  deltaBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   deltaBadgeText: {
     fontSize: 11,
   },
@@ -813,9 +845,14 @@ const styles = StyleSheet.create({
     fontSize: 30,
     marginTop: 6,
   },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
   totalDelta: {
     fontSize: 12,
-    marginTop: 4,
   },
 
   // Income by-source list rows
@@ -846,9 +883,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     minWidth: 0,
-  },
-  eventRowEmoji: {
-    fontSize: 20,
   },
   eventRowText: {
     flex: 1,

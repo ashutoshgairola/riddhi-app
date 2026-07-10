@@ -56,7 +56,7 @@ export function ToolStatusChip({
         ok ? (
           <MI.check size={11} color={t.em} strokeWidth={3} />
         ) : (
-          <Text style={[styles.failGlyph, { color: t.red }]}>✕</Text>
+          <MI.close size={16} color={t.red} strokeWidth={3} />
         )
       ) : (
         <Animated.View style={[styles.dot, { backgroundColor: t.em }, dotStyle]} />
@@ -84,10 +84,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  failGlyph: {
-    fontSize: 10,
-    lineHeight: 12,
   },
   label: {
     fontSize: 11.5,

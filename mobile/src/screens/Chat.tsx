@@ -51,6 +51,7 @@ import Animated, {
 
 import { IconButton, SearchButton, TopbarActions } from "../components/ui";
 import { MI } from "../components/icons";
+import { AppIcon } from "../components/contentIcons";
 import { PageBackground } from "../components/PageBackground";
 import { useTheme } from "../theme/ThemeProvider";
 import { weight } from "../theme/tokens";
@@ -450,11 +451,17 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
             >
               Ask Munshi ji
             </Text>
-            <Text
-              style={[styles.online, { color: t.em, fontFamily: weight(600) }]}
-            >
-              ● Online
-            </Text>
+            <View style={styles.onlineRow}>
+              <AppIcon value="dot" size={16} color={t.em} />
+              <Text
+                style={[
+                  styles.online,
+                  { color: t.em, fontFamily: weight(600) },
+                ]}
+              >
+                Online
+              </Text>
+            </View>
           </View>
         </View>
         <TopbarActions>
@@ -670,9 +677,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: -0.15,
   },
+  onlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: -1,
+  },
   online: {
     fontSize: 10.5,
-    marginTop: -1,
   },
   body: {
     flex: 1,

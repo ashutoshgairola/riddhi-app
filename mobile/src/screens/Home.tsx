@@ -58,6 +58,7 @@ import { InlineRetry } from "../components/InlineRetry";
 import { IconButton } from "../components/ui";
 import { MASKED_AMOUNT, usePrefs } from "../prefs/PrefsProvider";
 import { MI } from "../components/icons";
+import { AppIconBox } from "../components/contentIcons";
 import { PageBackground } from "../components/PageBackground";
 import { PullToRefresh } from "../components/PullToRefresh";
 import { SourceTag } from "../components/SourceTag";
@@ -615,9 +616,7 @@ function RecentRow({
           { backgroundColor: t.glassBg, borderColor: t.glassBrd },
         ]}
       >
-        <View style={[styles.recentIconWrap, { backgroundColor: t.bg3 }]}>
-          <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
-        </View>
+        <AppIconBox value={tx.icon} color={t.em} size={42} iconSize={19} />
         <View style={styles.recentTextBlock}>
           <Text
             style={[
@@ -908,17 +907,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: radius.lg,
     borderWidth: 1,
-  },
-  recentIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  recentIconGlyph: {
-    fontSize: 19,
   },
   recentTextBlock: {
     flex: 1,

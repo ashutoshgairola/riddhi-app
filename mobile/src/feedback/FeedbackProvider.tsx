@@ -27,6 +27,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { BottomSheet } from '../components/BottomSheet';
+import { AppIcon } from '../components/contentIcons';
 import { FormSheet, type FormConfig } from '../components/FormSheet';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spring, weight } from '../theme/tokens';
@@ -234,7 +235,7 @@ function Toast({ msg, icon }: { msg: string; icon?: string }) {
         style={[styles.toastHiLight, { backgroundColor: topHighlightColor(t.toastShadow) }]}
         pointerEvents="none"
       />
-      {icon ? <Text style={styles.toastIcon}>{icon}</Text> : null}
+      {icon ? <AppIcon value={icon} size={16} color={t.text1} /> : null}
       <Text style={[styles.toastMsg, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={2}>
         {msg}
       </Text>
@@ -268,7 +269,11 @@ function SheetOptionRow({ option, onSelect }: { option: SheetOption; onSelect: (
           },
         ]}
       >
-        {option.icon ? <Text style={styles.optionIcon}>{option.icon}</Text> : null}
+        {option.icon ? (
+          <View style={styles.optionIcon}>
+            <AppIcon value={option.icon} size={18} color={option.danger ? t.red : t.text1} />
+          </View>
+        ) : null}
         <Text
           style={[
             styles.optionLabel,
@@ -278,7 +283,9 @@ function SheetOptionRow({ option, onSelect }: { option: SheetOption; onSelect: (
           {option.label}
         </Text>
         {option.selected ? (
-          <Text style={[styles.optionCheck, { color: t.em, fontFamily: weight(700) }]}>✓</Text>
+          <View style={styles.optionCheck}>
+            <AppIcon value="check" size={16} color={t.em} />
+          </View>
         ) : null}
       </Pressable>
     </Animated.View>
@@ -357,9 +364,6 @@ const styles = StyleSheet.create({
     height: 1,
     borderRadius: 99,
   },
-  toastIcon: {
-    fontSize: 15,
-  },
   toastMsg: {
     fontSize: 13.5,
   },
@@ -378,9 +382,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   optionIcon: {
-    fontSize: 18,
     width: 24,
-    textAlign: 'center',
+    alignItems: 'center',
   },
   optionLabel: {
     flex: 1,
@@ -398,6 +401,5 @@ const styles = StyleSheet.create({
   },
   optionCheck: {
     marginLeft: 'auto',
-    fontSize: 15,
   },
 });
