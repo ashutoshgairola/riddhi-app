@@ -16,6 +16,7 @@ import { UsersModule } from '../users/users.module';
 import { BudgetsModule } from '../budgets/budgets.module';
 import { GoalsModule } from '../goals/goals.module';
 import { ReportsModule } from '../reports/reports.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ReportsModule } from '../reports/reports.module';
     BudgetsModule,
     GoalsModule,
     ReportsModule,
+    SubscriptionsModule,
   ],
   controllers: [NotificationsController],
   providers: [

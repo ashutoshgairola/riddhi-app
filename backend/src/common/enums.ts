@@ -93,6 +93,7 @@ export enum NotificationType {
   MONTHLY_REPORT = 'monthly_report',
   SECURITY_ALERT = 'security_alert',
   MUNSHI_SUGGESTION = 'munshi_suggestion',
+  SUBSCRIPTION_RENEWAL = 'subscription_renewal',
 }
 
 // User Preferences enums

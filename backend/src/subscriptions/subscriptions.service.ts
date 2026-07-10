@@ -8,6 +8,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { CapturedNotification } from '../notification-sync/captured-notification.entity';
 import { TransactionType, PaymentMethod } from '../common/enums';
 import { detectSubscriptions, normalizeDescriptor, DetectTxn, SubscriptionCandidate } from './detect-subscriptions';
+import { isReminderDue } from './renewal-reminder';
 import { resolveName, ResolvedName, isAggregator, extractServiceName } from './subscription-catalog';
 import { computeSubscriptionSummary, SummarySub } from './subscription-summary';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
@@ -136,5 +137,19 @@ export class SubscriptionsService {
     const existing = await this.ignoreRepo.findOne({ where: { userId, merchantDescriptor: descriptor } });
     if (existing) return;
     await this.ignoreRepo.save(this.ignoreRepo.create({ userId, merchantDescriptor: descriptor }));
+  }
+
+  async dueForReminder(userId: string, today: Date): Promise<Subscription[]> {
+    const subs = await this.subRepo.find({ where: { userId, status: 'active' as any } });
+    return subs.filter((s) => isReminderDue(s, today));
+  }
+
+  async markReminded(id: string, forDate: string): Promise<void> {
+    await this.subRepo.update({ id }, { lastReminderSentFor: forDate });
+  }
+
+  async allActiveUserIds(): Promise<string[]> {
+    const subs = await this.subRepo.find({ where: { status: 'active' as any } });
+    return [...new Set(subs.map((s) => s.userId))];
   }
 }

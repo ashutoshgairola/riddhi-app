@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { BudgetsService } from '../budgets/budgets.service';
 import { GoalsService } from '../goals/goals.service';
 import { ReportsService } from '../reports/reports.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { UserPreferences } from '../users/user-preferences.entity';
 import { GoalStatus, NotificationType } from '../common/enums';
 import { ANTHROPIC_CLIENT } from '../ai-chat/ai-chat.service';
@@ -38,6 +39,7 @@ export class NotificationsScheduler {
     private readonly config: ConfigService,
     @InjectRepository(UserPreferences)
     private readonly prefsRepo: Repository<UserPreferences>,
+    private readonly subscriptions: SubscriptionsService,
   ) {}
 
   private get model(): string {
@@ -57,6 +59,14 @@ export class NotificationsScheduler {
     const prefs = await this.prefsRepo.find({ where: { monthlyReportEnabled: true } });
     for (const p of prefs) {
       await this.safe(() => this.generateMonthlyForUser(p.userId));
+    }
+  }
+
+  @Cron('0 9 * * *', { timeZone: 'Asia/Kolkata' })
+  async runSubscriptionReminders(): Promise<void> {
+    const userIds = await this.subscriptions.allActiveUserIds();
+    for (const userId of userIds) {
+      await this.safe(() => this.remindUser(userId));
     }
   }
 
@@ -95,6 +105,19 @@ export class NotificationsScheduler {
       body: `Net savings: ${inr(overview.netIncome)}. Tap to view.`,
       data: { screen: 'reports' },
     });
+  }
+
+  private async remindUser(userId: string): Promise<void> {
+    const due = await this.subscriptions.dueForReminder(userId, new Date());
+    for (const sub of due) {
+      await this.notifications.create(userId, {
+        type: NotificationType.SUBSCRIPTION_RENEWAL,
+        title: `${sub.name} renews soon`,
+        body: `${inr(sub.amount)} on ${sub.nextRenewalDate}`,
+        data: { screen: 'subscriptions', id: sub.id },
+      });
+      await this.subscriptions.markReminded(sub.id, sub.nextRenewalDate);
+    }
   }
 
   private async buildSnapshot(userId: string): Promise<MunshiSnapshot> {

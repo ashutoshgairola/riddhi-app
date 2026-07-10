@@ -6,6 +6,8 @@ function setup(opts: {
   goals?: any[];
   overview?: any;
   aiText?: string | null;
+  activeUserIds?: string[];
+  dueSubs?: any[];
 }) {
   const notifications = { create: jest.fn().mockResolvedValue({ id: 'n' }) } as any;
   const budgets = { findAll: jest.fn().mockResolvedValue(opts.budgets ?? []) } as any;
@@ -25,6 +27,11 @@ function setup(opts: {
         } as any);
   const config = { get: jest.fn().mockReturnValue('claude-sonnet-5') } as any;
   const prefsRepo = { find: jest.fn().mockResolvedValue([{ userId: 'u1' }]) } as any;
+  const subscriptions = {
+    allActiveUserIds: jest.fn().mockResolvedValue(opts.activeUserIds ?? []),
+    dueForReminder: jest.fn().mockResolvedValue(opts.dueSubs ?? []),
+    markReminded: jest.fn().mockResolvedValue(undefined),
+  } as any;
   const scheduler = new NotificationsScheduler(
     notifications,
     budgets,
@@ -33,8 +40,9 @@ function setup(opts: {
     client,
     config,
     prefsRepo,
+    subscriptions,
   );
-  return { scheduler, notifications };
+  return { scheduler, notifications, subscriptions };
 }
 
 describe('NotificationsScheduler', () => {
@@ -82,5 +90,27 @@ describe('NotificationsScheduler', () => {
         data: { screen: 'reports' },
       }),
     );
+  });
+
+  it('sends a subscription_renewal notification and marks it reminded', async () => {
+    const { scheduler, notifications, subscriptions } = setup({
+      activeUserIds: ['u1'],
+      dueSubs: [{ id: 's1', name: 'Netflix', amount: 499, nextRenewalDate: '2026-05-03' }],
+    });
+    await scheduler.runSubscriptionReminders();
+    expect(notifications.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({
+        type: NotificationType.SUBSCRIPTION_RENEWAL,
+        data: { screen: 'subscriptions', id: 's1' },
+      }),
+    );
+    expect(subscriptions.markReminded).toHaveBeenCalledWith('s1', '2026-05-03');
+  });
+
+  it('does nothing when no subscriptions are due', async () => {
+    const { scheduler, notifications } = setup({ activeUserIds: ['u1'], dueSubs: [] });
+    await scheduler.runSubscriptionReminders();
+    expect(notifications.create).not.toHaveBeenCalled();
   });
 });
