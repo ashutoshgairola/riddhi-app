@@ -36,6 +36,7 @@ import { api } from "../api";
 import type { AccountView } from "../api/types";
 import { useApiData } from "../api/useApi";
 import { BottomSheet } from "../components/BottomSheet";
+import { AppIcon } from "../components/contentIcons";
 import { MSeg } from "../components/MSeg";
 import { Btn } from "../components/ui";
 import { MI } from "../components/icons";
@@ -405,7 +406,7 @@ export function AddTxSheet() {
                 },
               ]}
             >
-              <Text style={styles.chipIcon}>{c.i}</Text>
+              <AppIcon value={c.i} size={16} color={c.c} />
               <Text
                 style={[
                   styles.chipLabel,
@@ -610,9 +611,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 99,
     borderWidth: 1,
-  },
-  chipIcon: {
-    fontSize: 15,
   },
   chipLabel: {
     fontSize: 13,

@@ -20,6 +20,7 @@
  */
 import { StyleSheet, Text, View } from 'react-native';
 
+import { AppIcon } from '../components/contentIcons';
 import { GlassCard } from '../components/Glass';
 import { ListCard, ProgressBar, SearchButton } from '../components/ui';
 import { SpringIn } from '../components/SpringIn';
@@ -212,9 +213,12 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
                 <ProgressBar pct={Math.min(pct, 100)} color={barColor} />
               </View>
               {over ? (
-                <Text style={[styles.overWarn, { color: t.red, fontFamily: weight(600) }]}>
-                  ⚠ Over budget by {fmt(spent - alloc)}
-                </Text>
+                <View style={styles.overWarnRow}>
+                  <AppIcon value="warn" size={16} color={t.red} />
+                  <Text style={[styles.overWarn, { color: t.red, fontFamily: weight(600) }]}>
+                    Over budget by {fmt(spent - alloc)}
+                  </Text>
+                </View>
               ) : null}
               {canEdit ? (
                 <View style={styles.actionsRow}>
@@ -316,9 +320,14 @@ const styles = StyleSheet.create({
   barWrap: {
     marginTop: 14,
   },
+  overWarnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
   overWarn: {
     fontSize: 11,
-    marginTop: 8,
   },
   actionsRow: {
     flexDirection: 'row',

@@ -32,6 +32,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton, ListCard, ListRow, SectionHead } from '../components/ui';
+import { AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { useTheme } from '../theme/ThemeProvider';
@@ -49,10 +50,15 @@ interface SearchPage {
   c: string;
 }
 
+// `i` values are icon-system names/emoji resolved by `AppIconBox` (see
+// render site below). `◈`/`↕`/`◎` are not in the emoji→name table
+// (`M_EMOJI` in contentIcons.data.ts), so those three carry explicit
+// ICON_LIST names instead of the source's glyphs; the rest resolve as
+// legacy emoji.
 const PAGES: SearchPage[] = [
-  { id: 'home', l: 'Home', i: '◈', c: '#7faf93' },
-  { id: 'txns', l: 'Transactions', i: '↕', c: '#8197c4' },
-  { id: 'budgets', l: 'Budgets', i: '◎', c: '#c9a86a' },
+  { id: 'home', l: 'Home', i: 'home2', c: '#7faf93' },
+  { id: 'txns', l: 'Transactions', i: 'ledger', c: '#8197c4' },
+  { id: 'budgets', l: 'Budgets', i: 'wallet', c: '#c9a86a' },
   { id: 'goals', l: 'Goals', i: '⊙', c: '#9d8bd6' },
   { id: 'invest', l: 'Investments', i: '▲', c: '#7faf93' },
   { id: 'reports', l: 'Reports', i: '≋', c: '#6fb3ad' },
@@ -182,9 +188,7 @@ export function Search({ entry: _entry }: { entry: ScreenEntry }) {
           <ListCard>
             {matches.map((p, i) => (
               <ListRow key={p.id} last={i === matches.length - 1} onPress={() => nav(p.id)}>
-                <View style={[styles.pageIconBox, { backgroundColor: p.c + '22' }]}>
-                  <Text style={[styles.pageIconGlyph, { color: p.c, fontFamily: weight(700) }]}>{p.i}</Text>
-                </View>
+                <AppIconBox value={p.i} color={p.c} size={36} iconSize={16} />
                 <Text style={[styles.pageLabel, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
                   {p.l}
                 </Text>
@@ -262,16 +266,6 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: 13,
-  },
-  pageIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageIconGlyph: {
-    fontSize: 15,
   },
   pageLabel: {
     flex: 1,

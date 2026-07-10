@@ -32,6 +32,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { api } from '../api';
+import { AppIcon } from '../components/contentIcons';
 import { GlassCard } from '../components/Glass';
 import { Btn, IconButton, ListCard, ListRow, SearchButton, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
@@ -206,7 +207,10 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
             `style` to its inner box, not the Pressable, so flex must live here. */}
         <View style={styles.actionCol}>
           <Btn variant="ghost" onPress={() => void editTx()}>
-            ✎ Edit
+            <View style={styles.editRow}>
+              <AppIcon value="pencil" size={16} color={t.blue} />
+              <Text style={[styles.deleteLabel, { color: t.blue, fontFamily: weight(600) }]}>Edit</Text>
+            </View>
           </Btn>
         </View>
         <View style={styles.actionCol}>
@@ -277,6 +281,12 @@ const styles = StyleSheet.create({
   },
   actionCol: {
     flex: 1,
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   deleteLabel: {
     fontSize: 15,

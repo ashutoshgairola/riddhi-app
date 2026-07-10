@@ -16,6 +16,7 @@
  */
 import { StyleSheet, Text, View } from 'react-native';
 
+import { AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -66,8 +67,8 @@ export function ChatTxCard({ tx }: ChatTxCardProps) {
 
   return (
     <View style={[styles.card, { backgroundColor: t.bg1, borderColor: t.border }]}>
-      <View style={[styles.iconBox, { backgroundColor: col + '22' }]}>
-        <Text style={styles.iconGlyph}>{CHAT_ICON[tx.category] || '•'}</Text>
+      <View style={styles.iconWrap}>
+        <AppIconBox value={CHAT_ICON[tx.category] || '•'} color={col} size={40} iconSize={19} />
       </View>
       <View style={styles.mid}>
         <Text style={[styles.merchant, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
@@ -109,16 +110,8 @@ const styles = StyleSheet.create({
     gap: 12,
     maxWidth: 280,
   },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconWrap: {
     flexShrink: 0,
-  },
-  iconGlyph: {
-    fontSize: 19,
   },
   mid: {
     flex: 1,
