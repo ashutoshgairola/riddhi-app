@@ -42,6 +42,7 @@ import {
   toCardSummaryView,
   toStatementParseResultView,
 } from './adapters';
+import { subscriptionsApi } from './subscriptions';
 import type {
   TxView,
   RecentTxView,
@@ -86,6 +87,15 @@ import type {
   NewEventInput,
   NewEventExpenseInput,
 } from './types';
+import type {
+  SubCycle,
+  SubStatus,
+  SubView,
+  SubCandidateView,
+  SubFlagView,
+  SubSummaryView,
+  SubListView,
+} from './subscriptions';
 import type { StatementParseResultView, ImportStatementPayload } from '../screens/statementReview';
 
 // ── Feature flag ──────────────────────────────────────────────────────
@@ -98,6 +108,17 @@ export const setAuthToken = _setAuthToken;
 
 export { authApi } from './auth';
 export type { ApiUser, AuthResponse, AuthTokens, OnboardingPayload } from './auth';
+
+export { subscriptionsApi } from './subscriptions';
+export type {
+  SubCycle,
+  SubStatus,
+  SubView,
+  SubCandidateView,
+  SubFlagView,
+  SubSummaryView,
+  SubListView,
+} from './subscriptions';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function todayIso(): string {
@@ -832,6 +853,8 @@ export const api = {
       return res;
     },
   },
+
+  subscriptions: subscriptionsApi,
 
   users: {
     async updateProfile(patch: { name?: string }): Promise<void> {
