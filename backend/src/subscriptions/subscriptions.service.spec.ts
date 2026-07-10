@@ -88,4 +88,30 @@ describe('SubscriptionsService', () => {
     const candidates = await svc.detect('u1');
     expect(candidates[0].name).toBe('Google Play');
   });
+
+  it('detect still returns candidates (generic name) when the notification lookup throws', async () => {
+    const txns = [
+      { id: 't1', date: '2025-07-08', description: 'GOOGLE PLAY', amount: 99, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+      { id: 't2', date: '2026-07-08', description: 'GOOGLE PLAY', amount: 99, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+    ];
+    const { svc, capturedRepo } = build(txns, []);
+    capturedRepo.find = jest.fn(async () => { throw new Error('db down'); });
+    const candidates = await svc.detect('u1');
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].name).toBe('Google Play');
+  });
+
+  it('detect does not misattribute a notification whose amount is a digit-superstring', async () => {
+    const txns = [
+      { id: 't1', date: '2025-07-08', description: 'GOOGLE PLAY', amount: 9, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+      { id: 't2', date: '2026-07-08', description: 'GOOGLE PLAY', amount: 9, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+    ];
+    const notes = [
+      { userId: 'u1', title: 'Google Play', text: 'Your subscription from Truecaller on Google Play has renewed for ₹99.', postedAt: new Date('2026-07-08') },
+    ];
+    const { svc } = build(txns, notes);
+    const candidates = await svc.detect('u1');
+    // ₹9 candidate must NOT pick up the ₹99 notification's service name
+    expect(candidates[0].name).toBe('Google Play');
+  });
 });

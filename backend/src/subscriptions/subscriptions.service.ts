@@ -33,17 +33,22 @@ export class SubscriptionsService {
    * aggregator name, user renames at confirm).
    */
   private async findNotificationName(userId: string, amount: number): Promise<string | null> {
-    const notes = await this.capturedRepo.find({ where: { userId }, order: { postedAt: 'DESC' }, take: 200 });
-    const amtStr = String(Math.round(amount));
-    const patterns = [`₹${amtStr}`, `rs.${amtStr}`, `rs ${amtStr}`, `inr ${amtStr}`, `${amtStr}.00`];
-    for (const n of notes) {
-      const text = `${n.title ?? ''} ${n.text}`;
-      const name = extractServiceName(text);
-      if (!name) continue;
-      const lower = text.toLowerCase();
-      if (patterns.some((p) => lower.includes(p))) return name;
+    try {
+      const notes = await this.capturedRepo.find({ where: { userId }, order: { postedAt: 'DESC' }, take: 200 });
+      const amtStr = String(Math.round(amount));
+      // Require a currency token immediately before the amount, and no trailing
+      // digit — so ₹9 does NOT match "₹99"/"₹99.00", and a bare order-number
+      // digit run never matches. Optional ".dd" decimals are allowed.
+      const re = new RegExp(`(?:₹|rs\\.?|inr)\\s*${amtStr}(?:\\.\\d{2})?(?!\\d)`, 'i');
+      for (const n of notes) {
+        const text = `${n.title ?? ''} ${n.text}`;
+        const name = extractServiceName(text);
+        if (name && re.test(text)) return name;
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
   }
 
   private toSummarySub(s: Subscription): SummarySub {
