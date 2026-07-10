@@ -79,6 +79,7 @@ interface RecentTx {
   icon: string;
   desc: string;
   cat: string;
+  cCol: string; // hex category color
   date: string;
   amt: number;
   type: "exp" | "inc";
@@ -616,7 +617,7 @@ function RecentRow({
           { backgroundColor: t.glassBg, borderColor: t.glassBrd },
         ]}
       >
-        <AppIconBox value={tx.icon} color={t.em} size={42} iconSize={19} />
+        <AppIconBox value={tx.icon} color={tx.cCol} size={42} iconSize={19} />
         <View style={styles.recentTextBlock}>
           <Text
             style={[
