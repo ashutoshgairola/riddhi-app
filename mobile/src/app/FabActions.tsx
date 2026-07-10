@@ -1,34 +1,39 @@
 /**
- * FabActions — the FAB radial backdrop + 4 staggered speed-dial action
- * cards. RN port of `.m-fab-backdrop` / `.m-fab-action`
- * (project/riddhi/mobile.css:329–373), the Android right-aligned override
- * (project/riddhi/platform.css:159–167), and the `fabActions` array +
- * render in `project/riddhi/MobileApp.jsx:280–285,325–341`.
+ * FabActions — the FAB dim backdrop + speed-dial action pills that "fan"
+ * out of the FAB on open and fold back into it on close.
  *
- * This renders the BACKDROP and the 4 ACTION cards only — the FAB *button*
+ * This renders the BACKDROP and the action PILLS only — the FAB *button*
  * itself lives in `<TabBar/>` (iOS) / `<MFab/>` (Android), both of which
- * already toggle `fabOpen` via `useNav()`. `AppShell` mounts `<FabActions/>`
- * above (before, in JSX-order terms) the tab bar / nav bar + FAB, exactly
- * like the web DOM order in MobileApp.jsx:325–361 — the backdrop+actions
- * are earlier siblings of the FAB-bearing tab bar, so the FAB visually sits
- * on top and stays tappable to close the menu, matching `z-index: 60/61`
- * (backdrop/actions) vs. the tab bar's own stacking in the web version.
+ * toggle `fabOpen` via `useNav()`. `AppShell` mounts `<FabActions/>` above
+ * (before, in JSX-order terms) the tab bar / nav bar + FAB.
  *
- * Each action's entrance is opacity + translateY + scale, driven by
- * `fabOpen` via Reanimated `withDelay`/`withTiming`, mirroring the CSS
- * `transition: transform .3s var(--spring), opacity .25s` with
- * `transitionDelay: i*0.04s` (only applied on open — MobileApp.jsx:332 sets
- * `transitionDelay: fabOpen ? '${i*0.04}s' : '0s'`, so closing reverses with
- * no stagger).
+ * Fan motion: every pill runs off a single Reanimated `progress` value with
+ * the FAB as its origin. When closed each pill is collapsed at the FAB's
+ * vertical point (translated down onto it, scaled to ~0.3, opacity 0); on
+ * open it rises to its resting slot, scales to 1 and fades in. The stagger
+ * runs BOTH ways — bottom-first on open (unfurls upward), farthest-first on
+ * close (folds back in) — so the group reads as emanating from / retracting
+ * into the FAB button.
  *
- * Tapping the backdrop or an action card closes the menu: 'chat' navigates
- * and then explicitly closes the FAB (the web's `nav()` does NOT clear
- * `fabOpen` — only `openAdd()` does, MobileApp.jsx:273); the other 3
- * actions call `openAdd()`, which already closes the FAB itself.
+ * Unblurred navbar: the tab bar / nav bar are stacked ABOVE this backdrop
+ * (see TabBar/NavBar), so the dim only covers the stage above them; the
+ * navbar (and the FAB) stay crisp and tappable.
+ *
+ * Tapping the backdrop or a pill closes the menu: 'chat'/'plan-event'
+ * navigate then explicitly close the FAB; the other pills call `openAdd()`,
+ * which already closes it.
  */
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  type ImageSourcePropType,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { BlurView } from "expo-blur";
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -36,64 +41,66 @@ import Animated, {
 } from "react-native-reanimated";
 import { useEffect } from "react";
 
+import { LiquidGlass } from "../components/LiquidGlass";
 import { useTheme } from "../theme/ThemeProvider";
 import { weight } from "../theme/tokens";
 import { useNav } from "./navContext";
 
-// fabActions (MobileApp.jsx:280–285).
 interface FabAction {
   label: string;
-  desc: string;
   icon: string;
+  /** Image badge (e.g. the Munshi avatar) shown instead of the emoji glyph. */
+  image?: ImageSourcePropType;
   /** Token key into `Tokens`, resolved against the active theme below. */
   colorToken: "violet" | "red" | "em" | "blue";
   action?: "chat" | "plan-event";
 }
 
+// Ordered FAB-outward: index 0 is the pill nearest the FAB (bottom-most),
+// index 4 is farthest (top-most). Read top→bottom the list is
+// Ask Munshi ji/ Plan a big event / Log an expense / Add income / Transfer.
 const FAB_ACTIONS: FabAction[] = [
+  { label: "Transfer", icon: "🔄", colorToken: "blue" },
+  { label: "Add income", icon: "💰", colorToken: "em" },
+  { label: "Log an expense", icon: "💸", colorToken: "red" },
   {
-    label: "Ask Munshi ji",
-    desc: "Log or plan by chat",
-    icon: "💬",
-    colorToken: "violet",
-    action: "chat",
-  },
-  {
-    label: "Add Expense",
-    desc: "Quick log a spend",
-    icon: "💸",
-    colorToken: "red",
-  },
-  {
-    label: "Add Income",
-    desc: "Salary, freelance…",
-    icon: "💰",
-    colorToken: "em",
-  },
-  {
-    label: "Transfer",
-    desc: "Move between accounts",
-    icon: "🔄",
-    colorToken: "blue",
-  },
-  {
-    label: "Plan an event",
-    desc: "Budget a party or trip",
+    label: "Plan a big event",
     icon: "🎉",
     colorToken: "violet",
     action: "plan-event",
   },
+  {
+    label: "Ask Munshi ji anything",
+    icon: "💬",
+    image: require("../../assets/munshi.png"),
+    colorToken: "violet",
+    action: "chat",
+  },
 ];
 
-// .m-fab-backdrop: opacity .22s var(--ease) (mobile.css:339).
+const TOTAL = FAB_ACTIONS.length;
+
 const BACKDROP_DURATION_MS = 220;
-// .m-fab-action: transform .3s var(--spring), opacity .25s (mobile.css:361).
-const ACTION_TRANSFORM_MS = 300;
-const ACTION_OPACITY_MS = 250;
-// transitionDelay: i*0.04s, only on open (MobileApp.jsx:332).
+// transform/opacity of each pill.
+const PILL_DURATION_MS = 320;
+// Stagger between consecutive pills (both directions).
 const STAGGER_STEP_MS = 40;
-// Android speed-dial actions stack upward from the FAB (MobileApp.jsx:317).
-const androidActionBottom = (i: number) => 96 + 56 + 12 + i * 64;
+const FAN_EASE = Easing.bezier(0.32, 0.72, 0, 1);
+
+// Resting `bottom` of pill `i`. iOS pills centre over the tab-bar FAB; Android
+// pills stack above the bottom-right MFab (96 = MFab bottom, +56 height +12 gap).
+const iosPillBottom = (i: number) => 100 + i * 64;
+const androidPillBottom = (i: number) => 96 + 56 + 12 + i * 64;
+// Approx. bottom offset of the FAB centre — the point pills collapse onto.
+const IOS_FAB_BOTTOM = 60;
+const ANDROID_FAB_BOTTOM = 96 + 28; // MFab bottom + half its 56px height.
+
+// Resting size hierarchy: the farthest pill (top) is full size, each step
+// toward the FAB shrinks so the stack funnels into a triangle. index 0 is
+// nearest the FAB (smallest), index TOTAL-1 is farthest (largest).
+const MIN_REST_SCALE = 0.78;
+const restScale = (i: number) =>
+  MIN_REST_SCALE + (i / (TOTAL - 1)) * (1 - MIN_REST_SCALE);
 
 function FabActionCard({
   item,
@@ -104,31 +111,46 @@ function FabActionCard({
   index: number;
   isAndroid: boolean;
 }) {
-  const { t, mode } = useTheme();
+  const { t } = useTheme();
   const { fabOpen, setFabOpen, nav, openAdd } = useNav();
   const color = t[item.colorToken];
+
+  const restBottom = isAndroid
+    ? androidPillBottom(index)
+    : iosPillBottom(index);
+  const fabBottom = isAndroid ? ANDROID_FAB_BOTTOM : IOS_FAB_BOTTOM;
+  // Distance the pill sits below its slot when collapsed onto the FAB.
+  const collapseY = restBottom - fabBottom;
+  // Resting scale — smaller nearer the FAB for the triangular funnel.
+  const openScale = restScale(index);
 
   const progress = useSharedValue(0);
 
   useEffect(() => {
     if (fabOpen) {
+      // Bottom-first: nearest pill (index 0) unfurls first, upward.
       progress.value = withDelay(
         index * STAGGER_STEP_MS,
-        withTiming(1, { duration: ACTION_TRANSFORM_MS }),
+        withTiming(1, { duration: PILL_DURATION_MS, easing: FAN_EASE }),
       );
     } else {
-      progress.value = withTiming(0, { duration: ACTION_OPACITY_MS });
+      // Farthest-first: top pill folds back into the FAB first.
+      progress.value = withDelay(
+        (TOTAL - 1 - index) * STAGGER_STEP_MS,
+        withTiming(0, { duration: PILL_DURATION_MS, easing: FAN_EASE }),
+      );
     }
   }, [fabOpen, index, progress]);
 
   const style = useAnimatedStyle(() => {
-    // .m-fab-action: translateY(20px) scale(0.5) opacity 0 -> translateY(0) scale(1) opacity 1
-    // (mobile.css:347,365). Android scales from 0.6 instead of 0.5 (platform.css:163).
-    const fromScale = isAndroid ? 0.6 : 0.5;
-    const scale = fromScale + (1 - fromScale) * progress.value;
-    const translateY = 20 * (1 - progress.value);
+    const p = progress.value;
+    // Collapsed (p=0): translated down onto the FAB, scaled small, invisible.
+    const translateY = (1 - p) * collapseY;
+    const scale = 0.3 + (openScale - 0.3) * p;
+    // Fade a touch faster than the transform so pills don't linger faint.
+    const opacity = Math.min(1, p * 1.8);
     return {
-      opacity: progress.value,
+      opacity,
       transform: [{ translateY }, { scale }],
     };
   });
@@ -150,36 +172,37 @@ function FabActionCard({
       style={[
         styles.action,
         isAndroid ? styles.actionAndroid : styles.actionIos,
-        { bottom: isAndroid ? androidActionBottom(index) : 100 + index * 64 },
+        { bottom: restBottom },
         style,
       ]}
       pointerEvents={fabOpen ? "auto" : "none"}
     >
       <Pressable
-        style={[
-          styles.actionInner,
-          { backgroundColor: t.fabActionBg, borderColor: t.fabActionBorder },
-        ]}
+        style={[styles.pill, { borderColor: t.fabActionBorder }]}
         onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel={item.label}
       >
-        <BlurView
-          intensity={30}
-          tint={mode === "light" ? "light" : "dark"}
+        <LiquidGlass
+          radius={999}
+          border={false}
+          tint={t.fabActionBg}
+          intensity={22}
           style={StyleSheet.absoluteFill}
+          pointerEvents="none"
         />
         <View style={[styles.icon, { backgroundColor: `${color}22` }]}>
-          <Text style={styles.iconGlyph}>{item.icon}</Text>
+          {item.image ? (
+            <Image source={item.image} style={styles.iconImage} />
+          ) : (
+            <Text style={styles.iconGlyph}>{item.icon}</Text>
+          )}
         </View>
-        <View>
-          <Text
-            style={[styles.label, { color: t.text1, fontFamily: weight(600) }]}
-          >
-            {item.label}
-          </Text>
-          <Text style={[styles.desc, { color: t.text2 }]}>{item.desc}</Text>
-        </View>
+        <Text
+          style={[styles.label, { color: t.text1, fontFamily: weight(600) }]}
+        >
+          {item.label}
+        </Text>
       </Pressable>
     </Animated.View>
   );
@@ -240,7 +263,6 @@ export function FabActions() {
 }
 
 const styles = StyleSheet.create({
-  // .m-fab-backdrop (mobile.css:330–341)
   backdrop: {
     position: "absolute",
     top: 0,
@@ -248,9 +270,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 60,
-    // Android paints by elevation independent of zIndex: keep the backdrop
-    // below the action cards (5) and the FAB (MFab 6 / TabBar fab 8) so the
-    // FAB stays visible/tappable over the dimmed backdrop deterministically.
+    // Keep below the pills (5) and the FAB (MFab 6 / TabBar fab 8) on Android's
+    // elevation plane; the nav bars are lifted above this (see TabBar/NavBar).
     elevation: 4,
   },
   backdropFill: {
@@ -263,51 +284,59 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  // .m-fab-action (mobile.css:343–365)
   action: {
     position: "absolute",
+    // Android base plane: below the MFab (6) so pills read as emerging from
+    // behind it. iOS overrides zIndex in `actionIos` to sit ABOVE the tab bar.
     zIndex: 61,
-    // Above the backdrop (4), below the FAB (6/8) on Android's elevation plane.
     elevation: 5,
   },
   actionIos: {
     left: 0,
     right: 0,
     alignItems: "center",
+    // Float the fan ABOVE the tab bar (TabBar capsule is zIndex 70) so the
+    // bottom-most pill isn't clipped by the navbar's top edge, while the dim
+    // backdrop (60) stays below the navbar — backdrop < navbar < pills. Mirrors
+    // the web, where `.m-fab-fan` stacks above `.m-tabbar`. (iOS honours
+    // zIndex; elevation is a no-op there, so Android's plane is unaffected.)
+    zIndex: 80,
   },
   actionAndroid: {
     right: 16,
     alignItems: "flex-end",
   },
-  actionInner: {
+  // Content-width, fully-rounded glass pill.
+  pill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 12,
-    paddingRight: 18,
-    paddingLeft: 14,
-    borderRadius: 18,
+    paddingVertical: 10,
+    paddingRight: 22,
+    paddingLeft: 12,
+    borderRadius: 999,
     borderWidth: 1,
     overflow: "hidden",
   },
-  // .m-fab-action .ico (mobile.css:366–371)
+  // Circular icon badge.
   icon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   iconGlyph: {
-    fontSize: 18,
+    fontSize: 19,
   },
-  // .m-fab-action .lbl (mobile.css:372)
+  // Munshi avatar fills the circular badge.
+  iconImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    resizeMode: "cover",
+  },
   label: {
-    fontSize: 14,
-  },
-  // .m-fab-action .desc (mobile.css:373)
-  desc: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 16,
   },
 });

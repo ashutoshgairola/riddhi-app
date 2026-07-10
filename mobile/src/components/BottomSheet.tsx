@@ -35,7 +35,6 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -47,24 +46,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, radius, weight } from '../theme/tokens';
+import { LiquidGlass } from './LiquidGlass';
 import { MI } from './icons';
 
 /**
  * `sheetShadow` is authored as a two-part CSS shadow string, e.g.
- * `"inset 0 1px 0 rgba(255,255,255,0.12), 0 -12px 48px rgba(0,0,0,0.5)"`
- * — an inset top highlight (same shape as `glassHi` in `Glass.tsx`) plus an
- * ambient drop shadow. RN has no inset-shadow primitive, so only the first
- * (`inset ...`) component's color is pulled out here and rendered as a 1px
- * highlight View along the sheet's top inner edge; the second component is
- * approximated separately via the `sheet` style's `shadow*`/`elevation` props.
+ * `"inset 0 1px 0 rgba(255,255,255,0.12), 0 -12px 48px rgba(0,0,0,0.5)"` — an
+ * inset top highlight (now supplied by LiquidGlass's specular rim) plus an
+ * ambient drop shadow. RN has no inset-shadow primitive; the ambient clause's
+ * color is pulled out here and approximated via the `sheet` style's
+ * `shadow*`/`elevation` props.
+ *
+ * Second `rgba(...)` in `sheetShadow` belongs to the ambient `0 -12px 48px
+ * rgba(...)` clause.
  */
-function topHighlightColor(sheetShadow: string): string {
-  // First `rgba(...)` in the string belongs to the `inset 0 1px 0 rgba(...)` clause.
-  const match = sheetShadow.match(/rgba\([^)]*\)/g);
-  return match?.[0] ?? 'rgba(255,255,255,0.12)';
-}
-
-/** Second `rgba(...)` in `sheetShadow` belongs to the ambient `0 -12px 48px rgba(...)` clause. */
 function ambientShadowColor(sheetShadow: string): string {
   const match = sheetShadow.match(/rgba\([^)]*\)/g);
   return match?.[1] ?? '#000000';
@@ -86,7 +81,7 @@ const SLIDE_DURATION_MS = 350;
 const BACKDROP_DURATION_MS = 250;
 
 export function BottomSheet({ open, onClose, title, children, headerRight }: BottomSheetProps) {
-  const { t, mode } = useTheme();
+  const { t } = useTheme();
   const insets = useSafeAreaInsets();
   const screenHeight = Dimensions.get('window').height;
 
@@ -139,7 +134,12 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
   }));
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={open ? 'auto' : 'none'}>
+    // zIndex 200 lifts the whole sheet (backdrop + surface) ABOVE the tab bar
+    // (TabBar capsule is zIndex 70) — otherwise on iOS the navbar's explicit
+    // zIndex beats this sheet's source order and clips the sheet's bottom rows.
+    // Mirrors the web's `.m-sheet-backdrop`/`.m-sheet` z-index 200/201 vs
+    // `.m-tabbar`'s 70. (Android already lifts via the sheet's elevation 24.)
+    <View style={[StyleSheet.absoluteFill, styles.root]} pointerEvents={open ? 'auto' : 'none'}>
       <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents={open ? 'auto' : 'none'}>
         <Pressable
           style={[styles.backdropFill, { backgroundColor: t.sheetBackdropBg }]}
@@ -164,10 +164,7 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
          * `sheet`) isn't clipped along with the blur/content — `overflow:
          * hidden` and `shadow*` don't compose on the same RN View. */}
         <View style={[styles.surfaceClip, { borderTopColor: t.sheetBorder }]}>
-          <BlurView intensity={70} tint={mode === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
-          <View style={[styles.surface, { backgroundColor: t.sheetBg }]}>
-            <View style={[styles.hiLight, { backgroundColor: topHighlightColor(t.sheetShadow) }]} pointerEvents="none" />
-
+          <LiquidGlass radius={radius.xl2} border={false} tint={t.sheetBg} intensity={40} contentStyle={styles.surface}>
             <GestureDetector gesture={pan}>
               <View style={styles.handleZone}>
                 <View style={[styles.handle, { backgroundColor: t.borderStr }]} />
@@ -199,7 +196,7 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
             >
               {children}
             </ScrollView>
-          </View>
+          </LiquidGlass>
         </View>
       </Animated.View>
     </View>
@@ -207,6 +204,10 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
 }
 
 const styles = StyleSheet.create({
+  // Above the tab bar (zIndex 70) so an open sheet covers the navbar.
+  root: {
+    zIndex: 200,
+  },
   backdropFill: {
     flex: 1,
   },

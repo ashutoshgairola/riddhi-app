@@ -18,8 +18,9 @@ export interface LiquidGlassProps extends PropsWithChildren {
   /** Draw the 1px glass rim. Default true; set false when the surface is a
    * refraction fill layered under a parent that owns the border/gradient. */
   border?: boolean;
-  /** Backdrop-blur strength for the real frosted content beneath the glass
-   * (expo-blur intensity, 0–100). Default 22. */
+  /** Backdrop-blur strength for the real content beneath the glass (expo-blur
+   * intensity, 0–100). Default 12 — deliberately light so the glass reads as
+   * transparent/liquid (shows the real content behind) rather than heavy frost. */
   intensity?: number;
   /** Pass-through for `pointerEvents` on the outer wrapper. */
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
@@ -27,7 +28,7 @@ export interface LiquidGlassProps extends PropsWithChildren {
 
 export function LiquidGlass({
   children, style, contentStyle, radius: r = R.xl, padding = 0,
-  specular = true, chromatic = true, tint, border = true, intensity = 22, pointerEvents,
+  specular = true, chromatic = true, tint, border = true, intensity = 12, pointerEvents,
 }: LiquidGlassProps) {
   const { t, mode } = useTheme();
   const [size, setSize] = useState<[number, number]>([0, 0]);
