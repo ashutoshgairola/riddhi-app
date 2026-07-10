@@ -66,7 +66,7 @@ export async function resolveName(
   // A specific (non-aggregator) catalog hit is authoritative.
   if (cat && !isAggregator(descriptor)) return cat;
   // Aggregator: prefer the real service name from the notification hint.
-  if (opts?.hint) return { name: opts.hint, emoji: cat?.emoji ?? DEFAULT_EMOJI, color: cat?.color ?? DEFAULT_COLOR };
+  if (opts?.hint && isAggregator(descriptor)) return { name: opts.hint, emoji: cat?.emoji ?? DEFAULT_EMOJI, color: cat?.color ?? DEFAULT_COLOR };
   if (cat) return cat; // generic aggregator name (e.g. "Google Play")
   if (opts?.llm) {
     try {

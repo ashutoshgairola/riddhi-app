@@ -52,4 +52,8 @@ describe('resolveName', () => {
     const r = await resolveName('acme cloud pro');
     expect(r.name).toBe('Acme Cloud Pro');
   });
+  it('ignores a hint for a non-aggregator unknown descriptor (hint is aggregators-only)', async () => {
+    const r = await resolveName('acme cloud pro', { hint: 'Should Be Ignored', llm: async () => ({ name: 'Acme Cloud', emoji: '☁️' }) });
+    expect(r.name).toBe('Acme Cloud');
+  });
 });
