@@ -209,10 +209,10 @@ export const dark: Tokens = {
   glassBrd2: 'rgba(255,255,255,0.18)',
   glassHi: 'inset 0 1px 0 rgba(255,255,255,0.10)',
 
-  refraction: 0.045,
-  specularColor: 'rgba(255,255,255,0.55)',
-  specularWidth: 0.12,
-  chromatic: 0.006,
+  refraction: 0.09,
+  specularColor: 'rgba(255,255,255,0.75)',
+  specularWidth: 0.22,
+  chromatic: 0.012,
 
   // .m-page background: linear-gradient(180deg, #1d1733 0%, #14101f 46%, #0b0912 100%)
   pageGradient: ['#181328', '#100c18', '#08060d'],
@@ -287,10 +287,10 @@ export const light: Tokens = {
   glassBrd2: 'rgba(255,255,255,0.95)',
   glassHi: 'inset 0 1px 0 rgba(255,255,255,0.9)',
 
-  refraction: 0.04,
+  refraction: 0.08,
   specularColor: 'rgba(255,255,255,0.9)',
-  specularWidth: 0.1,
-  chromatic: 0.004,
+  specularWidth: 0.2,
+  chromatic: 0.01,
 
   // [data-theme="light"] .m-page background:
   // linear-gradient(180deg, #e7e0fb 0%, #f1edfb 48%, #e9e4f6 100%)
