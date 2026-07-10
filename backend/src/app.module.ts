@@ -24,6 +24,7 @@ import { InsightsModule } from './insights/insights.module';
 import { MailModule } from './mail/mail.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { StatementsModule } from './statements/statements.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { StatementsModule } from './statements/statements.module';
     InsightsModule,
     ReceiptsModule,
     StatementsModule,
+    SubscriptionsModule,
   ],
   controllers: [HealthController],
 })

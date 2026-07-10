@@ -98,6 +98,12 @@ export class Transaction {
   @Index()
   importFingerprint: string | null;
 
+  /** Set when this transaction is a charge for a confirmed Subscription
+   * (subscriptions/subscription.entity.ts). Null for everything else. */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  subscriptionId: string | null;
+
   @Column({ type: 'simple-array', default: '' })
   tags: string[];
 
