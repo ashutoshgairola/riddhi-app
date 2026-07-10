@@ -6,14 +6,16 @@
  * Hides itself entirely when the request fails or returns nothing.
  */
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { HScroll } from "../../components/ui";
-import { GlassView } from "../../components/Glass";
+import { LiquidGlass } from "../../components/LiquidGlass";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, weight } from "../../theme/tokens";
 import { useNav } from "../../app/navContext";
 import { apiClient } from "../../api/client";
+import { usePrefs } from "../../prefs/PrefsProvider";
+import { maskAmounts } from "../../lib/maskAmounts";
 
 interface Insight {
   id: string;
@@ -27,6 +29,7 @@ interface Insight {
 export function AiInsightsStrip() {
   const { t } = useTheme();
   const { nav } = useNav();
+  const { prefs } = usePrefs();
   const [insights, setInsights] = useState<Insight[]>([]);
 
   useEffect(() => {
@@ -50,7 +53,7 @@ export function AiInsightsStrip() {
             nav("chat", { prefill: insight.chatPrompt, autoSend: true })
           }
         >
-          <GlassView style={styles.card} padding={14} radius={radius.lg}>
+          <LiquidGlass style={styles.card} padding={14} radius={radius.lg}>
             <View style={styles.headRow}>
               <Text style={styles.icon}>{insight.icon}</Text>
               <Text
@@ -60,21 +63,32 @@ export function AiInsightsStrip() {
                 ]}
                 numberOfLines={1}
               >
-                {insight.title}
+                {prefs.hideBalances
+                  ? maskAmounts(insight.title)
+                  : insight.title}
               </Text>
             </View>
             <Text
               style={[styles.body, { color: t.text2, fontFamily: weight(400) }]}
               numberOfLines={2}
             >
-              {insight.body}
+              {prefs.hideBalances ? maskAmounts(insight.body) : insight.body}
             </Text>
-            <Text
-              style={[styles.cta, { color: t.text3, fontFamily: weight(600) }]}
-            >
-              Ask Munshi ji →
-            </Text>
-          </GlassView>
+            <View style={styles.ctaRow}>
+              <Image
+                source={require("../../../assets/munshi.png")}
+                style={styles.ctaLogo}
+              />
+              <Text
+                style={[
+                  styles.cta,
+                  { color: t.text3, fontFamily: weight(600) },
+                ]}
+              >
+                Ask Munshi ji →
+              </Text>
+            </View>
+          </LiquidGlass>
         </Pressable>
       ))}
     </HScroll>
@@ -102,8 +116,19 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 6,
   },
+  ctaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 9,
+  },
+  ctaLogo: {
+    width: 14,
+    height: 14,
+    borderRadius: 5,
+    resizeMode: "cover",
+  },
   cta: {
     fontSize: 11,
-    marginTop: 9,
   },
 });

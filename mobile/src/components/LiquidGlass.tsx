@@ -14,13 +14,16 @@ export interface LiquidGlassProps extends PropsWithChildren {
   specular?: boolean;
   chromatic?: boolean;
   tint?: string;
+  /** Draw the 1px glass rim. Default true; set false when the surface is a
+   * refraction fill layered under a parent that owns the border/gradient. */
+  border?: boolean;
   /** Pass-through for `pointerEvents` on the outer wrapper. */
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
 }
 
 export function LiquidGlass({
   children, style, contentStyle, radius: r = R.xl, padding = 0,
-  specular = true, chromatic = true, tint, pointerEvents,
+  specular = true, chromatic = true, tint, border = true, pointerEvents,
 }: LiquidGlassProps) {
   const { t } = useTheme();
   const [size, setSize] = useState<[number, number]>([0, 0]);
@@ -52,7 +55,7 @@ export function LiquidGlass({
 
   return (
     <View
-      style={[{ borderRadius: r, borderWidth: 1, borderColor: t.glassBrd, overflow: 'hidden' }, style]}
+      style={[{ borderRadius: r, borderWidth: border ? 1 : 0, borderColor: t.glassBrd, overflow: 'hidden' }, style]}
       onLayout={onLayout}
       pointerEvents={pointerEvents}
     >

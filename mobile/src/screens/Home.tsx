@@ -53,7 +53,7 @@ import Svg, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../auth/AuthProvider";
-import { GlassView } from "../components/Glass";
+import { LiquidGlass } from "../components/LiquidGlass";
 import { InlineRetry } from "../components/InlineRetry";
 import { IconButton } from "../components/ui";
 import { MASKED_AMOUNT, usePrefs } from "../prefs/PrefsProvider";
@@ -228,10 +228,18 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
       >
         {/* ── Signature hero card (MobileHome.jsx:98–125) ── */}
         <SpringIn style={[styles.hero, { borderColor: t.glassBrd2 }]}>
-          <BlurView
-            intensity={30}
-            tint={mode === "light" ? "light" : "dark"}
+          {/* Refractive liquid-glass fill (replaces the frosted BlurView). Sits
+              under the hero's own violet gradient + glow, so it's borderless
+              and untinted — the shader just refracts the page backdrop; the
+              gradient/glow/hiLight on top keep the hero's signature look. */}
+          <LiquidGlass
             style={StyleSheet.absoluteFill}
+            radius={30}
+            border={false}
+            tint="rgba(0,0,0,0)"
+            specular
+            chromatic
+            pointerEvents="none"
           />
           <LinearGradient
             colors={[
@@ -373,9 +381,9 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
 
         {/* ── SMS auto-sync banner (MobileHome.jsx:128–141, animationDelay: .03s) ── */}
         <SpringIn delay={30}>
-          <GlassView style={styles.syncBanner} padding={0} radius={radius.lg}>
+          <LiquidGlass style={styles.syncBanner} padding={0} radius={radius.lg}>
             <SyncBannerInner onPress={() => nav("sync")} />
-          </GlassView>
+          </LiquidGlass>
         </SpringIn>
 
         {/* ── This week spending (MobileHome.jsx:144–151, animationDelay: .06s) ── */}
@@ -383,7 +391,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
           This week
         </Label>
         <SpringIn delay={60}>
-          <GlassView style={styles.weekCard} padding={0} radius={radius.xl}>
+          <LiquidGlass style={styles.weekCard} padding={0} radius={radius.xl}>
             <View style={styles.weekCardInner}>
               <View style={styles.weekHeaderRow}>
                 <Text
@@ -405,7 +413,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
               </View>
               <WeekChart data={week} peakIdx={peakIdx} />
             </View>
-          </GlassView>
+          </LiquidGlass>
         </SpringIn>
 
         {/* ── AI insights (rule-based cards deep-linking into chat) ── */}
