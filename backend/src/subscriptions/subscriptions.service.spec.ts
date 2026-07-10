@@ -114,4 +114,40 @@ describe('SubscriptionsService', () => {
     // ₹9 candidate must NOT pick up the ₹99 notification's service name
     expect(candidates[0].name).toBe('Google Play');
   });
+
+  describe('attachTransaction', () => {
+    const activeSub = (over: any = {}) => ({
+      id: 's1', userId: 'u1', status: 'active', merchantDescriptor: 'netflix.com', accountId: 'a1',
+      amount: 499, firstSeenDate: '2025-01-01', priceHistory: null, cycle: 'monthly', nextRenewalDate: '2026-06-01',
+      ...over,
+    });
+
+    it('links a matching charge and appends a price hike (seeding priceHistory from the old amount)', async () => {
+      const { svc, subRepo, txRepo } = build();
+      subRepo.rows.push(activeSub());
+      await svc.attachTransaction('u1', { id: 't9', description: 'NETFLIX.COM 4521', amount: 649, date: '2026-05-02', accountId: 'a1' });
+      expect(txRepo.update).toHaveBeenCalledWith({ id: 't9', userId: 'u1' }, { subscriptionId: 's1' });
+      const saved = subRepo.rows.find((r: any) => r.id === 's1');
+      expect(saved.amount).toBe(649);
+      expect(saved.priceHistory).toEqual([
+        { amount: 499, since: '2025-01-01' },
+        { amount: 649, since: '2026-05-02' },
+      ]);
+    });
+
+    it('rolls nextRenewalDate forward when the charge date reaches it', async () => {
+      const { svc, subRepo } = build();
+      subRepo.rows.push(activeSub({ amount: 649, nextRenewalDate: '2026-05-01' }));
+      await svc.attachTransaction('u1', { id: 't9', description: 'NETFLIX.COM', amount: 649, date: '2026-05-02', accountId: 'a1' });
+      const saved = subRepo.rows.find((r: any) => r.id === 's1');
+      expect(saved.nextRenewalDate).toBe('2026-06-02');
+    });
+
+    it('does nothing when no ACTIVE sub matches (e.g. cancelled)', async () => {
+      const { svc, subRepo, txRepo } = build();
+      subRepo.rows.push(activeSub({ status: 'cancelled' }));
+      await svc.attachTransaction('u1', { id: 't9', description: 'NETFLIX.COM', amount: 649, date: '2026-05-02', accountId: 'a1' });
+      expect(txRepo.update).not.toHaveBeenCalled();
+    });
+  });
 });
