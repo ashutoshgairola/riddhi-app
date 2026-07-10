@@ -25,6 +25,7 @@ import { Reports } from '../screens/Reports';
 import { Search } from '../screens/Search';
 import { Settings } from '../screens/Settings';
 import { StatementReview } from '../screens/StatementReviewScreen';
+import { Subscriptions } from '../screens/SubscriptionsScreen';
 import { Sync } from '../screens/Sync';
 import { TxCategories } from '../screens/TxCategories';
 import { TxDetail } from '../screens/TxDetail';
@@ -33,8 +34,12 @@ import type { ScreenEntry, ScreenKind } from './navContext';
 
 type ScreenComponent = React.ComponentType<{ entry: ScreenEntry }>;
 
-/** Kind -> component. */
-export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
+/** Kind -> component. `Partial` (rather than every `ScreenKind` required)
+ * because `'subscriptions-review'` (Task 13's detect/add-subscription
+ * flow) has no screen yet — a later task registers it; until then
+ * `renderScreen`'s existing `?? SCREEN_REGISTRY.home` fallback below
+ * quietly lands on Home instead of a missing-component crash. */
+export const SCREEN_REGISTRY: Partial<Record<ScreenKind, ScreenComponent>> = {
   home: Home,
   txns: Txns,
   budgets: Budgets,
@@ -46,6 +51,7 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
   accounts: Accounts,
   'account-detail': AccountDetail,
   'card-detail': CardDetail,
+  subscriptions: Subscriptions,
   'statement-review': StatementReview,
   'monitored-apps': MonitoredApps,
   'tx-cats': TxCategories,
@@ -61,6 +67,9 @@ export const SCREEN_REGISTRY: Record<ScreenKind, ScreenComponent> = {
 /** Renders the screen for a given stack entry — RN counterpart of
  * `renderScreen(entry)` in MobileApp.jsx:288–307. */
 export function renderScreen(entry: ScreenEntry) {
-  const Screen = SCREEN_REGISTRY[entry.kind] ?? SCREEN_REGISTRY.home;
+  // `SCREEN_REGISTRY.home` is always populated above (`Partial` only
+  // accommodates kinds — like `'subscriptions-review'` — with no screen
+  // registered yet), so the fallback itself is asserted non-null here.
+  const Screen = SCREEN_REGISTRY[entry.kind] ?? (SCREEN_REGISTRY.home as ScreenComponent);
   return <Screen entry={entry} />;
 }
