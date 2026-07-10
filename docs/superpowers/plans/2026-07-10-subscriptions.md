@@ -1944,17 +1944,25 @@ export const subscriptionTools: RiddhiTool[] = [
 
 - [ ] **Step 5: Register in `index.ts` and wire the service in `ai-chat.service.ts`**
 
-In `tools/index.ts`: import `subscriptionTools` and spread it into `TOOL_REGISTRY` (the array is `.sort()`ed afterwards, so order does not matter).
+In `tools/index.ts`: import `subscriptionTools` and spread it into `TOOL_REGISTRY` (the array is `.sort()`ed afterwards, so order does not matter). Also add `export * from './subscriptions.tools';` only if the file's existing style re-exports each tool module — otherwise just the registry spread.
 
-In `ai-chat.service.ts`: inject `SubscriptionsService` (constructor param, mirroring `creditCardService`) and add `subscriptions: this.subscriptionsService,` to the `svc` object in `toolCtx(userId)`.
+In `ai-chat.service.ts` — **CRITICAL, read carefully to avoid a parallel-WIP collision:** `ai-chat.service.spec.ts` is currently **uncommitted parallel WIP owned by another contributor — you MUST NOT open, edit, or stage it.** That spec constructs the service **positionally** (`new AiChatService(configService, budgets, …, actionRepo)`), so adding a *required* constructor parameter would break its compile and force you to touch it. Instead:
+  1. Add `SubscriptionsService` as an **`@Optional()` trailing constructor parameter** (after the last existing param, `actionRepo`):
+     ```ts
+     @Optional() private readonly subscriptionsService?: SubscriptionsService,
+     ```
+     Import `Optional` from `@nestjs/common` (add to the existing import) and `SubscriptionsService` from `../subscriptions/subscriptions.service`. Because it is optional and last, the WIP spec's positional `new AiChatService(...)` call still compiles unchanged (it simply passes `undefined`), while production DI (Step: module import below) injects the real service.
+  2. In `toolCtx(userId)`, add to the `svc` object: `subscriptions: this.subscriptionsService as SubscriptionsService,` (the non-null assertion is safe — production always provides it via the module import; only the isolated unit spec leaves it undefined, and that spec never invokes the `list_subscriptions` tool).
 
-In `ai-chat.module.ts`: add `SubscriptionsModule` to `imports`.
+In `ai-chat.module.ts`: add `SubscriptionsModule` to `imports` (this is what makes DI provide the real `SubscriptionsService` in production). SubscriptionsModule does not import ai-chat, so there is no cycle.
 
 - [ ] **Step 6: Run test + full suite, then commit**
 
 Run: `cd backend && npx jest subscriptions.tools tools.spec 2>&1 | tail -6` → PASS.
+Run: `cd backend && npx tsc --noEmit 2>&1 | grep -v "auth.service.spec.ts" | grep -i "ai-chat\|subscriptions" || echo "tsc clean"` → no output (confirms the WIP `ai-chat.service.spec.ts` still compiles WITHOUT being edited).
 Run: `cd backend && npx jest 2>&1 | tail -4` → all green.
 
+Stage EXACTLY these files — do NOT stage `ai-chat.service.spec.ts` (parallel WIP):
 ```bash
 git add backend/src/ai-chat/tools/subscriptions.tools.ts backend/src/ai-chat/tools/subscriptions.tools.spec.ts backend/src/ai-chat/tools/types.ts backend/src/ai-chat/tools/index.ts backend/src/ai-chat/ai-chat.service.ts backend/src/ai-chat/ai-chat.module.ts
 git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backend): Munshi list_subscriptions tool"
