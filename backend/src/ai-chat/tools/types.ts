@@ -7,6 +7,7 @@ import { InvestmentsService } from '../../investments/investments.service';
 import { ReportsService } from '../../reports/reports.service';
 import { EventsService } from '../../events/events.service';
 import { CreditCardService } from '../../credit-card/credit-card.service';
+import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { Widget } from '../widgets';
 
 export interface ToolCtx {
@@ -21,6 +22,7 @@ export interface ToolCtx {
     reports: ReportsService;
     events: EventsService;
     creditCard: CreditCardService;
+    subscriptions: SubscriptionsService;
   };
 }
 

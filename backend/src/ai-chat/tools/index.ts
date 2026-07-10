@@ -7,6 +7,7 @@ import { categoryTools } from './categories.tools';
 import { investmentTools } from './investments.tools';
 import { reportTools } from './reports.tools';
 import { eventTools } from './events.tools';
+import { subscriptionTools } from './subscriptions.tools';
 
 /**
  * Full registry, name-sorted so the serialized tool list is byte-identical
@@ -21,6 +22,7 @@ export const TOOL_REGISTRY: RiddhiTool[] = [
   ...investmentTools,
   ...reportTools,
   ...eventTools,
+  ...subscriptionTools,
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 export const TOOLS_BY_NAME: Map<string, RiddhiTool> = new Map(

@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,6 +19,7 @@ import { InvestmentsService } from '../investments/investments.service';
 import { ReportsService } from '../reports/reports.service';
 import { EventsService } from '../events/events.service';
 import { CreditCardService } from '../credit-card/credit-card.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { GoalStatus, AccountType } from '../common/enums';
 import {
   buildDynamicPrompt,
@@ -94,6 +96,7 @@ export class AiChatService {
     private readonly messageRepo: Repository<ChatMessage>,
     @InjectRepository(PendingAction)
     private readonly actionRepo: Repository<PendingAction>,
+    @Optional() private readonly subscriptionsService?: SubscriptionsService,
   ) {}
 
   private get model(): string {
@@ -113,6 +116,7 @@ export class AiChatService {
         reports: this.reportsService,
         events: this.eventsService,
         creditCard: this.creditCardService,
+        subscriptions: this.subscriptionsService as SubscriptionsService,
       },
     };
   }
