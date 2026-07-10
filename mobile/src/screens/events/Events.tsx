@@ -46,6 +46,7 @@ import {
 import { GlassView } from '../../components/Glass';
 import { Btn, IconButton, ProgressBar, Topbar } from '../../components/ui';
 import { MI } from '../../components/icons';
+import { AppIcon, AppIconBox } from '../../components/contentIcons';
 import { PageBackground } from '../../components/PageBackground';
 import { SpringIn } from '../../components/SpringIn';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -142,7 +143,7 @@ export function Events({ entry }: { entry: ScreenEntry }) {
           <SpringIn>
             <GlassView style={styles.emptyCard} radius={radius.xl} padding={0}>
               <View style={styles.emptyCardBody}>
-                <Text style={styles.emptyIcon}>🎉</Text>
+                <AppIcon value="party" size={34} color={t.em} />
                 <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(700) }]}>
                   Plan your first event
                 </Text>
@@ -172,9 +173,7 @@ export function Events({ entry }: { entry: ScreenEntry }) {
                     <View style={[styles.accentBar, { backgroundColor: ev.color }]} />
                     <View style={styles.eventCardBody}>
                       <View style={styles.eventHeaderRow}>
-                        <View style={[styles.eventIconBox, { backgroundColor: ev.color + '22' }]}>
-                          <Text style={styles.eventIconGlyph}>{ev.emoji}</Text>
-                        </View>
+                        <AppIconBox value={ev.emoji} color={ev.color} size={50} iconSize={24} />
                         <View style={styles.eventTextBlock}>
                           <Text
                             style={[styles.eventName, { color: t.text1, fontFamily: weight(700) }]}
@@ -184,7 +183,10 @@ export function Events({ entry }: { entry: ScreenEntry }) {
                           </Text>
                           <View style={styles.eventMetaRow}>
                             {dateLabel ? (
-                              <Text style={[styles.eventMetaText, { color: t.text3 }]}>🗓 {dateLabel}</Text>
+                              <View style={styles.eventMetaChipRow}>
+                                <AppIcon value="calendar2" size={16} color={ev.color} />
+                                <Text style={[styles.eventMetaText, { color: t.text3 }]}>{dateLabel}</Text>
+                              </View>
                             ) : null}
                             <Text style={[styles.eventMetaText, { color: t.text3 }]}>
                               {ev.paidCount}/{ev.count} paid
@@ -203,16 +205,18 @@ export function Events({ entry }: { entry: ScreenEntry }) {
                             / {evFmtK(ev.budget)}
                           </Text>
                         </Text>
-                        <Text
-                          style={[
-                            styles.eventLeftOrOver,
-                            { color: over ? t.red : t.text2 },
-                          ]}
-                        >
-                          {over
-                            ? `⚠ over by ${evFmtK(ev.projected - ev.budget)}`
-                            : `${evFmtK(ev.budget - ev.paid)} left`}
-                        </Text>
+                        {over ? (
+                          <View style={styles.eventOverRow}>
+                            <AppIcon value="warn" size={16} color={t.red} />
+                            <Text style={[styles.eventLeftOrOver, { color: t.red }]}>
+                              over by {evFmtK(ev.projected - ev.budget)}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.eventLeftOrOver, { color: t.text2 }]}>
+                            {evFmtK(ev.budget - ev.paid)} left
+                          </Text>
+                        )}
                       </View>
                     </View>
                   </GlassView>
@@ -259,9 +263,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
   },
-  emptyIcon: {
-    fontSize: 34,
-  },
   emptyTitle: {
     fontSize: 15,
     marginTop: 10,
@@ -301,17 +302,6 @@ const styles = StyleSheet.create({
     gap: 13,
     marginBottom: 14,
   },
-  eventIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  eventIconGlyph: {
-    fontSize: 24,
-  },
   eventTextBlock: {
     flex: 1,
     minWidth: 0,
@@ -323,6 +313,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 3,
+  },
+  eventMetaChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   eventMetaText: {
     fontSize: 11.5,
@@ -339,6 +334,11 @@ const styles = StyleSheet.create({
   eventBudget: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  eventOverRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   eventLeftOrOver: {
     fontSize: 11.5,

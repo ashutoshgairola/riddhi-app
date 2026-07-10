@@ -49,8 +49,6 @@ export const EV_TEMPLATES: EventTemplate[] = [
   { key: 'custom', name: 'Custom Event', emoji: '✨', color: '#b6a4f3', budget: 20000, items: [] },
 ];
 
-export const CUSTOM_EMOJIS = ['✨', '🥳', '🎊', '🎄', '🏡', '🎓', '🍾', '🏆', '🎃', '⚽', '🎸', '🐣'];
-
 /** Builds a NewEventInput-shaped seed from a template (labels, not ids). */
 export function seedFromTemplate(t: EventTemplate) {
   return {

@@ -21,11 +21,13 @@ import Svg, { Polyline } from 'react-native-svg';
 import { BottomSheet } from '../../components/BottomSheet';
 import { CalendarPicker, type Anchor } from '../../components/CalendarPicker';
 import { CalendarRangePicker } from '../../components/CalendarRangePicker';
+import { AppIcon, AppIconBox } from '../../components/contentIcons';
+import { useIconPicker } from '../../components/IconPickerSheet';
 import { Btn } from '../../components/ui';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
-import { CUSTOM_EMOJIS, EV_TEMPLATES, seedFromTemplate } from './templates';
+import { EV_TEMPLATES, seedFromTemplate } from './templates';
 import { parseYMD, toYMD, formatRange } from './eventDates';
 import type { NewEventInput } from '../../api/types';
 
@@ -50,6 +52,7 @@ export function CreateEventSheet({
 }) {
   const { t } = useTheme();
   const { toast } = useFeedback();
+  const { pick, sheet } = useIconPicker();
 
   const [tpl, setTpl] = useState(DEFAULT_TEMPLATE_KEY);
   const [name, setName] = useState('');
@@ -165,9 +168,7 @@ export function CreateEventSheet({
                   },
                 ]}
               >
-                <View style={[styles.templateIconWrap, { backgroundColor: `${tp.color}22` }]}>
-                  <Text style={styles.templateIcon}>{glyph}</Text>
-                </View>
+                <AppIconBox value={glyph} color={tp.color} size={36} iconSize={18} />
                 <View style={styles.templateTextWrap}>
                   <Text
                     style={[styles.templateName, { color: t.text1, fontFamily: weight(700) }]}
@@ -189,26 +190,17 @@ export function CreateEventSheet({
             <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>
               PICK AN ICON
             </Text>
-            <View style={styles.emojiGrid}>
-              {CUSTOM_EMOJIS.map((e) => {
-                const on = e === emoji;
-                return (
-                  <Pressable
-                    key={e}
-                    onPress={() => setEmoji(e)}
-                    style={[
-                      styles.emojiBtn,
-                      {
-                        backgroundColor: on ? t.emDim : t.bg2,
-                        borderColor: on ? t.emGlow : t.border,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.emojiGlyph}>{e}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Pressable
+              onPress={() =>
+                pick({ value: emoji, color: template.color, title: 'Choose icon', onPick: setEmoji })
+              }
+              style={[styles.iconPickRow, { backgroundColor: t.bg2, borderColor: t.border }]}
+            >
+              <AppIconBox value={emoji} color={template.color} size={40} iconSize={20} />
+              <Text style={[styles.iconPickLabel, { color: t.text1, fontFamily: weight(600) }]}>
+                Change icon
+              </Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -291,7 +283,7 @@ export function CreateEventSheet({
                   >
                     {date && endDate ? formatRange(date, endDate) : 'Select dates'}
                   </Text>
-                  <Text style={styles.dateIcon}>📅</Text>
+                  <AppIcon value="calendar2" size={16} color={template.color} />
                 </Pressable>
               </>
             ) : (
@@ -315,7 +307,7 @@ export function CreateEventSheet({
                   >
                     {dateLabel ?? 'Select date'}
                   </Text>
-                  <Text style={styles.dateIcon}>📅</Text>
+                  <AppIcon value="calendar2" size={16} color={template.color} />
                 </Pressable>
               </>
             )}
@@ -371,6 +363,8 @@ export function CreateEventSheet({
         }}
         onClose={() => setRangeOpen(false)}
       />
+
+      {sheet}
     </BottomSheet>
   );
 }
@@ -399,17 +393,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
   },
-  templateIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  templateIcon: {
-    fontSize: 18,
-  },
   templateTextWrap: {
     flex: 1,
     minWidth: 0,
@@ -424,21 +407,16 @@ const styles = StyleSheet.create({
   emojiSection: {
     marginTop: 14,
   },
-  emojiGrid: {
+  iconPickRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  emojiBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
+    padding: 10,
+    borderRadius: radius.lg,
+    borderWidth: 1,
   },
-  emojiGlyph: {
-    fontSize: 20,
+  iconPickLabel: {
+    fontSize: 14,
   },
   input: {
     borderWidth: 1,
@@ -494,9 +472,6 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     flexShrink: 1,
-  },
-  dateIcon: {
-    fontSize: 15,
   },
   amountInputWrap: {
     position: 'relative',

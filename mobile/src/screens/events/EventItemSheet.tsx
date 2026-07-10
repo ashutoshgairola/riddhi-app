@@ -20,6 +20,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Polyline } from 'react-native-svg';
 
 import { BottomSheet } from '../../components/BottomSheet';
+import { AppIcon } from '../../components/contentIcons';
 import { Btn } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
@@ -135,7 +136,7 @@ export function EventItemSheet({
                   },
                 ]}
               >
-                <Text style={styles.chipIcon}>{meta.icon}</Text>
+                <AppIcon value={meta.icon} size={16} color={meta.color} />
                 <Text
                   style={[
                     styles.chipLabel,
@@ -323,9 +324,6 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     borderWidth: 1,
     flexShrink: 0,
-  },
-  chipIcon: {
-    fontSize: 15,
   },
   chipLabel: {
     fontSize: 13,

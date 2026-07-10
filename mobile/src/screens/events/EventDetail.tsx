@@ -60,6 +60,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { GlassCard } from '../../components/Glass';
 import { Btn, IconButton, SectionHead, TopbarActions } from '../../components/ui';
 import { MI } from '../../components/icons';
+import { AppIcon } from '../../components/contentIcons';
 import { SpringIn } from '../../components/SpringIn';
 import { useTheme } from '../../theme/ThemeProvider';
 import { ease, weight } from '../../theme/tokens';
@@ -330,7 +331,7 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
           <View style={styles.ringWrap}>
             <BudgetRing pct={pct} color={ringColor} trackColor={t.bg3} />
             <View style={styles.ringCenter} pointerEvents="none">
-              <Text style={styles.ringEmoji}>{ev.emoji}</Text>
+              <AppIcon value={ev.emoji} size={26} color={ev.color} />
               <Text style={[styles.ringPct, { color: ringColor, fontFamily: weight(700) }]}>{pct}%</Text>
             </View>
           </View>
@@ -343,12 +344,21 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
             </Text>
             <View style={styles.heroChipsRow}>
               {ev.multiDay && ev.date && ev.endDate ? (
-                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {formatRange(ev.date, ev.endDate)}</Text>
+                <View style={styles.heroChipRow}>
+                  <AppIcon value="calendar2" size={16} color={ev.color} />
+                  <Text style={[styles.heroChip, { color: t.text2 }]}>{formatRange(ev.date, ev.endDate)}</Text>
+                </View>
               ) : ev.date ? (
-                <Text style={[styles.heroChip, { color: t.text2 }]}>🗓 {formatDayShort(ev.date)}</Text>
+                <View style={styles.heroChipRow}>
+                  <AppIcon value="calendar2" size={16} color={ev.color} />
+                  <Text style={[styles.heroChip, { color: t.text2 }]}>{formatDayShort(ev.date)}</Text>
+                </View>
               ) : null}
               {ev.guests > 0 ? (
-                <Text style={[styles.heroChip, { color: t.text2 }]}>👥 {ev.guests} guests</Text>
+                <View style={styles.heroChipRow}>
+                  <AppIcon value="users" size={16} color={ev.color} />
+                  <Text style={[styles.heroChip, { color: t.text2 }]}>{ev.guests} guests</Text>
+                </View>
               ) : null}
             </View>
           </View>
@@ -370,7 +380,7 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
       {ev.over ? (
         <SpringIn delay={80}>
           <View style={[styles.overBanner, { backgroundColor: t.redDim, borderColor: t.red }]}>
-            <Text style={styles.overBannerIcon}>⚠️</Text>
+            <AppIcon value="warn" size={18} color={t.red} />
             <Text style={[styles.overBannerText, { color: t.red, fontFamily: weight(600) }]}>
               Projected spend {evFmt(ev.projected)} exceeds your {evFmt(ev.budget)} budget. Trim or raise the
               budget.
@@ -384,7 +394,7 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
 
       {view.expenses.length === 0 ? (
         <GlassCard contentStyle={styles.emptyCard}>
-          <Text style={styles.emptyIcon}>🧾</Text>
+          <AppIcon value="doc" size={30} color={ev.color} />
           <Text style={[styles.emptyTitle, { color: t.text1, fontFamily: weight(600) }]}>No expenses yet</Text>
           <Text style={[styles.emptySubtitle, { color: t.text3 }]}>
             Add your first line item to start planning.
@@ -457,10 +467,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ringEmoji: {
-    fontSize: 26,
-    lineHeight: 28,
-  },
   ringPct: {
     fontSize: 13,
     marginTop: 4,
@@ -487,6 +493,11 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
     flexWrap: 'wrap',
+  },
+  heroChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   heroChip: {
     fontSize: 11.5,
@@ -531,9 +542,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  overBannerIcon: {
-    fontSize: 16,
-  },
   overBannerText: {
     flex: 1,
     fontSize: 12.5,
@@ -543,9 +551,6 @@ const styles = StyleSheet.create({
   emptyCard: {
     paddingVertical: 28,
     alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 30,
   },
   emptyTitle: {
     fontSize: 14,
