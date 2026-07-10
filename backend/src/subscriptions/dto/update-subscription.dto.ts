@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsInt, IsIn, MaxLength, IsDateString, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsInt, IsIn, MaxLength, IsDateString, Min, IsBoolean } from 'class-validator';
 
 export class UpdateSubscriptionDto {
   @IsOptional() @IsString() @MaxLength(120)
@@ -24,5 +24,6 @@ export class UpdateSubscriptionDto {
 
   /** Set by the mobile detail sheet the first time it opens. */
   @IsOptional()
+  @IsBoolean()
   markDetailOpened?: boolean;
 }
