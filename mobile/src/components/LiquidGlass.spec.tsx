@@ -13,6 +13,8 @@ jest.mock('react-native', () => ({
   Dimensions: { get: () => ({ width: 390, height: 844 }) },
 }));
 
+jest.mock('expo-blur', () => ({ BlurView: () => null }));
+
 jest.mock('@shopify/react-native-skia', () => ({
   Canvas: ({ children }: { children?: unknown }) => children,
   Fill: ({ children }: { children?: unknown }) => children,

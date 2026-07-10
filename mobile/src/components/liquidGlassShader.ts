@@ -40,6 +40,11 @@ float4 backdrop(float2 pagePt) {
   return float4(mix(base.rgb, uGlow.rgb, g), 1.0);
 }
 
+// Edge-only overlay. The centre is (near-)transparent so the real frosted
+// content beneath the Skia layer (a BlurView) shows through untouched; the
+// shader only paints a faint refractive ring + a whisper of edge light near
+// the rim, the way real glass reveals itself at its curved edges rather than
+// as a flat drawn panel. Returns premultiplied colour for srcOver blending.
 vec4 main(vec2 pos) {
   float2 halfSize = uSize * 0.5;
   float2 p = pos - halfSize;
@@ -49,30 +54,49 @@ vec4 main(vec2 pos) {
   float aa = 1.0 - smoothstep(-1.0, 1.0, dist);
   if (aa <= 0.0) return vec4(0.0);
 
-  float edge = smoothstep(-hm * 0.9, 0.0, dist);
+  // 0 across the flat centre, ramps to 1 only in the outer rim band.
+  float edge = smoothstep(-hm * 0.5, 0.0, dist);
   float2 dir = length(p) > 0.0 ? normalize(p) : float2(0.0);
 
-  float2 disp = dir * edge * uRefraction * hm;
+  // Refract the ambient backdrop outward, painted only as a faint ring near
+  // the rim (edge^2) so it never covers the centre.
   float2 base = pos + uOffset;
-  float2 chroma = dir * edge * uChroma * hm;
+  float2 disp = dir * edge * uRefraction * hm;
+  float2 ca = dir * edge * uChroma * hm;
+  float3 refr = float3(
+    backdrop(base + disp + ca).r,
+    backdrop(base + disp).g,
+    backdrop(base + disp - ca).b
+  );
+  float ring = edge * edge * 0.55;
 
-  float4 col;
-  col.r = backdrop(base + disp + chroma).r;
-  col.g = backdrop(base + disp).g;
-  col.b = backdrop(base + disp - chroma).b;
-  col.a = 1.0;
+  // Whisper Fresnel highlight: thin, soft, top-weighted.
+  float rimBand = 1.0 - smoothstep(0.0, uSpecW * hm, abs(dist));
+  float topbias = clamp(0.6 - (p.y / uSize.y) - (p.x / uSize.x) * 0.2, 0.0, 1.0);
+  float spec = rimBand * topbias * uSpec.a;
 
-  col.rgb = mix(col.rgb, uTint.rgb, uTint.a);
-
-  float rim = 1.0 - smoothstep(0.0, uSpecW * hm, abs(dist));
-  float topbias = clamp(0.5 - (p.y / uSize.y) - (p.x / uSize.x) * 0.3, 0.0, 1.0);
-  float spec = rim * topbias * uSpec.a;
-  col.rgb += uSpec.rgb * spec;
-
-  return col * aa;
+  // Translucent overlay: faint tint wash + refractive ring + highlight. All
+  // terms are colour-times-coverage, i.e. already premultiplied.
+  float3 col = uTint.rgb * uTint.a + refr * ring + uSpec.rgb * spec;
+  float a = max(max(uTint.a, ring), spec);
+  return float4(col, a) * aa;
 }`;
 
-export const AMBIENT_SHADER = Skia.RuntimeEffect.Make(AMBIENT_SKSL)!;
+/**
+ * Compile the runtime effect, tolerating environments where Skia's native
+ * module is unavailable (e.g. Expo Go, which bundles no custom native code).
+ * Returns null there so `LiquidGlass` can fall back to a plain blur instead of
+ * crashing; real refraction only renders in a dev/production build.
+ */
+function makeEffect(src: string) {
+  try {
+    return Skia?.RuntimeEffect?.Make(src) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const AMBIENT_SHADER = makeEffect(AMBIENT_SKSL);
 
 /** Parse a `#rrggbb` or `rgb()/rgba()` string to normalized [r,g,b,a]. Exported for reuse. */
 export function rgba(str: string): [number, number, number, number] {
