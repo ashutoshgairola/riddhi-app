@@ -5,6 +5,7 @@ import { SubscriptionIgnore } from './subscription-ignore.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { CapturedNotification } from '../notification-sync/captured-notification.entity';
 import { SubscriptionsService } from './subscriptions.service';
+import { SubscriptionsListener } from './subscriptions.listener';
 import { SubscriptionsController } from './subscriptions.controller';
 import { CategoriesModule } from '../categories/categories.module';
 
@@ -16,7 +17,7 @@ import { CategoriesModule } from '../categories/categories.module';
     CategoriesModule,
   ],
   controllers: [SubscriptionsController],
-  providers: [SubscriptionsService],
+  providers: [SubscriptionsService, SubscriptionsListener],
   exports: [SubscriptionsService],
 })
 export class SubscriptionsModule {}

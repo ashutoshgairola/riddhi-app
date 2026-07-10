@@ -7,7 +7,8 @@ import { Transaction } from '../transactions/transaction.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { CapturedNotification } from '../notification-sync/captured-notification.entity';
 import { TransactionType, PaymentMethod } from '../common/enums';
-import { detectSubscriptions, normalizeDescriptor, DetectTxn, SubscriptionCandidate } from './detect-subscriptions';
+import { detectSubscriptions, normalizeDescriptor, addCycle, DetectTxn, SubscriptionCandidate } from './detect-subscriptions';
+import { matchSubscription } from './attach-transaction';
 import { isReminderDue } from './renewal-reminder';
 import { resolveName, ResolvedName, isAggregator, extractServiceName } from './subscription-catalog';
 import { computeSubscriptionSummary, SummarySub } from './subscription-summary';
@@ -151,5 +152,24 @@ export class SubscriptionsService {
   async allActiveUserIds(): Promise<string[]> {
     const subs = await this.subRepo.find({ where: { status: 'active' as any } });
     return [...new Set(subs.map((s) => s.userId))];
+  }
+
+  /** Called after a recurring charge is created by SMS/statement import.
+   * Links it to a matching active subscription and rolls the sub forward. */
+  async attachTransaction(userId: string, tx: { id: string; description: string; amount: number; date: string; accountId: string | null }): Promise<void> {
+    const subs = await this.subRepo.find({ where: { userId } });
+    const match = matchSubscription(tx.description, tx.accountId, subs);
+    if (!match) return;
+    await this.txRepo.update({ id: tx.id, userId }, { subscriptionId: match.id });
+
+    const amount = Math.abs(tx.amount);
+    if (amount !== match.amount) {
+      match.priceHistory = [...(match.priceHistory ?? [{ amount: match.amount, since: match.firstSeenDate }]), { amount, since: tx.date.slice(0, 10) }];
+      match.amount = amount;
+    }
+    if (tx.date.slice(0, 10) >= match.nextRenewalDate) {
+      match.nextRenewalDate = addCycle(tx.date, match.cycle);
+    }
+    await this.subRepo.save(match);
   }
 }
