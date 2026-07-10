@@ -5,6 +5,7 @@ import { SubscriptionIgnore } from './subscription-ignore.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { CapturedNotification } from '../notification-sync/captured-notification.entity';
 import { SubscriptionsService } from './subscriptions.service';
+import { SubscriptionsController } from './subscriptions.controller';
 import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { CategoriesModule } from '../categories/categories.module';
     TypeOrmModule.forFeature([Subscription, SubscriptionIgnore, Transaction, CapturedNotification]),
     CategoriesModule,
   ],
+  controllers: [SubscriptionsController],
   providers: [SubscriptionsService],
   exports: [SubscriptionsService],
 })
