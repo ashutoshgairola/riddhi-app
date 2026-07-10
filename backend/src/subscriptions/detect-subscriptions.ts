@@ -145,12 +145,14 @@ export function detectSubscriptions(
 
     for (const stream of extractStreams(group, boosted)) {
       const autopay = stream.some((t) => t.paymentMethod === 'autopay');
+      const streamBoosted =
+        autopay || stream.some((t) => t.isRecurring) || stream[0].categoryName.toLowerCase() === BOOST_CATEGORY;
 
       let cycle: SubscriptionCycle | null = null;
       if (stream.length >= 2) {
         const gaps: number[] = [];
         for (let i = 1; i < stream.length; i++) gaps.push(daysBetween(stream[i - 1].date, stream[i].date));
-        cycle = gapBand(median(gaps), boosted);
+        cycle = gapBand(median(gaps), streamBoosted);
       } else if (stream.length === 1 && autopay) {
         cycle = 'monthly'; // brand-new mandate: surface now, editable at confirm
       }

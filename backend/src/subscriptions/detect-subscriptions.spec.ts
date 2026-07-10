@@ -96,4 +96,28 @@ describe('detectSubscriptions', () => {
     ];
     expect(detectSubscriptions(txns, new Set(), today)).toHaveLength(0);
   });
+
+  it('excludes income/investment categories (SIPs are not subscriptions)', () => {
+    const txns = [
+      tx({ description: 'SIP NIFTY', amount: 10000, date: '2026-02-15', categoryName: 'Investments', paymentMethod: 'autopay' }),
+      tx({ description: 'SIP NIFTY', amount: 10000, date: '2026-03-15', categoryName: 'Investments', paymentMethod: 'autopay' }),
+      tx({ description: 'SIP NIFTY', amount: 10000, date: '2026-04-15', categoryName: 'Investments', paymentMethod: 'autopay' }),
+    ];
+    expect(detectSubscriptions(txns, new Set(), today)).toHaveLength(0);
+  });
+
+  it('an autopay sub does not loosen a coincidental non-autopay pair in the same group', () => {
+    const txns = [
+      // real autopay monthly sub
+      tx({ description: 'HDFC BILLPAY', amount: 500, date: '2026-01-05', paymentMethod: 'autopay' }),
+      tx({ description: 'HDFC BILLPAY', amount: 500, date: '2026-02-05', paymentMethod: 'autopay' }),
+      tx({ description: 'HDFC BILLPAY', amount: 500, date: '2026-03-05', paymentMethod: 'autopay' }),
+      // two coincidental non-autopay buys, 34 days apart (monthly only under the widened boosted band)
+      tx({ description: 'HDFC BILLPAY', amount: 1200, date: '2026-01-20', paymentMethod: 'card' }),
+      tx({ description: 'HDFC BILLPAY', amount: 1150, date: '2026-02-23', paymentMethod: 'card' }),
+    ];
+    const cands = detectSubscriptions(txns, new Set(), today);
+    expect(cands).toHaveLength(1);
+    expect(cands[0].amount).toBe(500);
+  });
 });
