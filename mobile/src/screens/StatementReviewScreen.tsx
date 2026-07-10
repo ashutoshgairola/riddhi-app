@@ -152,7 +152,8 @@ export function StatementReview({ entry }: { entry: ScreenEntry }) {
       title: 'Category',
       options: [
         ...categories.map((c) => ({
-          label: `${c.icon} ${c.name}`,
+          label: c.name,
+          icon: c.icon,
           selected: !!current && c.name.toLowerCase() === current.toLowerCase(),
           onPress: () => updateCategory(idx, c.name),
         })),

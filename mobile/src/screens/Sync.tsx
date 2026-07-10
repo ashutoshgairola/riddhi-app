@@ -48,6 +48,7 @@ import { GlassCard } from '../components/Glass';
 import { BankLogo } from '../components/BankLogo';
 import { IconButton, ListCard, ListRow, SearchButton, Toggle, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
+import { AppIconBox } from '../components/contentIcons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -476,9 +477,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       <SpringIn>
         <ListCard>
           <ListRow last onPress={() => launchStatementImport()}>
-            <View style={[styles.statusIconBox, { backgroundColor: t.emDim }]}>
-              <Text style={styles.recentIconGlyph}>📄</Text>
-            </View>
+            <AppIconBox value="doc" color={t.em} />
             <View style={styles.statusText}>
               <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>
                 Import a statement
@@ -645,9 +644,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             <ListCard>
               {added.map((tx, i) => (
                 <ListRow key={i} last={i === added.length - 1}>
-                  <View style={[styles.recentIconBox, { backgroundColor: tx.catCol + '22' }]}>
-                    <Text style={styles.recentIconGlyph}>{tx.icon}</Text>
-                  </View>
+                  <AppIconBox value={tx.icon} color={tx.catCol} size={40} iconSize={18} />
                   <View style={styles.recentText}>
                     <Text style={[styles.recentMerchant, { color: t.text1, fontFamily: weight(600) }]}>{tx.merchant}</Text>
                     <View style={styles.recentMetaRow}>
@@ -786,17 +783,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18.75,
     textAlign: 'center',
-  },
-  recentIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  recentIconGlyph: {
-    fontSize: 18,
   },
   recentText: {
     flex: 1,

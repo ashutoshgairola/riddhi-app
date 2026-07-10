@@ -28,6 +28,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Chip, HScroll, IconButton, SearchButton, TopbarActions } from "../components/ui";
 import { MI } from "../components/icons";
+import { AppIconBox } from "../components/contentIcons";
 import { SpringIn } from "../components/SpringIn";
 import { useTheme } from "../theme/ThemeProvider";
 import { weight } from "../theme/tokens";
@@ -147,11 +148,7 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
               {n.unread && (
                 <View style={[styles.unreadDot, { backgroundColor: t.em }]} />
               )}
-              <View
-                style={[styles.iconBox, { backgroundColor: n.color + "22" }]}
-              >
-                <Text style={styles.iconGlyph}>{n.icon}</Text>
-              </View>
+              <AppIconBox value={n.icon} color={n.color} size={40} iconSize={18} />
               <View style={styles.textBlock}>
                 <Text
                   style={[
@@ -200,17 +197,6 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 99,
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  iconGlyph: {
-    fontSize: 18,
   },
   textBlock: {
     flex: 1,

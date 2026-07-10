@@ -25,6 +25,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { GlassView } from '../components/Glass';
+import { AppIcon, AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, radius, weight } from '../theme/tokens';
@@ -76,9 +77,7 @@ export function DetectedCard({ tx, onConfirm, onDismiss }: DetectedCardProps) {
       <GlassView style={styles.card} radius={radius.xl} padding={0}>
         {/* parsed result */}
         <View style={styles.resultRow}>
-          <View style={[styles.iconBox, { backgroundColor: tx.catCol + '22' }]}>
-            <Text style={styles.iconGlyph}>{tx.icon}</Text>
-          </View>
+          <AppIconBox value={tx.icon} color={tx.catCol} size={44} />
           <View style={styles.resultText}>
             <Text style={[styles.merchant, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
               {tx.merchant}
@@ -108,7 +107,7 @@ export function DetectedCard({ tx, onConfirm, onDismiss }: DetectedCardProps) {
         <View style={styles.rawWrap}>
           <View style={[styles.rawRow, { backgroundColor: t.bg, borderColor: t.border }]}>
             <View style={[styles.rawIconBox, { backgroundColor: t.bg3 }]}>
-              <Text style={styles.rawIconGlyph}>✉</Text>
+              <AppIcon value="mail" size={16} color={tx.catCol} />
             </View>
             <Text style={[styles.rawText, { color: t.text3 }]} numberOfLines={1}>
               {tx.raw}
@@ -144,17 +143,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 14,
     paddingHorizontal: 15,
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  iconGlyph: {
-    fontSize: 20,
   },
   resultText: {
     flex: 1,
@@ -211,9 +199,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  rawIconGlyph: {
-    fontSize: 11,
   },
   rawText: {
     flex: 1,
