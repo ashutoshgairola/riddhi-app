@@ -35,6 +35,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
+import { AppIcon, AppIconBox } from '../components/contentIcons';
 import { GlassView } from '../components/Glass';
 import { IconButton, ProgressBar, SearchButton, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
@@ -167,14 +168,15 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
                   <View style={[styles.accentBar, { backgroundColor: g.color }]} />
                   <View style={styles.goalCardBody}>
                   <View style={styles.goalHeaderRow}>
-                    <View style={[styles.goalIconBox, { backgroundColor: g.color + '22' }]}>
-                      <Text style={styles.goalIconGlyph}>{g.emoji}</Text>
-                    </View>
+                    <AppIconBox value={g.emoji} color={g.color} size={48} iconSize={22} />
                     <View style={styles.goalTextBlock}>
                       <Text style={[styles.goalName, { color: t.text1, fontFamily: weight(700) }]}>
                         {g.name}
                       </Text>
-                      <Text style={[styles.goalTarget, { color: t.text3 }]}>🗓 Target {g.date}</Text>
+                      <View style={styles.goalTargetRow}>
+                        <AppIcon value="calendar2" size={16} color={t.text3} />
+                        <Text style={[styles.goalTarget, { color: t.text3 }]}>Target {g.date}</Text>
+                      </View>
                     </View>
                     <Text style={[styles.goalPct, { color: g.color, fontFamily: weight(700) }]}>
                       {pct}%
@@ -243,16 +245,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 14,
   },
-  goalIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalIconGlyph: {
-    fontSize: 22,
-  },
   goalTextBlock: {
     flex: 1,
     minWidth: 0,
@@ -260,9 +252,14 @@ const styles = StyleSheet.create({
   goalName: {
     fontSize: 16,
   },
+  goalTargetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   goalTarget: {
     fontSize: 12,
-    marginTop: 2,
   },
   goalPct: {
     fontSize: 18,

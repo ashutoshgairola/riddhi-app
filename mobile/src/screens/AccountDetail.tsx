@@ -32,6 +32,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BankLogo } from '../components/BankLogo';
+import { AppIcon } from '../components/contentIcons';
 import { GlassCard } from '../components/Glass';
 import { IconButton, ListCard, ListRow, SearchButton, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
@@ -51,10 +52,10 @@ import type { Account } from './Accounts';
 // grid already flexes to fit.
 type QuickActionKey = 'transfer' | 'statement' | 'settings' | 'import';
 const QUICK_ACTIONS: { l: string; i: string; c: string; k: QuickActionKey }[] = [
-  { l: 'Transfer', i: '↔', c: '#8197c4', k: 'transfer' },
-  { l: 'Statement', i: '📄', c: '#c9a86a', k: 'statement' },
+  { l: 'Transfer', i: 'transfer', c: '#8197c4', k: 'transfer' },
+  { l: 'Statement', i: 'doc', c: '#c9a86a', k: 'statement' },
   { l: 'Import', i: '📥', c: '#7bb88f', k: 'import' },
-  { l: 'Settings', i: '⚙', c: '#9d8bd6', k: 'settings' },
+  { l: 'Settings', i: 'settings2', c: '#9d8bd6', k: 'settings' },
 ];
 
 // Recent transaction row shape (MobileScreens.jsx:452–457)
@@ -207,7 +208,7 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
             {({ pressed }) => (
               <GlassCard style={[styles.quickActionCard, { opacity: pressed ? 0.6 : 1 }]}>
                 <View style={[styles.quickActionIconBox, { backgroundColor: q.c + '22' }]}>
-                  <Text style={[styles.quickActionIconGlyph, { color: q.c }]}>{q.i}</Text>
+                  <AppIcon value={q.i} size={16} color={q.c} />
                 </View>
                 <Text style={[styles.quickActionLabel, { color: t.text1, fontFamily: weight(600) }]}>
                   {q.l}
@@ -223,7 +224,7 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
         {recentTxs.map((tx, i) => (
           <ListRow key={i} last={i === recentTxs.length - 1}>
             <View style={[styles.txIconBox, { backgroundColor: t.bg3 }]}>
-              <Text style={styles.txIconGlyph}>{tx.i}</Text>
+              <AppIcon value={tx.i} size={18} color={t.text1} />
             </View>
             <View style={styles.txTextBlock}>
               <Text style={[styles.txDesc, { color: t.text1, fontFamily: weight(600) }]}>{tx.d}</Text>
@@ -324,10 +325,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickActionIconGlyph: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
   quickActionLabel: {
     fontSize: 11,
   },
@@ -339,9 +336,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  txIconGlyph: {
-    fontSize: 17,
   },
   txTextBlock: {
     flex: 1,

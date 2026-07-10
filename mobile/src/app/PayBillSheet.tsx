@@ -34,6 +34,7 @@ import { api } from "../api";
 import type { AccountView, CardSummaryView } from "../api/types";
 import { useApiData } from "../api/useApi";
 import { BottomSheet } from "../components/BottomSheet";
+import { AppIcon } from "../components/contentIcons";
 import { Btn } from "../components/ui";
 import { MI } from "../components/icons";
 import { useFeedback } from "../feedback/FeedbackProvider";
@@ -226,9 +227,12 @@ export function PayBillSheet({ open, onClose, card }: PayBillSheetProps) {
       </View>
 
       {insufficient ? (
-        <Text style={[styles.warning, { color: t.red, fontFamily: weight(600) }]}>
-          ⚠ Not enough balance in {selectedAccount?.name}
-        </Text>
+        <View style={styles.warningRow}>
+          <AppIcon value="warn" size={16} color={t.red} />
+          <Text style={[styles.warning, { color: t.red, fontFamily: weight(600) }]}>
+            Not enough balance in {selectedAccount?.name}
+          </Text>
+        </View>
       ) : null}
 
       <Btn variant="em" onPress={() => void pay()} disabled={!canPay} style={styles.payBtn}>
@@ -327,9 +331,14 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     paddingVertical: 4,
   },
+  warningRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+  },
   warning: {
     fontSize: 11.5,
-    marginTop: 10,
   },
   payBtn: {
     marginTop: 16,

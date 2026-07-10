@@ -44,6 +44,7 @@ import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { AppIcon } from '../components/contentIcons';
 import { GlassCard } from '../components/Glass';
 import { Btn, ListCard, ListRow, SearchButton, SectionHead } from '../components/ui';
 import { MI } from '../components/icons';
@@ -192,7 +193,7 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
               </View>
               <View style={styles.statementRight}>
                 <View style={[styles.duePill, { backgroundColor: t.bg3 }]}>
-                  <Text style={styles.duePillIcon}>📅</Text>
+                  <AppIcon value="calendar2" size={16} color={dueColor} />
                   <Text style={[styles.duePillText, { color: dueColor }]}>
                     {summary.daysUntilDue <= 0
                       ? 'Due today'
@@ -259,7 +260,7 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
       {summary.rewardsThisCycle !== 0 || summary.rewardRate ? (
         <GlassCard style={styles.rewardsCard}>
           <View style={[styles.rewardsIconBox, { backgroundColor: t.amberDim }]}>
-            <Text style={styles.rewardsIconGlyph}>🎁</Text>
+            <AppIcon value="gift" size={18} color={t.amber} />
           </View>
           <View style={styles.rewardsTextBlock}>
             <Text style={[styles.rewardsTitle, { color: t.text1 }]}>
@@ -277,7 +278,7 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
       <ListCard>
         <ListRow last onPress={() => launchStatementImport(String(a.id))}>
           <View style={[styles.rewardsIconBox, { backgroundColor: t.emDim }]}>
-            <Text style={styles.rewardsIconGlyph}>📄</Text>
+            <AppIcon value="doc" size={18} color={t.em} />
           </View>
           <View style={styles.rewardsTextBlock}>
             <Text style={[styles.rewardsTitle, { color: t.text1 }]}>Import statement</Text>
@@ -303,7 +304,7 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
             return (
               <ListRow key={tx.id} last={i === summary.transactions.length - 1}>
                 <View style={[styles.txIconBox, { backgroundColor: kindColor + '22' }]}>
-                  <Text style={styles.txIconGlyph}>{isPayment ? '↩️' : '💳'}</Text>
+                  <AppIcon value={isPayment ? 'undo' : 'card2'} size={17} color={kindColor} />
                 </View>
                 <View style={styles.txTextBlock}>
                   <Text
@@ -473,9 +474,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     borderRadius: 99,
   },
-  duePillIcon: {
-    fontSize: 12,
-  },
   duePillText: {
     fontSize: 11.5,
     fontWeight: '700',
@@ -575,9 +573,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rewardsIconGlyph: {
-    fontSize: 18,
-  },
   rewardsTextBlock: {
     flex: 1,
   },
@@ -597,9 +592,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  txIconGlyph: {
-    fontSize: 17,
   },
   txTextBlock: {
     flex: 1,

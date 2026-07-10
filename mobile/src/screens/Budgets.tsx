@@ -50,6 +50,8 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { AppIcon, AppIconBox } from '../components/contentIcons';
+import type { FormFieldSpec } from '../components/FormSheet';
 import { GlassCard } from '../components/Glass';
 import { IconButton, ProgressBar, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
@@ -139,17 +141,29 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
     const options = cats
       .filter((c) => !existing.has(c.name.toLowerCase()) && c.name !== 'Income')
       .map((c) => ({ label: `${c.icon} ${c.name}`, value: c.name }));
+    // Every existing category is already budgeted (or there are none yet) —
+    // fall through to a free-text name, and let the user pick an icon for
+    // this brand-new category (an existing category keeps its own icon).
+    const isNewCategory = options.length === 0;
+    const fields: FormFieldSpec[] = [
+      isNewCategory
+        ? { key: 'name', label: 'Category name' }
+        : { kind: 'select', key: 'name', label: 'Category', options, initial: options[0]!.value },
+      { kind: 'amount', key: 'allocated', label: 'Monthly budget (₹)' },
+      ...(isNewCategory
+        ? [{ kind: 'icon', key: 'icon', label: 'Icon', optional: true } as FormFieldSpec]
+        : []),
+    ];
     form({
       title: 'New category budget',
-      fields: [
-        options.length
-          ? { kind: 'select', key: 'name', label: 'Category', options, initial: options[0]!.value }
-          : { key: 'name', label: 'Category name' },
-        { kind: 'amount', key: 'allocated', label: 'Monthly budget (₹)' },
-      ],
+      fields,
       submitLabel: 'Create budget',
       onSubmit: async (v) => {
-        await api.budgets.upsertCategory({ name: v['name']!, allocated: Number(v['allocated']) });
+        await api.budgets.upsertCategory({
+          name: v['name']!,
+          allocated: Number(v['allocated']),
+          icon: v['icon'] || undefined,
+        });
         toast(`Budget set for ${v['name']}`, '🎯');
       },
     });
@@ -331,9 +345,7 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
                 <Pressable onPress={() => openCategory(b)}>
                 <GlassCard contentStyle={styles.categoryCardContent}>
                   <View style={styles.categoryHeaderRow}>
-                    <View style={[styles.categoryIconBox, { backgroundColor: b.c + '22' }]}>
-                      <Text style={styles.categoryIconGlyph}>{b.icon}</Text>
-                    </View>
+                    <AppIconBox value={b.icon} color={b.c} size={40} iconSize={18} />
                     <View style={styles.categoryTextBlock}>
                       <Text style={[styles.categoryName, { color: t.text1, fontFamily: weight(600) }]}>
                         {b.name}
@@ -356,9 +368,12 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
                   </View>
                   <ProgressBar pct={Math.min(pct, 100)} color={c} />
                   {over ? (
-                    <Text style={[styles.overBudgetWarning, { color: t.red, fontFamily: weight(600) }]}>
-                      ⚠ Over budget by ₹{(b.spent - b.allocated).toLocaleString('en-IN')}
-                    </Text>
+                    <View style={styles.overBudgetWarningRow}>
+                      <AppIcon value="warn" size={16} color={t.red} />
+                      <Text style={[styles.overBudgetWarning, { color: t.red, fontFamily: weight(600) }]}>
+                        Over budget by ₹{(b.spent - b.allocated).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
                   ) : null}
                 </GlassCard>
                 </Pressable>
@@ -462,16 +477,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 10,
   },
-  categoryIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryIconGlyph: {
-    fontSize: 18,
-  },
   categoryTextBlock: {
     flex: 1,
     minWidth: 0,
@@ -490,9 +495,14 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     overflow: 'hidden',
   },
+  overBudgetWarningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
   overBudgetWarning: {
     fontSize: 11,
-    marginTop: 8,
   },
 
   monthSwitcher: {
