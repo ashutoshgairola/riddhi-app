@@ -24,6 +24,8 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from
 import { BankLogo, hasBankLogo } from './BankLogo';
 import { BottomSheet } from './BottomSheet';
 import { CalendarPicker, type Anchor } from './CalendarPicker';
+import { AppIcon } from './contentIcons';
+import { IconPickerSheet } from './IconPickerSheet';
 import { Btn, Chip } from './ui';
 import { BANK_NAMES } from '../assets/bankLogos';
 import { useTheme } from '../theme/ThemeProvider';
@@ -136,6 +138,66 @@ function DateField({
 }
 
 /**
+ * Icon field: a tappable chip showing the currently picked content icon
+ * (via `AppIcon`) that opens `IconPickerSheet`. The value stays the icon's
+ * name string, like every other field.
+ */
+function IconField({
+  value,
+  color,
+  onChange,
+}: {
+  value: string;
+  color?: string;
+  onChange: (name: string) => void;
+}) {
+  const { t } = useTheme();
+  const [open, setOpen] = useState(false);
+  const accent = color ?? t.em;
+  return (
+    <View>
+      <Pressable
+        onPress={() => {
+          Keyboard.dismiss();
+          setOpen(true);
+        }}
+        style={[
+          styles.input,
+          styles.dateRow,
+          { backgroundColor: t.bg2, borderColor: open ? t.em : t.border },
+        ]}
+      >
+        <View
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: accent + '22',
+          }}
+        >
+          {value ? <AppIcon value={value} size={18} color={accent} /> : null}
+        </View>
+        <Text style={[styles.dateText, { color: value ? t.text1 : t.text3, fontFamily: weight(600) }]}>
+          {value ? 'Change icon' : 'Choose icon'}
+        </Text>
+      </Pressable>
+      <IconPickerSheet
+        open={open}
+        value={value}
+        color={accent}
+        onPick={(name) => {
+          onChange(name);
+          setOpen(false);
+        }}
+        onClose={() => setOpen(false)}
+      />
+    </View>
+  );
+}
+
+/**
  * Searchable bank input: filters the shipped bank list as you type and shows
  * logo suggestions, but the field value is just the text — any custom bank /
  * provider name the user types is kept as-is.
@@ -231,6 +293,15 @@ export type FormFieldSpec =
       label: string;
       options: { label: string; value: string }[];
       initial: string;
+    }
+  | {
+      kind: 'icon';
+      key: string;
+      label: string;
+      initial?: string;
+      optional?: boolean;
+      /** Accent color for the picker + selected chip (e.g. the category color). */
+      color?: string;
     };
 
 export interface FormConfig {
@@ -295,6 +366,7 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
     for (const f of config.fields) {
       const v = (values[f.key] ?? '').trim();
       if (f.kind === 'select') continue;
+      if (f.kind === 'icon') continue;
       if (!v && !f.optional) {
         onError(`${f.label} is required`);
         return;
@@ -352,6 +424,12 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
                 value={values[f.key] ?? ''}
                 placeholder={f.placeholder}
                 onChange={(ymd) => setValues((v) => ({ ...v, [f.key]: ymd }))}
+              />
+            ) : f.kind === 'icon' ? (
+              <IconField
+                value={values[f.key] ?? ''}
+                color={f.color}
+                onChange={(name) => setValues((v) => ({ ...v, [f.key]: name }))}
               />
             ) : (
               <TextInput
