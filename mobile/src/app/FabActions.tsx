@@ -42,6 +42,7 @@ import Animated, {
 import { useEffect } from "react";
 
 import { LiquidGlass } from "../components/LiquidGlass";
+import { AppIcon } from "../components/contentIcons";
 import { useTheme } from "../theme/ThemeProvider";
 import { weight } from "../theme/tokens";
 import { useNav } from "./navContext";
@@ -195,7 +196,7 @@ function FabActionCard({
           {item.image ? (
             <Image source={item.image} style={styles.iconImage} />
           ) : (
-            <Text style={styles.iconGlyph}>{item.icon}</Text>
+            <AppIcon value={item.icon} size={19} color={color} />
           )}
         </View>
         <Text
@@ -325,9 +326,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-  },
-  iconGlyph: {
-    fontSize: 19,
   },
   // Munshi avatar fills the circular badge.
   iconImage: {

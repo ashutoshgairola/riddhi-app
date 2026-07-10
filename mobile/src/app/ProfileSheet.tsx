@@ -9,6 +9,7 @@ import * as WebBrowser from "expo-web-browser";
 
 import { useAuth } from "../auth/AuthProvider";
 import { BottomSheet } from "../components/BottomSheet";
+import { AppIconBox } from "../components/contentIcons";
 import { Btn, ListCard, ListRow } from "../components/ui";
 import { MI } from "../components/icons";
 import { useFeedback } from "../feedback/FeedbackProvider";
@@ -107,9 +108,7 @@ export function ProfileSheet() {
             onPress={() => handleRowPress(r)}
             last={i === ROWS.length - 1}
           >
-            <View style={[styles.rowIcon, { backgroundColor: `${r.c}22` }]}>
-              <Text style={[styles.rowIconGlyph, { color: r.c }]}>{r.i}</Text>
-            </View>
+            <AppIconBox value={r.i} color={r.c} size={36} iconSize={16} />
             <Text
               style={[
                 styles.rowLabel,
@@ -172,16 +171,6 @@ const styles = StyleSheet.create({
   },
   badgeLabel: {
     fontSize: 10.5,
-  },
-  rowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowIconGlyph: {
-    fontSize: 15,
   },
   rowLabel: {
     flex: 1,

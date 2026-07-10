@@ -7,6 +7,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { BottomSheet } from "../components/BottomSheet";
+import { AppIconBox } from "../components/contentIcons";
 import { ListCard, ListRow } from "../components/ui";
 import { MI } from "../components/icons";
 import { useTheme } from "../theme/ThemeProvider";
@@ -26,7 +27,7 @@ const ITEMS: MoreItem[] = [
   {
     id: "chat",
     l: "Ask Munshi ji",
-    i: "💬",
+    i: "📒",
     c: "#9d8bd6",
     d: "Chat to log & plan",
   },
@@ -108,11 +109,7 @@ export function MoreSheet() {
               { backgroundColor: t.glassBg, borderColor: t.glassBrd },
             ]}
           >
-            <View style={[styles.cardIcon, { backgroundColor: `${it.c}22` }]}>
-              <Text style={[styles.cardIconGlyph, { color: it.c }]}>
-                {it.i}
-              </Text>
-            </View>
+            <AppIconBox value={it.i} color={it.c} size={40} iconSize={18} />
             <View>
               <Text
                 style={[
@@ -142,9 +139,7 @@ export function MoreSheet() {
             onPress={() => handlePress(it.id)}
             last={i === rows.length - 1}
           >
-            <View style={[styles.rowIcon, { backgroundColor: `${it.c}22` }]}>
-              <Text style={[styles.rowIconGlyph, { color: it.c }]}>{it.i}</Text>
-            </View>
+            <AppIconBox value={it.i} color={it.c} size={38} iconSize={16} />
             <View style={styles.rowText}>
               <Text
                 style={[
@@ -185,33 +180,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
   },
-  cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardIconGlyph: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
   cardLabel: {
     fontSize: 14,
   },
   cardDesc: {
     fontSize: 11,
     marginTop: 2,
-  },
-  rowIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowIconGlyph: {
-    fontSize: 16,
   },
   rowText: {
     flex: 1,
