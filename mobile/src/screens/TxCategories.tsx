@@ -28,6 +28,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '../components/Glass';
 import { Chip, IconButton, SearchButton, TopbarActions } from '../components/ui';
+import { AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { SpringIn } from '../components/SpringIn';
@@ -74,13 +75,14 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
       title: kind === 'income' ? 'New income category' : 'New expense category',
       fields: [
         { key: 'name', label: 'Name', placeholder: kind === 'income' ? 'Dividends' : 'Subscriptions' },
-        { key: 'icon', label: 'Emoji icon', optional: true, placeholder: '🏷' },
+        { kind: 'icon', key: 'icon', label: 'Icon', optional: true,
+          color: kind === 'income' ? '#7faf93' : '#c9a86a' },
       ],
       submitLabel: 'Create category',
       onSubmit: async (v) => {
         await api.categories.create({
           name: v['name']!,
-          icon: v['icon'] || (kind === 'income' ? '💰' : '🏷'),
+          icon: v['icon'] || (kind === 'income' ? 'coins' : 'tag'),
           color: kind === 'income' ? '#7faf93' : '#c9a86a',
         });
         toast(`Category created: ${v['name']}`, '🏷');
@@ -142,9 +144,7 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
             >
             <GlassCard contentStyle={styles.cardContent}>
               <View style={styles.cardRow}>
-                <View style={[styles.iconBox, { backgroundColor: c.color + '22' }]}>
-                  <Text style={styles.iconGlyph}>{c.icon}</Text>
-                </View>
+                <AppIconBox value={c.icon} color={c.color} />
                 <View style={styles.textBlock}>
                   <Text style={[styles.name, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
                     {c.name}
@@ -191,16 +191,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconGlyph: {
-    fontSize: 20,
   },
   textBlock: {
     flex: 1,
