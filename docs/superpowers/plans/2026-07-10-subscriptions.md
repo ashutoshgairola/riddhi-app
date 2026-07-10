@@ -293,10 +293,10 @@ describe('detectSubscriptions', () => {
     expect(c.transactionIds).toHaveLength(3);
   });
 
-  it('detects a yearly subscription and captures a price hike', () => {
+  it('keeps a yearly price hike as ONE stream (autopay renewal) and records the hike', () => {
     const txns = [
-      tx({ description: 'AMAZON PRIME', amount: 999, date: '2024-09-14' }),
-      tx({ description: 'AMAZON PRIME', amount: 1499, date: '2025-09-14' }),
+      tx({ description: 'AMAZON PRIME', amount: 999, date: '2024-09-14', paymentMethod: 'autopay' }),
+      tx({ description: 'AMAZON PRIME', amount: 1499, date: '2025-09-14', paymentMethod: 'autopay' }),
     ];
     const [c] = detectSubscriptions(txns, new Set(), today);
     expect(c.cycle).toBe('yearly');
@@ -307,20 +307,46 @@ describe('detectSubscriptions', () => {
     ]);
   });
 
-  it('does NOT detect from a single charge with no recurring signal', () => {
+  it('splits an aggregator descriptor into per-service streams by cadence', () => {
+    // Both billed as "GOOGLE PLAY" on the same account, both autopay:
+    // Truecaller ₹99/yr and a ₹299/mo service. Must become TWO candidates.
+    const txns = [
+      tx({ description: 'GOOGLE PLAY', amount: 99, date: '2024-07-08', paymentMethod: 'autopay' }),
+      tx({ description: 'GOOGLE PLAY', amount: 99, date: '2025-07-08', paymentMethod: 'autopay' }),
+      tx({ description: 'GOOGLE PLAY', amount: 299, date: '2026-02-10', paymentMethod: 'autopay' }),
+      tx({ description: 'GOOGLE PLAY', amount: 299, date: '2026-03-10', paymentMethod: 'autopay' }),
+      tx({ description: 'GOOGLE PLAY', amount: 299, date: '2026-04-10', paymentMethod: 'autopay' }),
+    ];
+    const cands = detectSubscriptions(txns, new Set(), today);
+    expect(cands).toHaveLength(2);
+    expect(cands.find((c) => c.amount === 99)?.cycle).toBe('yearly');
+    expect(cands.find((c) => c.amount === 299)?.cycle).toBe('monthly');
+  });
+
+  it('surfaces a single autopay mandate immediately as monthly (editable at confirm)', () => {
+    const [c] = detectSubscriptions(
+      [tx({ description: 'GOOGLE PLAY', amount: 99, date: '2026-04-08', paymentMethod: 'autopay' })],
+      new Set(),
+      today,
+    );
+    expect(c.cycle).toBe('monthly');
+    expect(c.occurrences).toBe(1);
+    expect(c.nextRenewalDate).toBe('2026-05-08');
+  });
+
+  it('does NOT detect from a single non-autopay charge', () => {
     expect(detectSubscriptions([tx({})], new Set(), today)).toHaveLength(0);
   });
 
   it('excludes descriptors already persisted/ignored', () => {
-    const txns = [tx({ date: '2026-03-02' }), tx({ date: '2026-04-02' })];
+    const txns = [tx({ date: '2026-03-02' }), tx({ date: '2026-04-02' }), tx({ date: '2026-05-02' })];
     const seen = new Set([normalizeDescriptor('NETFLIX.COM')]);
     expect(detectSubscriptions(txns, seen, today)).toHaveLength(0);
   });
 
-  it('rejects a group whose amounts vary too much (not a subscription)', () => {
+  it('rejects two coincidental same-merchant buys (no autopay, weak evidence)', () => {
     const txns = [
-      tx({ description: 'AMAZON', amount: 200, date: '2026-02-02' }),
-      tx({ description: 'AMAZON', amount: 5000, date: '2026-03-02' }),
+      tx({ description: 'AMAZON', amount: 200, date: '2026-03-02' }),
       tx({ description: 'AMAZON', amount: 120, date: '2026-04-02' }),
     ];
     expect(detectSubscriptions(txns, new Set(), today)).toHaveLength(0);
@@ -378,7 +404,7 @@ export function normalizeDescriptor(desc: string): string {
   return desc
     .toLowerCase()
     .replace(/\d{4,}/g, ' ') // long ref numbers
-    .replace(/\b(billdesk|autopay|ach|upi|payment|ref|txn|pos|ecom)\b/g, ' ')
+    .replace(/\b(billdesk|autopay|ach|upi|payment|ref|txn|pos|ecom|mandate)\b/g, ' ')
     .replace(/[^a-z0-9.]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
@@ -404,6 +430,21 @@ function daysBetween(a: string, b: string): number {
   );
 }
 
+/** Two amounts are "the same service" if within a factor of each other. */
+function amountClose(a: number, b: number, factor = 2): boolean {
+  return a <= b * factor && b <= a * factor;
+}
+
+/** Classify an inter-charge gap as a monthly/yearly cadence (or neither).
+ * Bands widen for the boosted (autopay/recurring/subscriptions-category) case. */
+function gapBand(g: number, boosted: boolean): SubscriptionCycle | null {
+  const m: [number, number] = boosted ? [24, 35] : [26, 33];
+  const y: [number, number] = boosted ? [340, 390] : [350, 380];
+  if (g >= m[0] && g <= m[1]) return 'monthly';
+  if (g >= y[0] && g <= y[1]) return 'yearly';
+  return null;
+}
+
 function buildPriceHistory(sorted: DetectTxn[]): PriceHistoryEntry[] {
   const out: PriceHistoryEntry[] = [];
   for (const t of sorted) {
@@ -411,6 +452,35 @@ function buildPriceHistory(sorted: DetectTxn[]): PriceHistoryEntry[] {
     if (!last || last.amount !== t.amount) out.push({ amount: t.amount, since: dayOnly(t.date) });
   }
   return out;
+}
+
+/**
+ * Extract cadence-coherent recurring streams from one descriptor+account
+ * group. A bank debit descriptor like "GOOGLE PLAY" covers MANY services
+ * (the SMS names the aggregator, not the service), so a single group can
+ * hold several independent subscriptions. Greedy chronological assignment
+ * separates them: a charge joins an existing stream only if its amount is
+ * close (×2) to that stream's latest charge AND the gap is a plausible
+ * monthly/yearly cadence. This keeps a ₹499→₹649 hike together (the same
+ * cadence continues) while splitting a ₹99/yr and a ₹299/mo sub that merely
+ * share the "GOOGLE PLAY" descriptor.
+ */
+function extractStreams(group: DetectTxn[], boosted: boolean): DetectTxn[][] {
+  const sorted = [...group].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const streams: DetectTxn[][] = [];
+  for (const t of sorted) {
+    let placed = false;
+    for (const s of streams) {
+      const prev = s[s.length - 1];
+      if (amountClose(t.amount, prev.amount) && gapBand(daysBetween(prev.date, t.date), boosted)) {
+        s.push(t);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) streams.push([t]);
+  }
+  return streams;
 }
 
 export function detectSubscriptions(
@@ -428,44 +498,51 @@ export function detectSubscriptions(
 
   const candidates: SubscriptionCandidate[] = [];
   for (const [, group] of groups) {
-    const sorted = [...group].sort((a, b) => (a.date < b.date ? -1 : 1));
-    const descriptor = normalizeDescriptor(sorted[0].description);
+    const descriptor = normalizeDescriptor(group[0].description);
     if (ignoredOrExisting.has(descriptor)) continue;
-    if (sorted.length < 2) continue;
 
+    // `paymentMethod === 'autopay'` (set by the SMS/notification parse for
+    // mandate/SIP/ACH/NACH/standing-instruction debits) is the primary
+    // recurring signal — NOT the never-populated `isRecurring` boolean.
     const boosted =
-      sorted.some((t) => t.isRecurring) || sorted[0].categoryName.toLowerCase() === BOOST_CATEGORY;
+      group.some((t) => t.paymentMethod === 'autopay' || t.isRecurring) ||
+      group[0].categoryName.toLowerCase() === BOOST_CATEGORY;
 
-    // amount consistency (a hike within 50% is fine; wild variance is not)
-    const amts = sorted.map((t) => t.amount);
-    if (Math.max(...amts) > Math.min(...amts) * 1.5) continue;
+    for (const stream of extractStreams(group, boosted)) {
+      const autopay = stream.some((t) => t.paymentMethod === 'autopay');
 
-    const gaps: number[] = [];
-    for (let i = 1; i < sorted.length; i++) gaps.push(daysBetween(sorted[i - 1].date, sorted[i].date));
-    const g = median(gaps);
+      let cycle: SubscriptionCycle | null = null;
+      if (stream.length >= 2) {
+        const gaps: number[] = [];
+        for (let i = 1; i < stream.length; i++) gaps.push(daysBetween(stream[i - 1].date, stream[i].date));
+        cycle = gapBand(median(gaps), boosted);
+      } else if (stream.length === 1 && autopay) {
+        cycle = 'monthly'; // brand-new mandate: surface now, editable at confirm
+      }
+      if (!cycle) continue;
 
-    let cycle: SubscriptionCycle | null = null;
-    const monthly: [number, number] = boosted ? [24, 35] : [26, 33];
-    const yearly: [number, number] = boosted ? [340, 390] : [350, 380];
-    if (g >= monthly[0] && g <= monthly[1]) cycle = 'monthly';
-    else if (g >= yearly[0] && g <= yearly[1]) cycle = 'yearly';
-    if (!cycle) continue;
+      // Precision guard against two coincidental same-merchant buys: weak
+      // evidence (2 non-autopay charges) needs tight amount agreement.
+      const qualifies =
+        autopay || stream.length >= 3 || (stream.length === 2 && amountClose(stream[0].amount, stream[1].amount, 1.5));
+      if (!qualifies) continue;
 
-    const last = sorted[sorted.length - 1];
-    candidates.push({
-      merchantDescriptor: descriptor,
-      rawDescription: last.description,
-      amount: last.amount,
-      cycle,
-      nextRenewalDate: addCycle(last.date, cycle),
-      firstSeenDate: dayOnly(sorted[0].date),
-      accountId: last.accountId,
-      paymentMethod: last.paymentMethod,
-      categoryId: last.categoryId,
-      priceHistory: buildPriceHistory(sorted),
-      transactionIds: sorted.map((t) => t.id),
-      occurrences: sorted.length,
-    });
+      const last = stream[stream.length - 1];
+      candidates.push({
+        merchantDescriptor: descriptor,
+        rawDescription: last.description,
+        amount: last.amount,
+        cycle,
+        nextRenewalDate: addCycle(last.date, cycle),
+        firstSeenDate: dayOnly(stream[0].date),
+        accountId: last.accountId,
+        paymentMethod: last.paymentMethod,
+        categoryId: last.categoryId,
+        priceHistory: buildPriceHistory(stream),
+        transactionIds: stream.map((t) => t.id),
+        occurrences: stream.length,
+      });
+    }
   }
   return candidates.sort((a, b) => b.amount - a.amount);
 }
@@ -679,46 +756,74 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
 **Interfaces:**
 - Consumes: nothing.
 - Produces:
-  - `resolveFromCatalog(descriptor: string): ResolvedName | null`
-  - `resolveName(descriptor: string, llm?: LlmNamer): Promise<ResolvedName>`
+  - `resolveFromCatalog(descriptor: string): ResolvedName | null` (includes aggregator entries)
+  - `isAggregator(descriptor: string): boolean`
+  - `extractServiceName(text: string): string | null` (pure regex over a Play/Gmail notification body)
+  - `resolveName(descriptor: string, opts?: { hint?: string | null; llm?: LlmNamer }): Promise<ResolvedName>`
   - types `ResolvedName { name; emoji; color }`, `LlmNamer = (descriptor: string) => Promise<{ name: string; emoji: string } | null>`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 // backend/src/subscriptions/subscription-catalog.spec.ts
-import { resolveFromCatalog, resolveName } from './subscription-catalog';
+import { resolveFromCatalog, resolveName, isAggregator, extractServiceName } from './subscription-catalog';
 
 describe('resolveFromCatalog', () => {
   it('resolves a known merchant', () => {
     expect(resolveFromCatalog('netflix.com')?.name).toBe('Netflix');
+  });
+  it('resolves an aggregator to a generic name', () => {
+    expect(resolveFromCatalog('google play')?.name).toBe('Google Play');
   });
   it('returns null for an unknown descriptor', () => {
     expect(resolveFromCatalog('zzz random merchant')).toBeNull();
   });
 });
 
+describe('isAggregator', () => {
+  it('flags aggregator descriptors', () => {
+    expect(isAggregator('google play')).toBe(true);
+    expect(isAggregator('netflix.com')).toBe(false);
+  });
+});
+
+describe('extractServiceName', () => {
+  it('pulls the real service out of a Google Play receipt notification', () => {
+    const text = 'Your Google Play Order Receipt. Your subscription from True Software Scandinavia AB on Google Play has renewed.';
+    expect(extractServiceName(text)).toBe('True Software Scandinavia AB');
+  });
+  it('returns null when no service phrase is present', () => {
+    expect(extractServiceName('Payment of Rs.99 to Google Play was successful')).toBeNull();
+  });
+});
+
 describe('resolveName', () => {
-  it('prefers the catalog over the LLM', async () => {
-    const r = await resolveName('netflix.com', async () => ({ name: 'WRONG', emoji: '❌' }));
+  it('prefers the catalog over the hint and LLM', async () => {
+    const r = await resolveName('netflix.com', { hint: 'WRONG', llm: async () => ({ name: 'WRONG2', emoji: '❌' }) });
     expect(r.name).toBe('Netflix');
   });
-  it('uses the LLM for an unknown descriptor', async () => {
-    const r = await resolveName('acme cloud pro', async () => ({ name: 'Acme Cloud', emoji: '☁️' }));
+  it('uses the notification hint for an aggregator (catalog is generic)', async () => {
+    const r = await resolveName('google play', { hint: 'Truecaller' });
+    expect(r.name).toBe('Truecaller');
+  });
+  it('uses the LLM for an unknown descriptor with no hint', async () => {
+    const r = await resolveName('acme cloud pro', { llm: async () => ({ name: 'Acme Cloud', emoji: '☁️' }) });
     expect(r.name).toBe('Acme Cloud');
     expect(r.emoji).toBe('☁️');
   });
-  it('falls back to a title-cased descriptor when the LLM fails', async () => {
-    const r = await resolveName('acme cloud pro', async () => null);
+  it('falls back to a title-cased descriptor when nothing resolves', async () => {
+    const r = await resolveName('acme cloud pro', { llm: async () => null });
     expect(r.name).toBe('Acme Cloud Pro');
     expect(r.emoji).toBe('🔁');
   });
-  it('falls back gracefully when no LLM is provided', async () => {
+  it('falls back gracefully with no opts', async () => {
     const r = await resolveName('acme cloud pro');
     expect(r.name).toBe('Acme Cloud Pro');
   });
 });
 ```
+
+Note the aggregator ordering subtlety: `resolveFromCatalog` must NOT let a generic aggregator entry shadow a specific merchant. Because a normalized descriptor for an aggregator charge is literally "google play" (the service name is not in it), specific entries never collide — but keep the aggregator entries LAST in the catalog array and match on the full aggregator token so "google play" resolves generically while "google one" still hits its specific entry.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -735,7 +840,8 @@ export type LlmNamer = (descriptor: string) => Promise<{ name: string; emoji: st
 const DEFAULT_COLOR = '#a78bfa';
 const DEFAULT_EMOJI = '🔁';
 
-// keyword (found in the normalized descriptor) → display
+// keyword (found in the normalized descriptor) → display. Specific merchants
+// first; aggregator (generic) entries last so a real merchant never shadows.
 const CATALOG: { match: string; name: string; emoji: string; color: string }[] = [
   { match: 'netflix', name: 'Netflix', emoji: '🎬', color: '#c97d8c' },
   { match: 'spotify', name: 'Spotify', emoji: '🎧', color: '#7faf93' },
@@ -747,7 +853,27 @@ const CATALOG: { match: string; name: string; emoji: string; color: string }[] =
   { match: 'icloud', name: 'iCloud+', emoji: '🍎', color: '#8a8299' },
   { match: 'cult', name: 'Cult.fit', emoji: '🏋️', color: '#a78bfa' },
   { match: 'jio', name: 'JioSaavn', emoji: '🎵', color: '#6ea8ff' },
+  // aggregators (generic — the real service is enriched from notification text)
+  { match: 'google play', name: 'Google Play', emoji: '🅶', color: '#6ea8ff' },
+  { match: 'apple.com', name: 'Apple', emoji: '🍎', color: '#8a8299' },
+  { match: 'itunes', name: 'Apple', emoji: '🍎', color: '#8a8299' },
+  { match: 'razorpay', name: 'Razorpay', emoji: '💳', color: '#6ea8ff' },
+  { match: 'payu', name: 'PayU', emoji: '💳', color: '#6ea8ff' },
 ];
+
+const AGGREGATORS = ['google play', 'apple.com', 'itunes', 'razorpay', 'payu'];
+
+export function isAggregator(descriptor: string): boolean {
+  const d = descriptor.toLowerCase();
+  return AGGREGATORS.some((a) => d.includes(a));
+}
+
+/** Pull the real service name out of a Play/Gmail subscription-receipt body,
+ * e.g. "Your subscription from True Software Scandinavia AB on Google Play…". */
+export function extractServiceName(text: string): string | null {
+  const m = text.match(/subscription from ([A-Z0-9][\w .&'-]+?) (?:on|has|will|is)\b/i);
+  return m ? m[1].trim() : null;
+}
 
 function titleCase(descriptor: string): string {
   return descriptor
@@ -763,12 +889,24 @@ export function resolveFromCatalog(descriptor: string): ResolvedName | null {
   return hit ? { name: hit.name, emoji: hit.emoji, color: hit.color } : null;
 }
 
-export async function resolveName(descriptor: string, llm?: LlmNamer): Promise<ResolvedName> {
+/**
+ * Naming order: catalog (specific merchant) → notification hint (aggregators,
+ * where the catalog only knows the generic aggregator name) → LLM → title-case.
+ * The LLM never decides whether the group is a subscription.
+ */
+export async function resolveName(
+  descriptor: string,
+  opts?: { hint?: string | null; llm?: LlmNamer },
+): Promise<ResolvedName> {
   const cat = resolveFromCatalog(descriptor);
-  if (cat) return cat;
-  if (llm) {
+  // A specific (non-aggregator) catalog hit is authoritative.
+  if (cat && !isAggregator(descriptor)) return cat;
+  // Aggregator: prefer the real service name from the notification hint.
+  if (opts?.hint) return { name: opts.hint, emoji: cat?.emoji ?? DEFAULT_EMOJI, color: cat?.color ?? DEFAULT_COLOR };
+  if (cat) return cat; // generic aggregator name (e.g. "Google Play")
+  if (opts?.llm) {
     try {
-      const r = await llm(descriptor);
+      const r = await opts.llm(descriptor);
       if (r && r.name) return { name: r.name, emoji: r.emoji || DEFAULT_EMOJI, color: DEFAULT_COLOR };
     } catch {
       /* graceful fallback below */
@@ -781,7 +919,7 @@ export async function resolveName(descriptor: string, llm?: LlmNamer): Promise<R
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd backend && npx jest subscription-catalog -v`
-Expected: PASS (all 6 tests).
+Expected: PASS (all tests).
 
 - [ ] **Step 5: Commit**
 
@@ -919,9 +1057,9 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
 - Modify: `backend/src/subscriptions/subscriptions.module.ts` (add service + deps)
 
 **Interfaces:**
-- Consumes: `detectSubscriptions`, `computeSubscriptionSummary`, `resolveName`, entities, `TransactionsService`, `CategoriesService`.
+- Consumes: `detectSubscriptions`, `computeSubscriptionSummary`, `resolveName` / `isAggregator` / `extractServiceName`, entities, `CategoriesService`, and the `CapturedNotification` repo (read-only, for aggregator name enrichment — registered via `TypeOrmModule.forFeature`, NOT by importing NotificationSyncModule).
 - Produces: `SubscriptionsService` with:
-  - `detect(userId): Promise<SubscriptionCandidateView[]>` (candidates + resolved names, not persisted)
+  - `detect(userId): Promise<SubscriptionCandidateView[]>` (candidates + resolved names — aggregator names enriched from captured Play/Gmail notifications when available, else generic; not persisted)
   - `list(userId): Promise<SubscriptionListView>` (rows + summary)
   - `create(userId, dto): Promise<Subscription>` (persists + back-links transactionIds)
   - `update(userId, id, dto): Promise<Subscription>`
@@ -951,12 +1089,13 @@ function makeRepo<T extends { id?: string }>(seed: T[] = []) {
 describe('SubscriptionsService', () => {
   const categoriesSvc = { findAll: jest.fn(async () => [{ id: 'cat-sub', name: 'Subscriptions', color: '#a78bfa' }, { id: 'cat-ent', name: 'Entertainment', color: null }]) };
 
-  function build(txns: any[] = []) {
+  function build(txns: any[] = [], notes: any[] = []) {
     const subRepo = makeRepo<any>();
     const ignoreRepo = makeRepo<any>();
     const txRepo = { ...makeRepo<any>(txns), find: jest.fn(async () => txns) } as any;
-    const svc = new SubscriptionsService(subRepo as any, ignoreRepo as any, txRepo as any, categoriesSvc as any);
-    return { svc, subRepo, ignoreRepo, txRepo };
+    const capturedRepo = { ...makeRepo<any>(notes), find: jest.fn(async () => notes) } as any;
+    const svc = new SubscriptionsService(subRepo as any, ignoreRepo as any, txRepo as any, capturedRepo as any, categoriesSvc as any);
+    return { svc, subRepo, ignoreRepo, txRepo, capturedRepo };
   }
 
   it('create persists a row and back-links historical transactions', async () => {
@@ -999,8 +1138,33 @@ describe('SubscriptionsService', () => {
     const candidates = await svc.detect('u1');
     expect(candidates).toHaveLength(0);
   });
+
+  it('detect enriches an aggregator name from a captured notification', async () => {
+    const txns = [
+      { id: 't1', date: '2025-07-08', description: 'GOOGLE PLAY', amount: 99, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+      { id: 't2', date: '2026-07-08', description: 'GOOGLE PLAY', amount: 99, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+    ];
+    const notes = [
+      { userId: 'u1', title: 'Google Play', text: 'Your subscription from Truecaller on Google Play has renewed for ₹99.', postedAt: new Date('2026-07-08') },
+    ];
+    const { svc } = build(txns, notes);
+    const candidates = await svc.detect('u1');
+    expect(candidates[0].name).toBe('Truecaller');
+  });
+
+  it('detect keeps the generic aggregator name when no notification matches', async () => {
+    const txns = [
+      { id: 't1', date: '2025-07-08', description: 'GOOGLE PLAY', amount: 99, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+      { id: 't2', date: '2026-07-08', description: 'GOOGLE PLAY', amount: 99, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'autopay', isRecurring: false },
+    ];
+    const { svc } = build(txns, []);
+    const candidates = await svc.detect('u1');
+    expect(candidates[0].name).toBe('Google Play');
+  });
 });
 ```
+
+(Note `today` for `detect` is `new Date()` inside the service; the enrichment/name assertions above do not depend on the current date, and the two yearly-spaced autopay charges qualify via the autopay signal regardless of when the test runs.)
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1018,9 +1182,10 @@ import { Subscription } from './subscription.entity';
 import { SubscriptionIgnore } from './subscription-ignore.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { CategoriesService } from '../categories/categories.service';
+import { CapturedNotification } from '../notification-sync/captured-notification.entity';
 import { TransactionType, PaymentMethod } from '../common/enums';
 import { detectSubscriptions, normalizeDescriptor, DetectTxn, SubscriptionCandidate } from './detect-subscriptions';
-import { resolveName, ResolvedName } from './subscription-catalog';
+import { resolveName, ResolvedName, isAggregator, extractServiceName } from './subscription-catalog';
 import { computeSubscriptionSummary, SummarySub } from './subscription-summary';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
@@ -1033,8 +1198,30 @@ export class SubscriptionsService {
     @InjectRepository(Subscription) private readonly subRepo: Repository<Subscription>,
     @InjectRepository(SubscriptionIgnore) private readonly ignoreRepo: Repository<SubscriptionIgnore>,
     @InjectRepository(Transaction) private readonly txRepo: Repository<Transaction>,
+    @InjectRepository(CapturedNotification) private readonly capturedRepo: Repository<CapturedNotification>,
     private readonly categoriesService: CategoriesService,
   ) {}
+
+  /**
+   * Best-effort: for an aggregator charge (bank SMS says only "Google Play"),
+   * mine the real service name from a captured Play/Gmail receipt notification
+   * that both names a service and mentions the amount. Read-only against
+   * notification-sync's table; returns null when nothing matches (→ generic
+   * aggregator name, user renames at confirm).
+   */
+  private async findNotificationName(userId: string, amount: number): Promise<string | null> {
+    const notes = await this.capturedRepo.find({ where: { userId }, order: { postedAt: 'DESC' }, take: 200 });
+    const amtStr = String(Math.round(amount));
+    const patterns = [`₹${amtStr}`, `rs.${amtStr}`, `rs ${amtStr}`, `inr ${amtStr}`, `${amtStr}.00`];
+    for (const n of notes) {
+      const text = `${n.title ?? ''} ${n.text}`;
+      const name = extractServiceName(text);
+      if (!name) continue;
+      const lower = text.toLowerCase();
+      if (patterns.some((p) => lower.includes(p))) return name;
+    }
+    return null;
+  }
 
   private toSummarySub(s: Subscription): SummarySub {
     return {
@@ -1061,7 +1248,12 @@ export class SubscriptionsService {
       paymentMethod: t.paymentMethod, isRecurring: t.isRecurring,
     }));
     const candidates = detectSubscriptions(detectTxns, skip, new Date());
-    return Promise.all(candidates.map(async (c) => ({ ...c, ...(await resolveName(c.merchantDescriptor)) })));
+    return Promise.all(
+      candidates.map(async (c) => {
+        const hint = isAggregator(c.merchantDescriptor) ? await this.findNotificationName(userId, c.amount) : null;
+        return { ...c, ...(await resolveName(c.merchantDescriptor, { hint })) };
+      }),
+    );
   }
 
   async list(userId: string) {
@@ -1130,11 +1322,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Subscription } from './subscription.entity';
 import { SubscriptionIgnore } from './subscription-ignore.entity';
 import { Transaction } from '../transactions/transaction.entity';
+import { CapturedNotification } from '../notification-sync/captured-notification.entity';
 import { SubscriptionsService } from './subscriptions.service';
 import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Subscription, SubscriptionIgnore, Transaction]), CategoriesModule],
+  imports: [
+    // CapturedNotification is registered read-only for aggregator name enrichment
+    // (a repository handle only — no dependency on NotificationSyncModule).
+    TypeOrmModule.forFeature([Subscription, SubscriptionIgnore, Transaction, CapturedNotification]),
+    CategoriesModule,
+  ],
   providers: [SubscriptionsService],
   exports: [SubscriptionsService],
 })
@@ -1999,7 +2197,8 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(mobil
 
 Read `mobile/src/screens/StatementReviewScreen.tsx` first to mirror the app's "review then add" list pattern. The screen must:
 - on mount, call `subscriptionsApi.detect()` and render each candidate as a card (name/emoji, amount + cycle, occurrences, payment tag, "since" date);
-- **Confirm** → `subscriptionsApi.create(candidateToCreatePayload(c, null))`, then remove the row (with the app's confirm/dismiss animation used by the SMS/statement review lists);
+- **Editable name before confirm** — aggregator candidates often arrive with a generic name ("Google Play") when no notification enrichment matched, so each card's name must be tappable/editable (a `TextInput` prefilled with `c.name`); the edited name flows into the create payload. This satisfies the spec's "edit name/emoji before saving." A small hint chip shows the amount so the user knows which aggregator sub this is (e.g. "Google Play · ₹99/yr" → rename to "Truecaller").
+- **Confirm** → `subscriptionsApi.create({ ...candidateToCreatePayload(c, null), name: editedName })`, then remove the row (with the app's confirm/dismiss animation used by the SMS/statement review lists);
 - **Dismiss** → `subscriptionsApi.dismiss(c.merchantDescriptor)`, then remove the row;
 - a "Confirm all" action that creates every remaining candidate;
 - a "Add manually" entry that opens a small form (name, amount, cycle, next date, account) building a `CreateSubPayload` with `transactionIds: []` and `merchantDescriptor` = the entered name.

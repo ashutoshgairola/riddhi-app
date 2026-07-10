@@ -42,6 +42,12 @@ Riddhi already holds. Frame the feature as "auto-detect subscriptions," never "P
    and the existing push dispatch — no new scheduler infrastructure.
 5. **Investment SIPs deliberately excluded** from detection. SIPs are recurring debits but
    not subscriptions; excluded by category/type. There is a separate `investments` module.
+6. **Aggregator billing is first-class** (learned from real notifications, 2026-07-10). A bank
+   UPI-mandate SMS names the aggregator ("Google Play"), not the service ("Truecaller"), so
+   detection amount-clusters within a descriptor group and naming enriches from the captured
+   Play/Gmail notification when available, else stays generic + user-editable. See §2.
+7. **`paymentMethod === 'autopay'` is the recurring signal**, already populated by the parse
+   layer — not the unpopulated `isRecurring` boolean. No parse-layer changes needed.
 
 ## 1. Data model
 
@@ -94,27 +100,56 @@ charges, (b) attribute incoming charges, (c) render a per-subscription ledger.
 - Group by **normalized merchant descriptor + payment source**. Normalization strips
   trailing reference numbers, dates, city/terminal suffixes, and case — enough to collapse
   "NETFLIX.COM 12345" and "NETFLIX.COM BILLDESK" into one group.
-- A group qualifies as a candidate when it has:
-  - **≥2 occurrences**, AND
-  - a **regular cadence** — median inter-charge gap 26–33 days → `monthly`, 350–380 days →
-    `yearly`, AND
-  - **amount within tolerance** — roughly constant; increases are allowed and recorded as
-    hikes rather than disqualifying the group.
-- **Confidence boost:** a charge whose transaction is already `isRecurring=true`, or already
-  sits in the `Subscriptions` category, lowers the threshold (a single such charge can
-  qualify).
+- **Amount-cluster within each group** (critical for aggregators). A single bank debit
+  descriptor covers *many* distinct subscriptions when billing goes through an aggregator:
+  a UPI-mandate SMS reads *"Sent Rs.99.00 … To Google Play"* — the descriptor is **"Google
+  Play"**, not "Truecaller", so every Play/Apple/Razorpay/PayU-billed subscription on the
+  same account collapses into one descriptor group. Within each descriptor+account group,
+  partition transactions into **amount clusters** (sort by amount; start a new cluster where
+  amount exceeds the previous by more than ×1.5 — a price hike like ₹499→₹649 stays one
+  cluster, but ₹99 vs ₹149 split). Each cluster is evaluated as its own candidate.
+- A cluster qualifies as a candidate when it has:
+  - **≥2 occurrences** at a **regular cadence** — median inter-charge gap 26–33 days →
+    `monthly`, 350–380 days → `yearly` (bands widened for the boosted case below); OR
+  - **exactly 1 occurrence but the charge is `paymentMethod === 'autopay'`** — surfaced with
+    a default `monthly` cycle (editable at confirm), so a brand-new mandate appears
+    immediately rather than after two cycles.
+  - Amounts within a cluster are consistent by construction; increases across occurrences are
+    recorded as hikes.
+- **Strong recurring signal — `paymentMethod === 'autopay'`.** The SMS/notification parse
+  layer already tags mandate / e-mandate / autopay / SI / standing-instruction / ACH / NACH
+  / SIP debits as `PaymentMethod.AUTOPAY` (see `sms-sync.service.ts#extractPaymentMethod` and
+  notification-sync's `autopay` rail). This — NOT the never-populated `isRecurring` boolean —
+  is the primary boost: it widens the cadence bands and lets a single charge qualify. A
+  transaction already flagged `isRecurring=true` or sitting in the `Subscriptions` category is
+  an additional booster.
 - Predict `nextRenewalDate = lastCharge.date + cadence`. Build `priceHistory` from the
-  amount timeline across occurrences.
+  amount timeline across the cluster's occurrences.
 - **Dedup vs persisted:** skip descriptors already tied to a confirmed `Subscription` so
   detection never re-surfaces an existing sub.
 
 ### Naming (display polish only)
 
-- Catalog-first: resolve name / emoji / color from the `contentIcons` merchant catalog
-  (`mobile/src/components/contentIcons.data.ts` + resolver).
-- Unknown descriptor → optional thin Claude call resolving **display name + emoji only**,
-  with graceful fallback to the cleaned descriptor if the call fails or the key is absent.
-- The LLM is never consulted on whether a group *is* a subscription.
+Naming order (the LLM is never consulted on whether a group *is* a subscription):
+
+1. **Catalog** — resolve name / emoji / color from the deterministic merchant catalog
+   (`subscription-catalog.ts`; direct-billed merchants like Netflix / Spotify auto-name
+   perfectly). The catalog also holds **aggregator entries** (Google Play, Apple, Razorpay,
+   PayU) that resolve to a generic name + aggregator icon.
+2. **Notification hint (aggregators only)** — the aggregator's real service name lives only in
+   the Play/Gmail *notification* Riddhi already captures (`captured_notification.text` =
+   *"Your subscription from True Software Scandinavia AB on Google Play has renewed…"*). For an
+   aggregator candidate, a **read-only** lookup finds a captured notification from the
+   Play/Gmail package posted within ±2 days of the charge and extracts the service name via a
+   pure `extractServiceName(text)` regex. This modifies nothing in notification-sync — it only
+   reads its entity. When found, the extracted name wins over the generic aggregator name.
+3. **Thin LLM fallback (non-aggregator unknowns only)** — an optional injected Claude call
+   resolving display name + emoji only, behind graceful fallback.
+4. **Title-cased descriptor** — final fallback when nothing else resolves.
+
+Either way, the confirm/review screen lets the user **edit the name/emoji before saving**, so
+an aggregator sub with no notification hint (named "Google Play · ₹99/yr") is relabelled
+"Truecaller" once, by the user.
 
 ## 3. Confirmation flow (backend + mobile)
 
