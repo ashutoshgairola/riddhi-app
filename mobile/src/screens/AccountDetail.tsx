@@ -40,6 +40,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
@@ -73,6 +74,8 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, openAdd } = useNav();
   const { toast, sheet, form } = useFeedback();
+  const { prefs } = usePrefs();
+  const hide = prefs.hideBalances;
 
   // Task 10: pick → decrypt → parse → StatementReview, scoped to this account.
   const { launch: launchStatementImport, sheet: statementImportSheet } = useStatementImportLauncher();
@@ -185,7 +188,9 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
           <View style={styles.balanceTextBlock}>
             <Text style={styles.balanceLabel}>Balance</Text>
             <Text style={styles.balanceValue}>
-              {a.bal < 0 ? '-' : ''}₹{Math.abs(a.bal).toLocaleString('en-IN')}
+              {hide
+                ? MASKED_AMOUNT
+                : `${a.bal < 0 ? '-' : ''}₹${Math.abs(a.bal).toLocaleString('en-IN')}`}
             </Text>
             <Text style={styles.balanceSub}>
               {a.bank} · {a.sub}
@@ -236,7 +241,9 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
                 { color: tx.a > 0 ? t.em : t.red, fontFamily: weight(700) },
               ]}
             >
-              {tx.a > 0 ? '+' : ''}₹{Math.abs(tx.a).toLocaleString('en-IN')}
+              {hide
+                ? MASKED_AMOUNT
+                : `${tx.a > 0 ? '+' : ''}₹${Math.abs(tx.a).toLocaleString('en-IN')}`}
             </Text>
           </ListRow>
         ))}

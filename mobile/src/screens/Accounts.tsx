@@ -44,6 +44,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { useCountUp } from '../hooks/useCountUp';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
@@ -86,6 +87,8 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, push } = useNav();
   const { toast, sheet, form } = useFeedback();
+  const { prefs } = usePrefs();
+  const hide = prefs.hideBalances;
 
   const { data: accounts } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
 
@@ -214,18 +217,20 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
           style={[styles.heroGradient, { borderColor: 'rgba(182,164,243,0.2)' }]}
         >
           <Text style={styles.heroLabel}>Net Worth</Text>
-          <Text style={styles.heroValue}>₹{(totalCount / 100000).toFixed(2)}L</Text>
+          <Text style={styles.heroValue}>
+            {hide ? MASKED_AMOUNT : `₹${(totalCount / 100000).toFixed(2)}L`}
+          </Text>
           <View style={styles.heroSplitRow}>
             <View style={styles.heroSplitCol}>
               <Text style={styles.heroSplitLabel}>Assets</Text>
               <Text style={[styles.heroSplitValue, { color: '#7faf93' }]}>
-                ₹{(totalAssets / 100000).toFixed(2)}L
+                {hide ? MASKED_AMOUNT : `₹${(totalAssets / 100000).toFixed(2)}L`}
               </Text>
             </View>
             <View style={styles.heroSplitCol}>
               <Text style={styles.heroSplitLabel}>Liabilities</Text>
               <Text style={[styles.heroSplitValue, { color: '#c97d8c' }]}>
-                ₹{(totalLiab / 1000).toFixed(0)}K
+                {hide ? MASKED_AMOUNT : `₹${(totalLiab / 1000).toFixed(0)}K`}
               </Text>
             </View>
           </View>
@@ -256,7 +261,9 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
                       <Text style={styles.accountSub}>{a.sub}</Text>
                     </View>
                     <View style={styles.accountRight}>
-                      <Text style={styles.accountBal}>{fmtBalance(a.bal)}</Text>
+                      <Text style={styles.accountBal}>
+                        {hide ? MASKED_AMOUNT : fmtBalance(a.bal)}
+                      </Text>
                       {a.type === 'credit' && dueHints[String(a.id)]?.hasBill ? (
                         <Text style={styles.accountDueHint}>
                           {dueHints[String(a.id)]!.daysUntilDue <= 0
@@ -265,7 +272,9 @@ export function Accounts({ entry: _entry }: { entry: ScreenEntry }) {
                         </Text>
                       ) : a.change !== 0 ? (
                         <Text style={styles.accountChange}>
-                          {a.change > 0 ? '↑ +' : '↓ '}₹{Math.abs(a.change).toLocaleString('en-IN')}
+                          {hide
+                            ? MASKED_AMOUNT
+                            : `${a.change > 0 ? '↑ +' : '↓ '}₹${Math.abs(a.change).toLocaleString('en-IN')}`}
                           <Text style={styles.accountChangeSub}> · 30d</Text>
                         </Text>
                       ) : null}
