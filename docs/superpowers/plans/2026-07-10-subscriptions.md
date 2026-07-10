@@ -1653,13 +1653,17 @@ git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backe
 **Files:**
 - Create: `backend/src/subscriptions/attach-transaction.ts` + `.spec.ts` (pure matcher)
 - Modify: `backend/src/subscriptions/subscriptions.service.ts` (add `attachTransaction`)
-- Modify: the SMS/statement create path to call it (see step 5 — locate the exact call site).
+- Create: `backend/src/subscriptions/subscriptions.listener.ts` + `.spec.ts` (`@OnEvent(TRANSACTION_CREATED)` → `attachTransaction`)
+- Modify: `backend/src/subscriptions/subscriptions.module.ts` (register the listener as a provider)
+
+**Approach (decoupled event listener, NOT create-site injection):** The app already emits `TRANSACTION_CREATED` (`{ userId, transaction }`) from `TransactionsService.create` (see `transactions.service.ts:165`) and `notifications.listener.ts` already consumes it via `@OnEvent(TRANSACTION_CREATED)`. We mirror that: a `SubscriptionsListener` handles the same event and calls `attachTransaction`. This covers ALL creation paths (SMS via the mobile→transactions endpoint, server-side statement import, and manual adds) with zero coupling and no circular-dependency risk, and it never touches the parallel-WIP `notification-sync.service.ts`. `EventEmitterModule.forRoot()` is already registered globally in `app.module.ts`, so a listener provider in `SubscriptionsModule` (already imported by `app.module`) fires automatically.
 
 **Interfaces:**
-- Consumes: `normalizeDescriptor`, `addCycle`.
+- Consumes: `normalizeDescriptor`, `addCycle`, `TRANSACTION_CREATED` + `TransactionCreatedEvent` type (from `../notifications/notification-events`), `PaymentMethod`/`TransactionType` enums.
 - Produces:
   - pure `matchSubscription(descriptor, accountId, subs): Subscription | null`
   - `SubscriptionsService.attachTransaction(userId, tx): Promise<void>` — links a newly created recurring charge to a matching sub and rolls `amount`/`nextRenewalDate`/`priceHistory` forward.
+  - `SubscriptionsListener` — `@OnEvent(TRANSACTION_CREATED)`, gated to expense + recurring-signal charges, calls `attachTransaction` in try/catch.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1736,29 +1740,118 @@ Append to `SubscriptionsService` (import `matchSubscription` and `addCycle` at t
 
 Add imports: `import { matchSubscription } from './attach-transaction';` and extend the existing `import { ..., addCycle } from './detect-subscriptions';`.
 
-- [ ] **Step 5: Call `attachTransaction` from the import path**
-
-Locate where SMS/statement import creates transactions. Run:
-`grep -rn "transactionsService.create\|this.txRepo.save\|create(userId" backend/src/sms-sync backend/src/statements backend/src/notification-sync`
-
-In the service that persists a newly detected recurring charge (the SMS-sync/statement import create path), after the transaction is created and if `isRecurring` is true (or the charge is a statement/SMS-detected recurring debit), call:
+- [ ] **Step 5: Write the failing listener test**
 
 ```ts
-await this.subscriptionsService.attachTransaction(userId, {
-  id: created.id, description: created.description, amount: created.amount,
-  date: new Date(created.date).toISOString(), accountId: created.accountId,
+// backend/src/subscriptions/subscriptions.listener.spec.ts
+import { SubscriptionsListener } from './subscriptions.listener';
+import { PaymentMethod, TransactionType } from '../common/enums';
+
+describe('SubscriptionsListener', () => {
+  const tx = (over: any = {}) => ({
+    id: 't1', description: 'NETFLIX.COM', amount: 649, date: new Date('2026-05-02'),
+    type: TransactionType.EXPENSE, paymentMethod: PaymentMethod.AUTOPAY, isRecurring: false, accountId: 'a1',
+    ...over,
+  });
+
+  function build() {
+    const subscriptions = { attachTransaction: jest.fn(async () => undefined) };
+    const listener = new SubscriptionsListener(subscriptions as any);
+    return { listener, subscriptions };
+  }
+
+  it('attaches an autopay expense (mapping fields)', async () => {
+    const { listener, subscriptions } = build();
+    await listener.onTransactionCreated({ userId: 'u1', transaction: tx() } as any);
+    expect(subscriptions.attachTransaction).toHaveBeenCalledWith('u1', expect.objectContaining({ id: 't1', description: 'NETFLIX.COM', amount: 649, accountId: 'a1' }));
+  });
+
+  it('attaches an isRecurring expense even without autopay', async () => {
+    const { listener, subscriptions } = build();
+    await listener.onTransactionCreated({ userId: 'u1', transaction: tx({ paymentMethod: PaymentMethod.UPI, isRecurring: true }) } as any);
+    expect(subscriptions.attachTransaction).toHaveBeenCalled();
+  });
+
+  it('ignores a non-recurring, non-autopay expense', async () => {
+    const { listener, subscriptions } = build();
+    await listener.onTransactionCreated({ userId: 'u1', transaction: tx({ paymentMethod: PaymentMethod.UPI, isRecurring: false }) } as any);
+    expect(subscriptions.attachTransaction).not.toHaveBeenCalled();
+  });
+
+  it('ignores a non-expense transaction', async () => {
+    const { listener, subscriptions } = build();
+    await listener.onTransactionCreated({ userId: 'u1', transaction: tx({ type: TransactionType.TRANSFER }) } as any);
+    expect(subscriptions.attachTransaction).not.toHaveBeenCalled();
+  });
+
+  it('swallows a failure from attachTransaction (never breaks tx creation)', async () => {
+    const { listener, subscriptions } = build();
+    subscriptions.attachTransaction.mockRejectedValueOnce(new Error('boom'));
+    await expect(listener.onTransactionCreated({ userId: 'u1', transaction: tx() } as any)).resolves.toBeUndefined();
+  });
 });
 ```
 
-Inject `SubscriptionsService` into that service's constructor and add `SubscriptionsModule` to that feature module's `imports` (use `forwardRef` if a cycle appears). If the exact create path is ambiguous, prefer the sms-sync batch-create path (`sms-sync` resolves accountId already — see Slice C follow-up) and guard the call with `try/catch` so import never fails on a linking error.
+- [ ] **Step 6: Run it to verify it fails**
 
-- [ ] **Step 6: Verify + commit**
+Run: `cd backend && npx jest subscriptions.listener -v`
+Expected: FAIL ("Cannot find module './subscriptions.listener'").
 
-Run: `cd backend && npx jest 2>&1 | tail -4` → all green.
+- [ ] **Step 7: Write the listener**
+
+```ts
+// backend/src/subscriptions/subscriptions.listener.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { TRANSACTION_CREATED } from '../notifications/notification-events';
+import type { TransactionCreatedEvent } from '../notifications/notification-events';
+import { PaymentMethod, TransactionType } from '../common/enums';
+import { SubscriptionsService } from './subscriptions.service';
+
+/** Attributes a newly created recurring charge (SMS/statement/manual) to a
+ * matching subscription. Mirrors NotificationsListener's TRANSACTION_CREATED
+ * handler — fully decoupled from TransactionsService. */
+@Injectable()
+export class SubscriptionsListener {
+  private readonly logger = new Logger(SubscriptionsListener.name);
+
+  constructor(private readonly subscriptions: SubscriptionsService) {}
+
+  @OnEvent(TRANSACTION_CREATED)
+  async onTransactionCreated(e: TransactionCreatedEvent): Promise<void> {
+    try {
+      const tx = e.transaction;
+      if (tx.type !== TransactionType.EXPENSE) return;
+      // Only recurring-signal charges are subscription candidates.
+      if (tx.paymentMethod !== PaymentMethod.AUTOPAY && !tx.isRecurring) return;
+      await this.subscriptions.attachTransaction(e.userId, {
+        id: tx.id,
+        description: tx.description,
+        amount: Number(tx.amount),
+        date: new Date(tx.date).toISOString(),
+        accountId: tx.accountId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `subscription attach failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+}
+```
+
+- [ ] **Step 8: Register the listener in the module**
+
+In `backend/src/subscriptions/subscriptions.module.ts`, import `SubscriptionsListener` and add it to `providers` (alongside `SubscriptionsService`). No new imports are needed — `EventEmitterModule.forRoot()` is already global in `app.module.ts`.
+
+- [ ] **Step 9: Verify + commit**
+
+Run: `cd backend && npx jest attach-transaction subscriptions.listener subscriptions.service -v` → all green.
+Run: `cd backend && npx jest 2>&1 | tail -4` → full suite green.
 
 ```bash
-git add backend/src/subscriptions/attach-transaction.ts backend/src/subscriptions/attach-transaction.spec.ts backend/src/subscriptions/subscriptions.service.ts backend/src/sms-sync backend/src/statements
-git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backend): attribute imported recurring charges to existing subscriptions"
+git add backend/src/subscriptions/attach-transaction.ts backend/src/subscriptions/attach-transaction.spec.ts backend/src/subscriptions/subscriptions.listener.ts backend/src/subscriptions/subscriptions.listener.spec.ts backend/src/subscriptions/subscriptions.service.ts backend/src/subscriptions/subscriptions.module.ts
+git -c user.email=gairola.ashutosh26@gmail.com commit --no-verify -m "feat(backend): attribute created recurring charges to subscriptions via event listener"
 ```
 
 ---
