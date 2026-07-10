@@ -1,29 +1,42 @@
 /**
- * TabBar — iOS bottom tab bar with centre FAB tab.
+ * TabBar — iOS floating bottom tab bar with centre FAB tab.
  *
  * RN port of `.m-tabbar` / `.m-tab` / `.m-fab-tab` / `.m-fab`
- * (project/riddhi/mobile.css:254–327) and the `MTabs` array +
- * iOS-branch render in `project/riddhi/MobileApp.jsx:3–9,343–361`.
+ * (project/riddhi/mobile.css:257–332) and the `MTabs` array +
+ * iOS-branch render in `project/riddhi/MobileApp.jsx:3–9,461–…`.
  *
- * Layout: 5 flex slots — Home, Activity, [centre FAB], Budget, More.
- * The active tab gets a glass "pill" behind its icon/label
- * (`.m-tab.active::before`, mobile.css:288–297) and the icon nudges up
- * + scales slightly (`.m-tab.active svg`, mobile.css:286). The centre
- * slot is the 58x58 gradient FAB circle that overlaps the bar
- * (`margin-top: -24px`) — tapping it only toggles `fabOpen` here; the
- * radial speed-dial actions it reveals are Task 3.3.
+ * The handover redesigned `.m-tabbar` from a flat edge-attached bar into a
+ * floating rounded glass capsule: `margin: 0 14px calc(safe-area + 12px)`,
+ * `border-radius: 30px`, a full 1px border on all sides, and a
+ * `0 12px 40px rgba(0,0,0,0.45)` drop shadow with inset top/bottom sheens.
+ * It is still a `flex-shrink: 0` sibling in the `.m-shell` column (not
+ * absolutely positioned), so it reserves its own row and does not overlap
+ * page content — `AppShell` mirrors that (stage `flex:1`, then `<TabBar/>`),
+ * so this stays contained to this file. Design:
+ * docs/superpowers/specs/2026-07-10-floating-tabbar-design.md.
  *
- * The web version has no safe-area handling (browser chrome owns
- * that); RN needs the device's bottom inset added to the bar's
- * bottom padding, mirroring `calc(env(safe-area-inset-bottom, 0px) + 14px)`
- * (mobile.css:259) literally.
+ * Layering (see the design doc's "crux"): three RN constraints collide —
+ * the blur/tint must be clipped to the 30px radius, the centre FAB must
+ * protrude above the top edge, and the drop shadow must render. On iOS
+ * `overflow:'hidden'` (masksToBounds) clips shadows and `BlurView` samples
+ * ancestor backgrounds, so these can't share one view. Resolution:
+ *   - outer `tabbar` is overflow-visible  → the FAB escapes the top edge
+ *   - `blur` is absoluteFill + radius + overflow-hidden → clips the glass
+ *   - `chrome` (tint colour + 1px border + shadow) is overflow-visible so
+ *     its own drop shadow isn't clipped; its translucent body gives iOS a
+ *     silhouette to derive the shadow from
+ *   - `glow` sits in its own clipped layer above the tint
+ *
+ * Safe area: the design's bottom gap is `calc(env(safe-area-inset-bottom) +
+ * 12px)` (mobile.css:262). RN adds the device inset to a 12px margin
+ * literally — the whole capsule lifts off the home indicator.
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LiquidGlass } from '../components/LiquidGlass';
 import { MI, type IconName } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { weight } from '../theme/tokens';
@@ -42,7 +55,7 @@ const TABS: TabSpec[] = [
   { id: 'more', label: 'More', icon: 'more' },
 ];
 
-// .m-fab gradient (mobile.css:316)
+// .m-fab gradient (mobile.css:320)
 const FAB_GRADIENT = ['rgba(198,184,247,0.92)', 'rgba(155,134,238,0.92)'] as const;
 
 export function TabBar() {
@@ -50,51 +63,53 @@ export function TabBar() {
   const { activeTab, goTab, fabOpen, setFabOpen } = useNav();
   const insets = useSafeAreaInsets();
 
-  // `inset 0 1px 0 rgba(...)` (t.tabbarShadow) — only the color is needed;
-  // it's rendered as a 1px strip under the top border.
-  const highlight = t.tabbarShadow.match(/rgba\([^)]*\)/)?.[0];
-
-  // The design's 14px bottom pad stands in for the home-indicator inset on
-  // the web mockup (env() = 0 there). The full 34pt inset still reads as a
-  // dead band under the labels, so tuck the row partway into the safe area —
-  // the home indicator itself only occupies the bottom ~13pt.
-  const padBottom = insets.bottom ? Math.max(insets.bottom - 14, 12) : 14;
+  // Top inset-sheen colour, pulled from the box-shadow token
+  // (dark `rgba(255,255,255,0.16)` / light `rgba(255,255,255,0.95)`).
+  const sheen = t.tabbarShadow.match(/rgba\([^)]*\)/)?.[0];
 
   return (
     <View
       style={[
         styles.tabbar,
-        {
-          borderTopColor: t.tabbarBorder,
-          // 8 (top pad) + 56 (slot row, mobile.css content box) + padBottom;
-          // = the design's 78 when there is no inset.
-          height: 64 + padBottom,
-          paddingBottom: padBottom,
-        },
+        // Handover is `margin-bottom: calc(env(safe-area-inset-bottom) + 12px)`
+        // (mobile.css:262), but env() ≈ 0 in the web mockup, so the capsule sits
+        // ~12px off the bottom there. On device the full 34pt inset pushes it up
+        // into a dead band; the home indicator only occupies the bottom ~13pt,
+        // so tuck the capsule partway into the safe area (same reasoning the flat
+        // bar used) to keep it near the bottom while clearing the indicator.
+        { marginBottom: insets.bottom ? Math.max(insets.bottom - 14, 12) : 12 },
       ]}
     >
-      {/* backdrop-filter: blur(34px) saturate(180%) + rgba bg (mobile.css:261–262) —
-          BlurView underneath, tint overlay on top. */}
-      <BlurView
-        intensity={60}
-        tint={mode === 'light' ? 'light' : 'dark'}
-        style={StyleSheet.absoluteFill}
+      {/* Real refractive glass fill (replaces the frosted BlurView). Clipped to
+          the 30px radius; the FAB (a sibling in the row below) is not a child, so
+          this clip doesn't touch it. Borderless + untinted here — the `chrome`
+          layer rendered over it owns the tint/border/shadow, so the shader just
+          refracts the page backdrop through the capsule. */}
+      <LiquidGlass
+        style={styles.blur}
+        radius={RADIUS}
+        border={false}
+        tint="rgba(0,0,0,0)"
+        specular
+        chromatic
         pointerEvents="none"
       />
+      {/* Tint + 1px rim border + drop shadow, all on one overflow-visible layer.
+          The translucent body (t.tabbarBg) tints the blur and gives iOS a
+          silhouette for the shadow; box-shadow 0 12px 40px rgba(0,0,0,0.45)
+          (mobile.css:269) → discrete shadow* props (verify strength on device —
+          a translucent caster renders lighter; bump shadowOpacity if faint). */}
       <View
-        style={[StyleSheet.absoluteFill, { backgroundColor: t.tabbarBg }]}
+        style={[
+          styles.chrome,
+          { backgroundColor: t.tabbarBg, borderColor: t.tabbarBorder },
+        ]}
         pointerEvents="none"
       />
-      {highlight && (
-        <View style={[styles.topHighlight, { backgroundColor: highlight }]} pointerEvents="none" />
-      )}
-      {/* Radial glow pooled behind the centre FAB — echoes the page glow so the
-          button reads as a light source seated in the bar. Placed after the
-          blur/tint layers but before the tab row, so it sits above the bar
-          background and behind the FAB. stopOpacity carries the intensity
-          (react-native-svg discards alpha baked into stopColor — see
-          PageBackground). */}
-      <View style={styles.fabGlow} pointerEvents="none">
+      {/* Radial glow pooled behind the centre FAB, clipped to the rounded pill.
+          stopOpacity carries the intensity (react-native-svg discards alpha
+          baked into stopColor — see PageBackground). */}
+      <View style={styles.glowClip} pointerEvents="none">
         <Svg width="100%" height="100%">
           <Defs>
             <RadialGradient id="fabGlow" cx="50%" cy="50%" rx="50%" ry="50%">
@@ -106,6 +121,13 @@ export function TabBar() {
           <Ellipse cx="50%" cy="100%" rx="55%" ry="100%" fill="url(#fabGlow)" />
         </Svg>
       </View>
+      {/* Inset sheens: bright top (mobile.css:269 `inset 0 1.5px 0 …`) + faint
+          bottom (`inset 0 -1px 0 rgba(255,255,255,0.04)`). RN has no inset
+          box-shadow, so per-side borders on a rounded-rect follow the corners. */}
+      <View
+        style={[styles.sheen, sheen ? { borderTopColor: sheen } : null]}
+        pointerEvents="none"
+      />
       {TABS.map((tab) => {
         if (tab.id === 'fab') {
           return (
@@ -118,13 +140,13 @@ export function TabBar() {
             >
               {({ pressed }) => (
                 // .m-fab's `0 0 0 5px rgba(24,19,34,0.6)` spread ring
-                // (mobile.css:322) — the dark halo that seats the FAB into
+                // (mobile.css:327) — the dark halo that seats the FAB into
                 // the bar; a padded wrapper stands in for the box-shadow.
                 <View
                   style={[
                     styles.fabRing,
                     // .m-fab:active { transform: scale(0.92) rotate(45deg) }
-                    // (mobile.css:325) — pressed keeps the open rotation too.
+                    // (mobile.css:330) — pressed keeps the open rotation too.
                     { transform: [{ scale: pressed ? 0.92 : 1 }, { rotate: fabOpen || pressed ? '45deg' : '0deg' }] },
                   ]}
                 >
@@ -148,7 +170,7 @@ export function TabBar() {
         return (
           <Pressable key={tab.id} style={styles.tabPressable} onPress={() => goTab(tab.id)}>
             {({ pressed }) => (
-              // .m-tab:active { transform: scale(0.92) } (mobile.css:287)
+              // .m-tab:active { transform: scale(0.92) } (mobile.css:291)
               <View style={[styles.tab, { transform: [{ scale: pressed ? 0.92 : 1 }] }]}>
                 <View style={styles.iconSlot}>
                   {isActive && (
@@ -181,24 +203,78 @@ export function TabBar() {
   );
 }
 
+const RADIUS = 30;
+
 const styles = StyleSheet.create({
-  // .m-tabbar (mobile.css:254–269) — height set inline (78 + safe-area).
+  // .m-tabbar (mobile.css:257–273) — floating rounded capsule.
+  // overflow is left visible (default) so the centre FAB can protrude above
+  // the top edge; the glass fill is clipped by `blur`/`glowClip` instead.
   tabbar: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingTop: 8,
-    paddingHorizontal: 12,
+    height: 70,
+    marginHorizontal: 14,
+    marginTop: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS,
     gap: 4,
-    borderTopWidth: 1,
+    position: 'relative',
+    // Lift the whole capsule (incl. the centre FAB) above the FabActions dim
+    // backdrop (zIndex 60) so the navbar stays crisp/unblurred and tappable
+    // while the stage above it dims.
+    zIndex: 70,
   },
-  // box-shadow: inset 0 1px 0 <highlight> (mobile.css:264) — 1px strip
-  // just below the hairline top border.
-  topHighlight: {
+  // Clipped glass fill (backdrop blur). masksToBounds via overflow:'hidden'.
+  blur: {
     position: 'absolute',
-    top: 1,
+    top: 0,
     left: 0,
     right: 0,
-    height: 1,
+    bottom: 0,
+    borderRadius: RADIUS,
+    overflow: 'hidden',
+  },
+  // Tint colour + 1px rim border + drop shadow. Overflow visible so the shadow
+  // (which draws outside the pill bounds) isn't clipped. background/border set
+  // inline from the theme.
+  chrome: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  // Holds the radial glow, clipped to the rounded pill so it can't escape.
+  glowClip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: RADIUS,
+    overflow: 'hidden',
+  },
+  // Inset sheens approximated as per-side borders that follow the corner
+  // radius: bright top (colour from token, set inline) + faint bottom.
+  sheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: RADIUS,
+    borderTopWidth: 1.5,
+    borderBottomWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.16)',
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   // Wraps `.m-tab` — the flex slot itself; press-scale is applied to the
   // inner `tab` View instead (Pressable's own layout must stay unscaled so
@@ -206,7 +282,7 @@ const styles = StyleSheet.create({
   tabPressable: {
     flex: 1,
   },
-  // .m-tab (mobile.css:270–285)
+  // .m-tab (mobile.css:274–288)
   tab: {
     flex: 1,
     alignItems: 'center',
@@ -215,27 +291,27 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     position: 'relative',
   },
-  // Fixed 50x38 slot the pill fills and the icon centres in. The CSS pins
-  // the pill at `top: 2` over the whole tab (mobile.css:289–292), which put
-  // its bottom edge through the label on device; anchoring it to the icon's
-  // own box keeps the same pill size without the collision.
+  // Fixed slot the pill fills and the icon centres in. The CSS pins the pill
+  // vertically centred over the whole tab (mobile.css:294–305), which put its
+  // bottom edge through the label on device; anchoring it to the icon's own
+  // box keeps the same pill size without the collision.
   iconSlot: {
-    width: 50,
-    height: 38,
+    width: 52,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // .m-tab.active::before (mobile.css:288–297)
+  // .m-tab.active::before (mobile.css:294–305) — 52×42, radius 16.
   activePill: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  // .m-tab.active svg: translateY(-1px) scale(1.06) (mobile.css:286)
+  // .m-tab.active svg: translateY(-1px) scale(1.06) (mobile.css:293)
   iconActive: {
     transform: [{ translateY: -1 }, { scale: 1.06 }],
   },
@@ -244,26 +320,12 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     zIndex: 1,
   },
-  // Glow wash that spreads left→right across the full width of the bar, kept
-  // strictly INSIDE it. The box fills the bar interior and clips with
-  // overflow:'hidden' so the glow can't escape the navbar (top:2 stays clear of
-  // the FAB, which protrudes above the bar). The Ellipse is anchored bottom-
-  // centre and made wider than the box (rx 62%) so its bright band runs the
-  // whole width (rx 55%) and tapers as it nears both ends, fading upward.
-  fabGlow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 2,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  // .m-fab-tab (mobile.css:302–308)
+  // .m-fab-tab (mobile.css:308–314)
   fabTab: {
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
-  // .m-fab box-shadow ring: 0 0 0 5px rgba(24,19,34,0.6) (mobile.css:322).
+  // .m-fab box-shadow ring: 0 0 0 5px rgba(24,19,34,0.6) (mobile.css:327).
   // marginTop -29 keeps the 58px gradient circle at the design's -24 offset
   // once the 5px ring padding is added. Ring color is literal in the CSS
   // (no light-theme override).
@@ -280,7 +342,7 @@ const styles = StyleSheet.create({
     shadowRadius: 26,
     elevation: 8,
   },
-  // .m-fab (mobile.css:310–325); the `inset 0 1px 0 rgba(255,255,255,0.5)`
+  // .m-fab (mobile.css:315–332); the `inset 0 1px 0 rgba(255,255,255,0.5)`
   // sheen has no clean RN equivalent on a circle and is omitted.
   fab: {
     width: 58,
