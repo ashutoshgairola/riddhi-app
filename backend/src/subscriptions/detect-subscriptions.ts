@@ -1,6 +1,6 @@
 import { PriceHistoryEntry, SubscriptionCycle } from './subscription.entity';
 
-export { PriceHistoryEntry };
+export type { PriceHistoryEntry };
 
 export interface DetectTxn {
   id: string;
