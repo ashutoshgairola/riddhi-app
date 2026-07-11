@@ -40,6 +40,7 @@ import { Btn, Chip } from './ui';
 import { BANK_NAMES } from '../assets/bankLogos';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 // Shown as suggestions before the user types — the banks people reach for most
 // (filtered to those we actually ship a logo for).
@@ -359,7 +360,7 @@ function SecureField({
             backgroundColor: t.bg2,
             borderColor: t.border,
             fontFamily: weight(600),
-            paddingRight: 48,
+            paddingRight: spacing.xxl,
           },
         ]}
       />
@@ -609,11 +610,11 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
 
 const styles = StyleSheet.create({
   body: {
-    paddingBottom: 8,
-    gap: 14,
+    paddingBottom: spacing.xs,
+    gap: spacing.md,
   },
   field: {
-    gap: 7,
+    gap: spacing.xs,
   },
   label: {
     fontSize: 10.5,
@@ -622,13 +623,13 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.xs,
   },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     fontSize: 15,
   },
   eyeBtn: {
@@ -651,18 +652,18 @@ const styles = StyleSheet.create({
   bankInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.xs,
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm,
   },
   bankInput: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
     fontSize: 15,
   },
   suggestBox: {
-    marginTop: 6,
+    marginTop: spacing.xs,
     borderWidth: 1,
     borderRadius: radius.md,
     overflow: 'hidden',
@@ -670,15 +671,15 @@ const styles = StyleSheet.create({
   suggestRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   suggestText: {
     flex: 1,
     fontSize: 14.5,
   },
   submit: {
-    marginTop: 4,
+    marginTop: spacing.xxs,
   },
 });
