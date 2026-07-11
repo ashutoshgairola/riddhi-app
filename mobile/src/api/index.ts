@@ -25,7 +25,7 @@
  *   statements:   parse / import
  */
 
-import { apiClient, setAuthToken as _setAuthToken } from './client';
+import { apiClient, setAuthToken as _setAuthToken, setSessionHandlers as _setSessionHandlers } from './client';
 import { bumpData } from './refresh';
 import {
   toTxView,
@@ -108,6 +108,9 @@ export const USE_BACKEND = true;
 
 /** Re-export so screens can call api.setAuthToken(token). */
 export const setAuthToken = _setAuthToken;
+
+/** Re-export so AuthProvider can inject the 401 refresh/session-expired handlers. */
+export const setSessionHandlers = _setSessionHandlers;
 
 export { authApi } from './auth';
 export type { ApiUser, AuthResponse, AuthTokens, OnboardingPayload } from './auth';
@@ -276,6 +279,16 @@ export const api = {
       const [catMap, acctMap] = await Promise.all([fetchCategoryMap(), fetchAccountMap()]);
       return txItems(raw).map((tx) =>
         toTxView(tx, catMap.get(tx.categoryId), tx.accountId ? acctMap.get(tx.accountId) : undefined),
+      );
+    },
+
+    async get(id: string): Promise<TxView> {
+      const raw = await apiClient.get<ApiTransaction>(`/transactions/${id}`);
+      const [catMap, acctMap] = await Promise.all([fetchCategoryMap(), fetchAccountMap()]);
+      return toTxView(
+        raw,
+        catMap.get(raw.categoryId),
+        raw.accountId ? acctMap.get(raw.accountId) : undefined,
       );
     },
 
@@ -784,6 +797,11 @@ export const api = {
 
     async markAllRead(): Promise<void> {
       await apiClient.post('/notifications/read-all', {});
+      bumpData();
+    },
+
+    async markRead(id: string): Promise<void> {
+      await apiClient.post(`/notifications/${id}/read`, {});
       bumpData();
     },
 
