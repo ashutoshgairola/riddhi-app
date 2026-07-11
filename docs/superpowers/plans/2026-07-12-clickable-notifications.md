@@ -22,16 +22,21 @@ The `goal-detail` screen / `api.goals.get` prerequisite is **not yet merged**
 (mobile `GoalDetail.tsx`, the `goal-detail` `ScreenKind`, and `api.goals.get`
 do not exist). Execution is split:
 
-- **Round 1 (now):** Tasks 2, 4, 5, 6, 7, 8. All non-goal-detail deep-links
-  become clickable. Task 6 is scoped to **exclude** `goal-detail` plumbing so
-  the `ScreenKind` union (owned by the goals-clickable plan) is left untouched.
-  In this round, goal notifications still route to the **Goals list**: the
-  deferred Task 1 leaves `goal_progress` emitting `{ screen: 'goals' }`, and the
-  type fallback maps `goal → goals` — both resolve today with no dead links.
-- **Round 2 (after the goals-clickable plan merges):** Tasks 1, 3, 9, plus the
-  deferred Task 6 additions (add `'goal-detail'` to `ALLOWED` / `ID_SCREENS`
+- **Round 1 (now):** Tasks 4, 5, 6, 7, 8. Every notification becomes clickable
+  with zero dead links. Task 6 is scoped to **exclude** `goal-detail` plumbing
+  so the `ScreenKind` union (owned by the goals-clickable plan) is untouched.
+  Goal notifications route to the **Goals list** (deferred Task 1 leaves
+  `goal_progress` emitting `{ screen: 'goals' }`; the type fallback maps
+  `goal → goals`), and munshi notifications keep their current `→ chat`
+  payload. Both resolve today.
+- **Round 2 (after the goals-clickable plan merges):** Tasks 1, 2, 3, 9, plus
+  the deferred Task 6 additions (add `'goal-detail'` to `ALLOWED` / `ID_SCREENS`
   and its resolver test). This upgrades goal + goal-focused-munshi
-  notifications from the Goals list to the specific goal's detail page.
+  notifications to the specific goal's detail page. **Task 2 moves here** (not
+  Round 1) because it is type-coupled to Task 3: it adds `id` to
+  `MunshiSnapshot.goals`, which `buildSnapshot` (Task 3) must populate, and its
+  `munshiDeepLink` helper is unused until Task 3 wires it — so the two ship
+  together.
 
 ---
 
