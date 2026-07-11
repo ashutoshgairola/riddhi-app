@@ -16,6 +16,23 @@
 - Run mobile tests from `mobile/`, backend tests from `backend/`.
 - The chatbot persona is **Munshi** — never rename it.
 
+## Sequencing (execution rounds)
+
+The `goal-detail` screen / `api.goals.get` prerequisite is **not yet merged**
+(mobile `GoalDetail.tsx`, the `goal-detail` `ScreenKind`, and `api.goals.get`
+do not exist). Execution is split:
+
+- **Round 1 (now):** Tasks 2, 4, 5, 6, 7, 8. All non-goal-detail deep-links
+  become clickable. Task 6 is scoped to **exclude** `goal-detail` plumbing so
+  the `ScreenKind` union (owned by the goals-clickable plan) is left untouched.
+  In this round, goal notifications still route to the **Goals list**: the
+  deferred Task 1 leaves `goal_progress` emitting `{ screen: 'goals' }`, and the
+  type fallback maps `goal → goals` — both resolve today with no dead links.
+- **Round 2 (after the goals-clickable plan merges):** Tasks 1, 3, 9, plus the
+  deferred Task 6 additions (add `'goal-detail'` to `ALLOWED` / `ID_SCREENS`
+  and its resolver test). This upgrades goal + goal-focused-munshi
+  notifications from the Goals list to the specific goal's detail page.
+
 ---
 
 ## File Structure
@@ -468,17 +485,21 @@ git -c user.email=gairola.ashutosh26@gmail.com commit -am "feat(api): add notifi
 
 ---
 
-## Task 6: Deep-link resolver — goal-detail + type fallback (mobile)
+## Task 6: Deep-link resolver — type fallback (mobile)
+
+**Round 1 scope:** adds `fallbackTargetForType` only, and leaves
+`mapNotificationToScreen` at its current `tx-detail`-only behavior. The
+`goal-detail` allow-list / `ID_SCREENS` additions and their test case are
+**deferred to Round 2** (Task 1/3/9) so this task does not touch the
+`ScreenKind` union owned by the goals-clickable plan.
 
 **Files:**
 - Modify: `mobile/src/notifications/deepLink.ts`
 - Test: `mobile/src/notifications/deepLink.spec.ts` (create)
 
 **Interfaces:**
-- Consumes: `NotifViewType` from `../api/types`, `ScreenKind` from `../app/navContext` (must already include `'goal-detail'` from the prerequisite; if not yet merged, add it to the union so this compiles).
-- Produces:
-  - `mapNotificationToScreen(data)` also resolves `goal-detail` (+id).
-  - `fallbackTargetForType(type: NotifViewType): NotifNavTarget`
+- Consumes: `NotifViewType` from `../api/types`, `ScreenKind` from `../app/navContext`.
+- Produces: `fallbackTargetForType(type: NotifViewType): NotifNavTarget`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -488,10 +509,6 @@ Create `mobile/src/notifications/deepLink.spec.ts`:
 import { mapNotificationToScreen, fallbackTargetForType } from './deepLink';
 
 describe('mapNotificationToScreen', () => {
-  it('resolves goal-detail with an id', () => {
-    expect(mapNotificationToScreen({ screen: 'goal-detail', id: 'g1' }))
-      .toEqual({ kind: 'goal-detail', data: { id: 'g1' } });
-  });
   it('resolves tx-detail with an id', () => {
     expect(mapNotificationToScreen({ screen: 'tx-detail', id: 't1' }))
       .toEqual({ kind: 'tx-detail', data: { id: 't1' } });
@@ -522,46 +539,15 @@ describe('fallbackTargetForType', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd mobile && npx jest src/notifications/deepLink.spec.ts`
-Expected: FAIL — `fallbackTargetForType` not exported; goal-detail not resolved.
+Expected: FAIL — `fallbackTargetForType` not exported.
 
-- [ ] **Step 3: Update deepLink.ts**
+- [ ] **Step 3: Append `fallbackTargetForType` to deepLink.ts**
 
-Replace the file body with:
+Leave the existing imports and `mapNotificationToScreen` unchanged. Add the
+`NotifViewType` import and the fallback at the end of the file:
 
 ```ts
-import type { ScreenKind } from '../app/navContext';
 import type { NotifViewType } from '../api/types';
-
-/** Screens a notification tap is allowed to deep-link into. */
-const ALLOWED: ScreenKind[] = [
-  'budgets', 'goals', 'reports', 'chat', 'tx-detail', 'goal-detail', 'sync', 'subscriptions',
-];
-
-/** Screens that carry a record id and render it from a bare `{ id }` payload. */
-const ID_SCREENS: ScreenKind[] = ['tx-detail', 'goal-detail'];
-
-export interface NotifNavTarget {
-  kind: ScreenKind;
-  data?: { id: string };
-}
-
-/**
- * Maps a notification's `data` payload (`{ screen, id? }`) to a nav target.
- * Returns null when the payload is missing/malformed or names a screen not in
- * the allow-list, so an unexpected push can never navigate somewhere invalid.
- */
-export function mapNotificationToScreen(data: unknown): NotifNavTarget | null {
-  if (!data || typeof data !== 'object') return null;
-  const screen = (data as Record<string, unknown>).screen;
-  if (typeof screen !== 'string' || !ALLOWED.includes(screen as ScreenKind)) {
-    return null;
-  }
-  const id = (data as Record<string, unknown>).id;
-  if (ID_SCREENS.includes(screen as ScreenKind) && typeof id === 'string') {
-    return { kind: screen as ScreenKind, data: { id } };
-  }
-  return { kind: screen as ScreenKind };
-}
 
 /** Screen a notification of a given type opens when it has no deep-link
  * payload (legacy rows). Every type resolves to a target so all cards are
@@ -580,15 +566,29 @@ export function fallbackTargetForType(type: NotifViewType): NotifNavTarget {
 }
 ```
 
+(`import type` lines may sit together at the top; grouping is cosmetic.)
+
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd mobile && npx jest src/notifications/deepLink.spec.ts`
-Expected: PASS. If `tsc` complains that `'goal-detail'` is not in `ScreenKind`, the prerequisite is not merged — add `'goal-detail'` to the `ScreenKind` union in `navContext.tsx` and note the conflict for the reviewer.
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -c user.email=gairola.ashutosh26@gmail.com commit -am "feat(notifications): goal-detail deep-link + type fallback resolver"
+git -c user.email=gairola.ashutosh26@gmail.com commit -am "feat(notifications): type-based fallback deep-link resolver"
+```
+
+**Round 2 addition (deferred — do with Task 1/3/9):** add `'goal-detail'` to
+`ALLOWED` and a new `ID_SCREENS = ['tx-detail', 'goal-detail']` guard in
+`mapNotificationToScreen` (replacing the inline `tx-detail` check), and add the
+`goal-detail` resolver test:
+
+```ts
+  it('resolves goal-detail with an id', () => {
+    expect(mapNotificationToScreen({ screen: 'goal-detail', id: 'g1' }))
+      .toEqual({ kind: 'goal-detail', data: { id: 'g1' } });
+  });
 ```
 
 ---
