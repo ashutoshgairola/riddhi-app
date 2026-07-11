@@ -20,6 +20,7 @@ import { AppIcon } from './contentIcons';
 import { ICON_LIST, resolveIconName, type ContentIconName } from './contentIcons.data';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 export interface IconPickerSheetProps {
   open: boolean;
@@ -56,9 +57,9 @@ export function IconPickerSheet({
         placeholderTextColor={t.text3}
         style={{
           height: 44,
-          marginBottom: 14,
+          marginBottom: spacing.md,
           borderRadius: radius.md,
-          paddingHorizontal: 14,
+          paddingHorizontal: spacing.md,
           backgroundColor: t.bg2,
           borderWidth: 1,
           borderColor: t.border,
@@ -67,7 +68,7 @@ export function IconPickerSheet({
         }}
       />
       <ScrollView style={{ maxHeight: 380 }} keyboardShouldPersistTaps="handled">
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingBottom: spacing.md }}>
           {list.map(([k, l]) => {
             const on = k === curName;
             return (
@@ -77,14 +78,14 @@ export function IconPickerSheet({
                   onPick(k);
                   onClose();
                 }}
-                style={{ width: '20%', alignItems: 'center', paddingVertical: 10 }}
+                style={{ width: '20%', alignItems: 'center', paddingVertical: spacing.xs }}
               >
                 <View
                   style={{
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 6,
-                    paddingVertical: 8,
+                    gap: spacing.xxs,
+                    paddingVertical: spacing.xs,
                     borderRadius: 14,
                     width: '92%',
                     backgroundColor: on ? t.emDim : t.glassBg,
