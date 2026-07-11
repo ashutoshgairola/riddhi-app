@@ -46,6 +46,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { LiquidGlass } from './LiquidGlass';
 import { MI } from './icons';
 
@@ -191,7 +192,7 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
 
             <ScrollView
               style={styles.body}
-              contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
+              contentContainerStyle={{ paddingBottom: spacing.lg + insets.bottom }}
               showsVerticalScrollIndicator={false}
             >
               {children}
@@ -240,8 +241,8 @@ const styles = StyleSheet.create({
     height: 1,
   },
   handleZone: {
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xxs,
     alignItems: 'center',
     flexShrink: 0,
   },
@@ -251,14 +252,14 @@ const styles = StyleSheet.create({
     borderRadius: 99,
   },
   head: {
-    paddingHorizontal: 22,
-    paddingTop: 6,
-    paddingBottom: 14,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     flexShrink: 0,
-    gap: 12,
+    gap: spacing.sm,
   },
   title: {
     fontSize: 19,
@@ -277,6 +278,6 @@ const styles = StyleSheet.create({
   body: {
     flexGrow: 0,
     flexShrink: 1,
-    paddingHorizontal: 22,
+    paddingHorizontal: spacing.lg,
   },
 });
