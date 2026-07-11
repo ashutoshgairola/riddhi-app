@@ -42,11 +42,12 @@ import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, weight } from '../theme/tokens';
+import { radius, space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import type { ScreenEntry } from '../app/navContext';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
+import type { FormFieldSpec } from '../components/FormSheet';
 
 // ── Data (MobileSecondary.jsx:101–106) ───────────────────────────────
 interface Goal {
@@ -77,6 +78,7 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
   const [scrolled, setScrolled] = useState(false);
 
   const { data: goals } = useApiData(() => api.goals.list(), EMPTY_GOALS);
+  const { data: accounts } = useApiData(() => api.accounts.list(), []);
 
   const totalSaved = goals.reduce((s, g) => s + g.current, 0);
   const subtitle = `${goals.length} active goal${goals.length === 1 ? '' : 's'} · ₹${fmtCurrent(totalSaved)} saved`;
@@ -88,12 +90,27 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
   const newGoal = (type: 'savings' | 'debt') => {
     const nextYear = new Date();
     nextYear.setFullYear(nextYear.getFullYear() + 1);
+
+    const NEW_ACCOUNT = '__new__';
+    const linkable = accounts.filter((a) => a.type === 'savings' || a.type === 'cash');
+    const accountField: FormFieldSpec = {
+      kind: 'select',
+      key: 'account',
+      label: 'Savings account',
+      initial: NEW_ACCOUNT,
+      options: [
+        { label: '＋ New account for this goal', value: NEW_ACCOUNT },
+        ...linkable.map((a) => ({ label: a.name, value: String(a.id) })),
+      ],
+    };
+
     form({
       title: type === 'debt' ? 'New debt payoff goal' : 'New savings goal',
       fields: [
         { key: 'name', label: 'Goal name', placeholder: type === 'debt' ? 'Credit card payoff' : 'Emergency fund' },
         { kind: 'amount', key: 'target', label: 'Target amount (₹)' },
         { kind: 'amount', key: 'current', label: 'Saved so far (₹)', optional: true },
+        accountField,
         {
           kind: 'date',
           key: 'targetDate',
@@ -103,12 +120,22 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
       ],
       submitLabel: 'Create goal',
       onSubmit: async (v) => {
+        let accountId = v['account'];
+        if (accountId === NEW_ACCOUNT) {
+          const created = await api.accounts.create({
+            name: v['name']!,
+            type: 'savings',
+            balance: v['current'] ? Number(v['current']) : 0,
+          });
+          accountId = String(created.id);
+        }
         await api.goals.create({
           name: v['name']!,
           type,
           target: Number(v['target']),
           current: v['current'] ? Number(v['current']) : 0,
           targetDate: v['targetDate']!,
+          accountId,
         });
         toast(`Goal created: ${v['name']}`, '🎯');
       },
@@ -210,18 +237,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 4,
-    paddingHorizontal: 18,
-    paddingBottom: 24,
+    paddingTop: space[4],
+    paddingHorizontal: space[18],
+    paddingBottom: space[24],
   },
   subtitle: {
     fontSize: 13,
-    marginTop: 8,
-    marginBottom: 14,
+    marginTop: space[8],
+    marginBottom: space[14],
   },
   goalList: {
     flexDirection: 'column',
-    gap: 14,
+    gap: space[14],
   },
   goalCard: {
     position: 'relative',
@@ -230,7 +257,7 @@ const styles = StyleSheet.create({
   // `.m-card`'s 18px padding, on an inner wrapper so `accentBar` (an
   // absolute sibling) stays flush with the card edge.
   goalCardBody: {
-    padding: 18,
+    padding: space[18],
   },
   accentBar: {
     position: 'absolute',
@@ -242,8 +269,8 @@ const styles = StyleSheet.create({
   goalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
+    gap: space[12],
+    marginBottom: space[14],
   },
   goalTextBlock: {
     flex: 1,
@@ -255,8 +282,8 @@ const styles = StyleSheet.create({
   goalTargetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
+    gap: space[4],
+    marginTop: space[2],
   },
   goalTarget: {
     fontSize: 12,
@@ -268,7 +295,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginTop: 10,
+    marginTop: space[10],
   },
   goalCurrent: {
     fontSize: 18,
