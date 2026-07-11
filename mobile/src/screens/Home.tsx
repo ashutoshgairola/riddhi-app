@@ -71,8 +71,9 @@ import { radius, weight } from "../theme/tokens";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { useApiData } from "../api/useApi";
-import type { NotificationView, WeekDataPoint } from "../api/types";
+import type { CardBillView, NotificationView, WeekDataPoint } from "../api/types";
 import type { TxSource } from "../api/paymentSource";
+import { upcomingSubRows, type UpcomingSubRow } from "../api/subscriptions";
 import { AiInsightsStrip } from "./home/AiInsightsStrip";
 
 interface RecentTx {
@@ -98,6 +99,8 @@ const EMPTY_WEEK: WeekDataPoint[] = [
 ].map((d) => ({ d, v: 0 }));
 const EMPTY_RECENT: RecentTx[] = [];
 const EMPTY_NOTIFS: NotificationView[] = [];
+const EMPTY_BILLS: CardBillView[] = [];
+const EMPTY_UPCOMING: UpcomingSubRow[] = [];
 
 function fmt(n: number): string {
   return "₹" + Math.abs(n).toLocaleString("en-IN");
@@ -107,6 +110,19 @@ function fmtK(n: number): string {
   return n >= 100000
     ? `₹${(n / 100000).toFixed(2)}L`
     : `₹${Math.round(n / 1000)}K`;
+}
+
+/** "Due in 3d" / "Renews today" style label; falls back to a short date when
+ * the day count is large or the renewal has slipped past. */
+function dueLabel(inDays: number, isoDate: string): string {
+  if (inDays < 0 || inDays > 30) {
+    return new Date(isoDate + "T00:00:00Z").toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+    });
+  }
+  if (inDays === 0) return "Due today";
+  return `Due in ${inDays}d`;
 }
 
 // ── Section label (MobileHome.jsx Label, lines 75–80) ────────────────
@@ -144,7 +160,7 @@ function Label({
 
 export function Home({ entry: _entry }: { entry: ScreenEntry }) {
   const { t, mode } = useTheme();
-  const { nav, setProfileOpen } = useNav();
+  const { nav, push, setProfileOpen } = useNav();
   const insets = useSafeAreaInsets();
   const { prefs } = usePrefs();
   const [scrolled, setScrolled] = useState(false);
@@ -174,6 +190,17 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
     refetch: refetchNotifs,
   } = useApiData(() => api.notifications.list(), EMPTY_NOTIFS);
   const hasUnread = notifs.some((n) => n.unread);
+  const {
+    data: bills,
+    error: billsError,
+    refetch: refetchBills,
+  } = useApiData(() => api.cards.dueSummary(), EMPTY_BILLS);
+  const {
+    data: subList,
+    error: subsError,
+    refetch: refetchSubs,
+  } = useApiData(() => api.subscriptions.list(), null);
+  const upcoming = subList ? upcomingSubRows(subList) : EMPTY_UPCOMING;
 
   // Refetch every Home query — used by both pull-to-refresh and the inline
   // retry banner below.
@@ -182,6 +209,8 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
     refetchWeek();
     refetchSummary();
     refetchNotifs();
+    refetchBills();
+    refetchSubs();
   };
 
   // Show one screen-level "couldn't load" banner when *any* query failed
@@ -194,7 +223,9 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
     (Boolean(recentTxError) && recentTx === EMPTY_RECENT) ||
     (Boolean(weekError) && week === EMPTY_WEEK) ||
     (Boolean(summaryError) && summary === null) ||
-    (Boolean(notifsError) && notifs === EMPTY_NOTIFS);
+    (Boolean(notifsError) && notifs === EMPTY_NOTIFS) ||
+    (Boolean(billsError) && bills === EMPTY_BILLS) ||
+    (Boolean(subsError) && subList === null);
 
   // "Safe to spend today" — current budget's remainder spread over the
   // days left in its period; zeros until a budget exists.
@@ -387,6 +418,20 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
             <SyncBannerInner onPress={() => nav("sync")} />
           </LiquidGlass>
         </SpringIn>
+
+        {/* ── Bills due (credit-card statement bills) ── */}
+        <BillsDueSection
+          bills={bills}
+          hide={hide}
+          onOpen={(b) => push({ kind: "card-detail", data: b.account })}
+        />
+
+        {/* ── Upcoming subscriptions (renewals) ── */}
+        <UpcomingSubsSection
+          rows={upcoming}
+          hide={hide}
+          onSeeAll={() => nav("subscriptions")}
+        />
 
         {/* ── This week spending (MobileHome.jsx:144–151, animationDelay: .06s) ── */}
         <Label action="Stats →" onAction={() => nav("reports")}>
@@ -596,6 +641,113 @@ function SyncBannerInner({ onPress }: { onPress: () => void }) {
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+function BillsDueSection({
+  bills,
+  hide,
+  onOpen,
+}: {
+  bills: CardBillView[];
+  hide: boolean;
+  onOpen: (b: CardBillView) => void;
+}) {
+  const { t } = useTheme();
+  if (bills.length === 0) return null;
+  return (
+    <>
+      <Label>Bills due</Label>
+      <SpringIn delay={40} style={styles.recentList}>
+        {bills.map((b) => (
+          <Pressable key={String(b.account.id)} onPress={() => onOpen(b)}>
+            <View style={styles.dueRow}>
+              <View style={styles.dueRowMain}>
+                <Text
+                  style={[
+                    styles.dueTitle,
+                    { color: t.text1, fontFamily: weight(700) },
+                  ]}
+                >
+                  {b.account.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.dueSub,
+                    { color: t.text3, fontFamily: weight(500) },
+                  ]}
+                >
+                  {`Min ${hide ? MASKED_AMOUNT : fmt(b.minDue)} · ${dueLabel(b.daysUntilDue, b.dueDate)}`}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.dueAmount,
+                  { color: t.text1, fontFamily: weight(800) },
+                ]}
+              >
+                {hide ? MASKED_AMOUNT : fmt(b.billed)}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </SpringIn>
+    </>
+  );
+}
+
+function UpcomingSubsSection({
+  rows,
+  hide,
+  onSeeAll,
+}: {
+  rows: UpcomingSubRow[];
+  hide: boolean;
+  onSeeAll: () => void;
+}) {
+  const { t } = useTheme();
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <Label action="See all →" onAction={onSeeAll}>
+        Upcoming subscriptions
+      </Label>
+      <SpringIn delay={50} style={styles.recentList}>
+        {rows.map((r) => (
+          <Pressable key={r.subId} onPress={onSeeAll}>
+            <View style={styles.dueRow}>
+              <AppIconBox value={r.emoji} color={r.color} size={42} iconSize={19} />
+              <View style={[styles.dueRowMain, { marginLeft: 12 }]}>
+                <Text
+                  style={[
+                    styles.dueTitle,
+                    { color: t.text1, fontFamily: weight(700) },
+                  ]}
+                >
+                  {r.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.dueSub,
+                    { color: t.text3, fontFamily: weight(500) },
+                  ]}
+                >
+                  {dueLabel(r.inDays, r.nextRenewalDate)}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.dueAmount,
+                  { color: t.text1, fontFamily: weight(800) },
+                ]}
+              >
+                {hide ? MASKED_AMOUNT : fmt(r.amount)}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </SpringIn>
+    </>
   );
 }
 
@@ -931,4 +1083,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.145,
     flexShrink: 0,
   },
+
+  // Bills due / Upcoming subscriptions rows
+  dueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  dueRowMain: { flex: 1 },
+  dueTitle: { fontSize: 15 },
+  dueSub: { fontSize: 12.5, marginTop: 2 },
+  dueAmount: { fontSize: 15 },
 });
