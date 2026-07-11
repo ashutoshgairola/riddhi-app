@@ -36,6 +36,38 @@ export function mapSubList(raw: { subscriptions: SubView[]; summary: SubSummaryV
   return { ...raw.summary, subscriptions: raw.subscriptions };
 }
 
+export interface UpcomingSubRow {
+  subId: string;
+  name: string;
+  emoji: string;
+  color: string;
+  amount: number;
+  inDays: number;
+  nextRenewalDate: string;
+}
+
+/** Joins the summary's `upcoming` items (which carry only `subId`) to their
+ * subscription for display, drops any whose sub is missing, and caps the list.
+ * `upcoming` is already sorted soonest-first by the backend summary. */
+export function upcomingSubRows(list: SubListView, cap = 4): UpcomingSubRow[] {
+  const byId = new Map(list.subscriptions.map((s) => [s.id, s]));
+  const rows: UpcomingSubRow[] = [];
+  for (const u of list.upcoming) {
+    const s = byId.get(u.subId);
+    if (!s) continue;
+    rows.push({
+      subId: u.subId,
+      name: s.name,
+      emoji: s.emoji,
+      color: s.color,
+      amount: u.amount,
+      inDays: u.inDays,
+      nextRenewalDate: u.nextRenewalDate,
+    });
+  }
+  return rows.slice(0, cap);
+}
+
 export const subscriptionsApi = {
   async detect(): Promise<SubCandidateView[]> {
     return apiClient.get<SubCandidateView[]>('/subscriptions/detect');

@@ -22,9 +22,11 @@ import type {
   ApiEvent,
   ApiCardSummary,
   ApiCardTxn,
+  ApiCardBillDue,
   ApiCycleCategory,
   ApiStatementParseResult,
   CardSummaryView,
+  CardBillView,
   CardTxnView,
   CycleCategoryView,
   TxView,
@@ -369,6 +371,19 @@ export function toCardSummaryView(dto: ApiCardSummary): CardSummaryView {
     cycleByCategory: dto.cycleByCategory.map(toCycleCategoryView),
     transactions: dto.transactions.map(toCardTxnView),
     dueTone,
+  };
+}
+
+/** Maps a bills-due wire item onto an already-mapped AccountView. The account
+ * mapping (gradient/logo) is done by the caller via `toAccountView`, so this
+ * stays a pure field pick. */
+export function toCardBillView(account: AccountView, bill: ApiCardBillDue['bill']): CardBillView {
+  return {
+    account,
+    billed: bill.billed,
+    minDue: bill.minDue,
+    dueDate: bill.dueDate,
+    daysUntilDue: bill.daysUntilDue,
   };
 }
 

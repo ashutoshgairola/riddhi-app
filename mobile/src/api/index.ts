@@ -25,7 +25,7 @@
  *   statements:   parse / import
  */
 
-import { apiClient, setAuthToken as _setAuthToken } from './client';
+import { apiClient, setAuthToken as _setAuthToken, setSessionHandlers as _setSessionHandlers } from './client';
 import { bumpData } from './refresh';
 import {
   toTxView,
@@ -40,6 +40,7 @@ import {
   toEventView,
   toEventDetailView,
   toCardSummaryView,
+  toCardBillView,
   toStatementParseResultView,
 } from './adapters';
 import { subscriptionsApi } from './subscriptions';
@@ -71,8 +72,10 @@ import type {
   ApiUserPreferences,
   ApiEvent,
   ApiCardSummary,
+  ApiCardBillDue,
   ApiStatementParseResult,
   CardSummaryView,
+  CardBillView,
   NewTxInput,
   UpdateTxInput,
   NewAccountInput,
@@ -105,6 +108,9 @@ export const USE_BACKEND = true;
 
 /** Re-export so screens can call api.setAuthToken(token). */
 export const setAuthToken = _setAuthToken;
+
+/** Re-export so AuthProvider can inject the 401 refresh/session-expired handlers. */
+export const setSessionHandlers = _setSessionHandlers;
 
 export { authApi } from './auth';
 export type { ApiUser, AuthResponse, AuthTokens, OnboardingPayload } from './auth';
@@ -395,6 +401,16 @@ export const api = {
     async updateSettings(accountId: string, patch: Partial<ApiCardSummary>): Promise<void> {
       await apiClient.patch(`/accounts/${accountId}/card`, patch);
       bumpData();
+    },
+
+    async dueSummary(): Promise<CardBillView[]> {
+      const raw = await apiClient.get<ApiCardBillDue[]>('/accounts/cards/due');
+      return raw.map((item) =>
+        toCardBillView(
+          toAccountView(item.account, ACCOUNT_GRADIENTS['credit'] ?? ACCOUNT_GRADIENTS['other'], 0),
+          item.bill,
+        ),
+      );
     },
   },
 

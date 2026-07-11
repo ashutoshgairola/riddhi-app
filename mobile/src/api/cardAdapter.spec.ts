@@ -1,5 +1,5 @@
-import { toCardSummaryView } from './adapters';
-import type { ApiCardSummary } from './types';
+import { toCardSummaryView, toCardBillView } from './adapters';
+import type { ApiCardSummary, AccountView } from './types';
 
 function makeDto(overrides: Partial<ApiCardSummary> = {}): ApiCardSummary {
   return {
@@ -108,5 +108,13 @@ describe('toCardSummaryView', () => {
         kind: 'payment',
       },
     ]);
+  });
+});
+
+describe('toCardBillView', () => {
+  it('passes the account through and maps the bill fields', () => {
+    const account = { id: 'a1', name: 'HDFC', type: 'credit', sub: 'Credit card', bal: -5000, gradient: ['#1', '#2'], logo: 'H', bank: 'HDFC', change: 0 } as AccountView;
+    const view = toCardBillView(account, { billed: 5000, minDue: 250, dueDate: '2026-07-20', daysUntilDue: 9, hasBill: true });
+    expect(view).toEqual({ account, billed: 5000, minDue: 250, dueDate: '2026-07-20', daysUntilDue: 9 });
   });
 });

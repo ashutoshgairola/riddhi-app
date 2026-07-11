@@ -446,6 +446,28 @@ export interface CardSummaryView {
   dueTone: 'ok' | 'warn' | 'urgent';
 }
 
+/** `GET /accounts/cards/due` item — one credit card's outstanding-bill snapshot. */
+export interface ApiCardBillDue {
+  account: ApiAccount;
+  bill: {
+    billed: number;
+    minDue: number;
+    dueDate: string;
+    daysUntilDue: number;
+    hasBill: boolean;
+  };
+}
+
+/** Home "Bills due" row: the full account (for card-detail navigation) plus
+ * the outstanding-bill figures. */
+export interface CardBillView {
+  account: AccountView;
+  billed: number;
+  minDue: number;
+  dueDate: string;
+  daysUntilDue: number;
+}
+
 /** `GET /reports/category-activity` row — per-category all-time totals. */
 export interface ApiCategoryActivity {
   categoryId: string;
