@@ -29,7 +29,7 @@
  * user's "Subscriptions" category and emoji/color to generic fallbacks
  * when absent (see `dto.categoryId ?? …`, `dto.emoji ?? '🔁'`).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -67,10 +67,12 @@ function CandidateCard({
   c,
   onConfirm,
   onDismiss,
+  onNameChange,
 }: {
   c: SubCandidateView;
-  onConfirm: (c: SubCandidateView, name: string) => void;
-  onDismiss: (c: SubCandidateView) => void;
+  onConfirm: (c: SubCandidateView, name: string) => Promise<boolean>;
+  onDismiss: (c: SubCandidateView) => Promise<boolean>;
+  onNameChange?: (descriptor: string, name: string) => void;
 }) {
   const { t } = useTheme();
   const [name, setName] = useState(c.name);
@@ -86,9 +88,13 @@ function CandidateCard({
     setActing(true);
     slide.value = withTiming(next === 'confirmed' ? 1 : -1, { duration: TRANSITION_MS, easing: ease });
     progress.value = withTiming(1, { duration: TRANSITION_MS, easing: ease });
-    setTimeout(() => {
-      if (next === 'confirmed') onConfirm(c, name.trim() || c.name);
-      else onDismiss(c);
+    setTimeout(async () => {
+      const ok = next === 'confirmed' ? await onConfirm(c, name.trim() || c.name) : await onDismiss(c);
+      if (!ok) {
+        slide.value = withTiming(0);
+        progress.value = withTiming(0);
+        setActing(false);
+      }
     }, TRANSITION_MS);
   };
 
@@ -111,7 +117,10 @@ function CandidateCard({
           <View style={styles.nameBlock}>
             <TextInput
               value={name}
-              onChangeText={setName}
+              onChangeText={(text) => {
+                setName(text);
+                onNameChange?.(c.merchantDescriptor, text);
+              }}
               placeholder={c.name}
               placeholderTextColor={t.text3}
               style={[
@@ -159,6 +168,8 @@ export function SubscriptionsReview({ entry: _entry }: { entry: ScreenEntry }) {
   const [candidates, setCandidates] = useState<SubCandidateView[]>([]);
   const [loading, setLoading] = useState(true);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [editedNames, setEditedNames] = useState<Record<string, string>>({});
+  const submitting = useRef<Set<string>>(new Set());
 
   const { data: accounts } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
 
@@ -171,42 +182,53 @@ export function SubscriptionsReview({ entry: _entry }: { entry: ScreenEntry }) {
   }, []);
 
   const confirm = useCallback(
-    async (c: SubCandidateView, editedName: string) => {
+    async (c: SubCandidateView, editedName: string): Promise<boolean> => {
+      if (submitting.current.has(c.merchantDescriptor)) return false;
+      submitting.current.add(c.merchantDescriptor);
       try {
         await subscriptionsApi.create({ ...candidateToCreatePayload(c, null), name: editedName });
         setCandidates((prev) => prev.filter((x) => x.merchantDescriptor !== c.merchantDescriptor));
         toast(`Added ${editedName}`, '✅');
+        return true;
       } catch {
         toast("Couldn't add — try again", '📡');
+        submitting.current.delete(c.merchantDescriptor);
+        return false;
       }
     },
     [toast],
   );
 
-  const dismiss = useCallback(
-    async (c: SubCandidateView) => {
-      try {
-        await subscriptionsApi.dismiss(c.merchantDescriptor);
-      } catch {
-        // Best-effort — still drop the row locally so it doesn't linger
-        // this session even if the dismiss write failed to persist.
-      }
-      setCandidates((prev) => prev.filter((x) => x.merchantDescriptor !== c.merchantDescriptor));
-    },
-    [],
-  );
+  const dismiss = useCallback(async (c: SubCandidateView): Promise<boolean> => {
+    try {
+      await subscriptionsApi.dismiss(c.merchantDescriptor);
+    } catch {
+      // Best-effort — still drop the row locally so it doesn't linger
+      // this session even if the dismiss write failed to persist.
+    }
+    setCandidates((prev) => prev.filter((x) => x.merchantDescriptor !== c.merchantDescriptor));
+    return true;
+  }, []);
 
   const confirmAll = async () => {
-    if (candidates.length === 0 || bulkBusy) return;
+    const targets = candidates.filter((c) => !submitting.current.has(c.merchantDescriptor));
+    if (targets.length === 0 || bulkBusy) return;
     setBulkBusy(true);
-    const count = candidates.length;
+    const count = targets.length;
+    targets.forEach((c) => submitting.current.add(c.merchantDescriptor));
     try {
       await Promise.all(
-        candidates.map((c) => subscriptionsApi.create({ ...candidateToCreatePayload(c, null), name: c.name })),
+        targets.map((c) =>
+          subscriptionsApi.create({
+            ...candidateToCreatePayload(c, null),
+            name: editedNames[c.merchantDescriptor]?.trim() || c.name,
+          }),
+        ),
       );
-      setCandidates([]);
+      setCandidates((prev) => prev.filter((x) => !targets.some((c) => c.merchantDescriptor === x.merchantDescriptor)));
       toast(`Added ${count} subscription${count === 1 ? '' : 's'}`, '✅');
     } catch {
+      targets.forEach((c) => submitting.current.delete(c.merchantDescriptor));
       toast("Some subscriptions couldn't be added — try again", '📡');
     } finally {
       setBulkBusy(false);
@@ -281,7 +303,13 @@ export function SubscriptionsReview({ entry: _entry }: { entry: ScreenEntry }) {
       ) : candidates.length > 0 ? (
         <View style={styles.list}>
           {candidates.map((c) => (
-            <CandidateCard key={c.merchantDescriptor} c={c} onConfirm={confirm} onDismiss={dismiss} />
+            <CandidateCard
+              key={c.merchantDescriptor}
+              c={c}
+              onConfirm={confirm}
+              onDismiss={dismiss}
+              onNameChange={(d, n) => setEditedNames((m) => ({ ...m, [d]: n }))}
+            />
           ))}
         </View>
       ) : (
