@@ -1,4 +1,4 @@
-import { isReminderDue } from './renewal-reminder';
+import { isReminderDue, rollForwardRenewal } from './renewal-reminder';
 
 const sub = (over: any = {}) => ({
   id: 's1', status: 'active', reminderDays: 2, nextRenewalDate: '2026-05-03',
@@ -22,5 +22,18 @@ describe('isReminderDue', () => {
   });
   it('is not due for paused subs', () => {
     expect(isReminderDue(sub({ status: 'paused' }), today)).toBe(false);
+  });
+});
+
+describe('rollForwardRenewal', () => {
+  const today = new Date('2026-05-01T00:00:00Z');
+  it('advances a past monthly date to the next future occurrence', () => {
+    expect(rollForwardRenewal('2026-02-10', 'monthly', today)).toBe('2026-05-10');
+  });
+  it('advances a past yearly date by a year', () => {
+    expect(rollForwardRenewal('2025-06-01', 'yearly', today)).toBe('2026-06-01');
+  });
+  it('leaves a future date unchanged', () => {
+    expect(rollForwardRenewal('2026-06-01', 'monthly', today)).toBe('2026-06-01');
   });
 });

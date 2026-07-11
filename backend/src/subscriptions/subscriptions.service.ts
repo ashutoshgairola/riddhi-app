@@ -9,7 +9,7 @@ import { CapturedNotification } from '../notification-sync/captured-notification
 import { TransactionType, PaymentMethod } from '../common/enums';
 import { detectSubscriptions, normalizeDescriptor, addCycle, DetectTxn, SubscriptionCandidate } from './detect-subscriptions';
 import { matchSubscription } from './attach-transaction';
-import { isReminderDue } from './renewal-reminder';
+import { isReminderDue, rollForwardRenewal } from './renewal-reminder';
 import { resolveName, ResolvedName, isAggregator, extractServiceName } from './subscription-catalog';
 import { computeSubscriptionSummary, SummarySub } from './subscription-summary';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
@@ -104,7 +104,7 @@ export class SubscriptionsService {
       nextRenewalDate: dto.nextRenewalDate, firstSeenDate: dto.firstSeenDate,
       status: 'active', accountId: dto.accountId ?? null,
       paymentMethod: (dto.paymentMethod as PaymentMethod) ?? null, categoryId,
-      reminderDays: dto.reminderDays ?? null, priceHistory: null, detailOpenedAt: null, lastReminderSentFor: null,
+      reminderDays: dto.reminderDays ?? null, priceHistory: dto.priceHistory ?? null, detailOpenedAt: null, lastReminderSentFor: null,
     });
     const saved = await this.subRepo.save(sub);
     for (const id of dto.transactionIds ?? []) {
@@ -147,6 +147,22 @@ export class SubscriptionsService {
 
   async markReminded(id: string, forDate: string): Promise<void> {
     await this.subRepo.update({ id }, { lastReminderSentFor: forDate });
+  }
+
+  /** Spec §5: roll nextRenewalDate forward when the date itself elapses,
+   * even without a matching charge (e.g. a missed/late payment). */
+  async rollForwardElapsedRenewals(userId: string, today: Date): Promise<void> {
+    const subs = await this.subRepo.find({ where: { userId, status: 'active' as any } });
+    const todayIso = today.toISOString().slice(0, 10);
+    for (const s of subs) {
+      if (s.nextRenewalDate < todayIso) {
+        const rolled = rollForwardRenewal(s.nextRenewalDate, s.cycle, today);
+        if (rolled !== s.nextRenewalDate) {
+          s.nextRenewalDate = rolled;
+          await this.subRepo.save(s);
+        }
+      }
+    }
   }
 
   async allActiveUserIds(): Promise<string[]> {

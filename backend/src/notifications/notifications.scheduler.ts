@@ -108,6 +108,7 @@ export class NotificationsScheduler {
   }
 
   private async remindUser(userId: string): Promise<void> {
+    await this.subscriptions.rollForwardElapsedRenewals(userId, new Date());
     const due = await this.subscriptions.dueForReminder(userId, new Date());
     for (const sub of due) {
       await this.notifications.create(userId, {

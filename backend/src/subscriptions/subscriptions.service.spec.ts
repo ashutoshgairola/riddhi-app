@@ -35,6 +35,17 @@ describe('SubscriptionsService', () => {
     expect(txRepo.update).toHaveBeenCalledWith({ id: expect.anything(), userId: 'u1' }, { subscriptionId: sub.id });
   });
 
+  it('create persists a provided priceHistory (detected hike survives confirm)', async () => {
+    const { svc, subRepo } = build();
+    await svc.create('u1', {
+      name: 'Netflix', merchantDescriptor: 'netflix.com', amount: 649, cycle: 'monthly',
+      nextRenewalDate: '2026-05-10', firstSeenDate: '2025-01-01',
+      priceHistory: [{ amount: 499, since: '2025-01-01' }, { amount: 649, since: '2026-02-01' }],
+    } as any);
+    const saved = subRepo.rows[subRepo.rows.length - 1];
+    expect(saved.priceHistory).toEqual([{ amount: 499, since: '2025-01-01' }, { amount: 649, since: '2026-02-01' }]);
+  });
+
   it('update pauses a subscription', async () => {
     const { svc, subRepo } = build();
     subRepo.rows.push({ id: 's1', userId: 'u1', status: 'active', name: 'Netflix' });

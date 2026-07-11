@@ -31,6 +31,7 @@ function setup(opts: {
     allActiveUserIds: jest.fn().mockResolvedValue(opts.activeUserIds ?? []),
     dueForReminder: jest.fn().mockResolvedValue(opts.dueSubs ?? []),
     markReminded: jest.fn().mockResolvedValue(undefined),
+    rollForwardElapsedRenewals: jest.fn(async () => undefined),
   } as any;
   const scheduler = new NotificationsScheduler(
     notifications,

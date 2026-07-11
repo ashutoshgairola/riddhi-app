@@ -40,4 +40,8 @@ export class CreateSubscriptionDto {
   /** Historical charge ids to back-link to this subscription. */
   @IsOptional() @IsArray()
   transactionIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  priceHistory?: { amount: number; since: string }[];
 }
