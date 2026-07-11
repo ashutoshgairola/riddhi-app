@@ -365,9 +365,10 @@ export const api = {
       );
     },
 
-    async create(input: NewAccountInput): Promise<void> {
-      await apiClient.post('/accounts', input);
+    async create(input: NewAccountInput): Promise<AccountView> {
+      const raw = await apiClient.post<ApiAccount>('/accounts', input);
       bumpData();
+      return toAccountView(raw, ACCOUNT_GRADIENTS[raw.type] ?? ACCOUNT_GRADIENTS['other'], 0);
     },
 
     async update(
@@ -636,6 +637,11 @@ export const api = {
       return raw.map(toGoalView);
     },
 
+    async get(id: string): Promise<GoalView> {
+      const raw = await apiClient.get<ApiGoal>(`/goals/${id}`);
+      return toGoalView(raw);
+    },
+
     async create(input: NewGoalInput): Promise<void> {
       await apiClient.post('/goals', {
         name: input.name,
@@ -644,6 +650,18 @@ export const api = {
         currentAmount: input.current ?? 0,
         startDate: todayIso(),
         targetDate: input.targetDate,
+        accountId: input.accountId,
+      });
+      bumpData();
+    },
+
+    async contribute(
+      id: string,
+      input: { amount: number; sourceAccountId: string },
+    ): Promise<void> {
+      await apiClient.post(`/goals/${id}/contribute`, {
+        amount: input.amount,
+        sourceAccountId: input.sourceAccountId,
       });
       bumpData();
     },
