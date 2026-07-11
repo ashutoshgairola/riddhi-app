@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'r
 
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import {
   type Anchor,
   isSameDay,
@@ -157,17 +158,17 @@ function RangeJumpView({ year, onPickMonth, onStepYear }: { year: number; onPick
 
 const styles = StyleSheet.create({
   scrim: { flex: 1 },
-  card: { position: 'absolute', borderWidth: 1, borderRadius: radius.lg, padding: 14, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 4 },
-  arrow: { fontSize: 26, lineHeight: 28, paddingHorizontal: 8 },
+  card: { position: 'absolute', borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs, paddingHorizontal: spacing.xxs },
+  arrow: { fontSize: 26, lineHeight: 28, paddingHorizontal: spacing.xs },
   title: { fontSize: 15 },
   weekRow: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', fontSize: 11, paddingVertical: 6 },
+  weekday: { flex: 1, textAlign: 'center', fontSize: 11, paddingVertical: spacing.xs },
   cell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   cellBand: { alignSelf: 'stretch', flex: 1, alignItems: 'center', justifyContent: 'center' },
   cellInner: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  footer: { fontSize: 12.5, textAlign: 'center', marginTop: 12 },
+  footer: { fontSize: 12.5, textAlign: 'center', marginTop: spacing.sm },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  monthCell: { width: '25%', paddingVertical: 8, alignItems: 'center' },
-  monthInner: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.sm },
+  monthCell: { width: '25%', paddingVertical: spacing.xs, alignItems: 'center' },
+  monthInner: { paddingVertical: spacing.xs, paddingHorizontal: spacing.xs, borderRadius: radius.sm },
 });
