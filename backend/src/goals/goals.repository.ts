@@ -11,11 +11,15 @@ export class GoalsRepository {
   ) {}
 
   findAllByUser(userId: string): Promise<Goal[]> {
-    return this.repo.find({ where: { userId }, order: { createdAt: 'ASC' } });
+    return this.repo.find({
+      where: { userId },
+      order: { createdAt: 'ASC' },
+      relations: ['account'],
+    });
   }
 
   findOneByUser(id: string, userId: string): Promise<Goal | null> {
-    return this.repo.findOne({ where: { id, userId } });
+    return this.repo.findOne({ where: { id, userId }, relations: ['account'] });
   }
 
   create(data: Partial<Goal>): Goal {

@@ -14,17 +14,18 @@ const PERIODS_PER_YEAR: Record<ContributionFrequency, number> = {
   [ContributionFrequency.MONTHLY]: 12,
 };
 
-function computeGoalFields(goal: Goal) {
+export function computeGoalFields(goal: Goal) {
   const targetAmount = Number(goal.targetAmount);
-  const currentAmount = Number(goal.currentAmount);
+  const saved =
+    goal.account != null
+      ? Number(goal.account.balance)
+      : Number(goal.currentAmount);
 
   const progressPct =
     targetAmount > 0
-      ? Math.round(
-          Math.min(Math.max((currentAmount / targetAmount) * 100, 0), 100),
-        )
+      ? Math.round(Math.min(Math.max((saved / targetAmount) * 100, 0), 100))
       : 0;
-  const remaining = Math.max(targetAmount - currentAmount, 0);
+  const remaining = Math.max(targetAmount - saved, 0);
 
   let projectedCompletionDate: string | null = null;
 
@@ -44,6 +45,7 @@ function computeGoalFields(goal: Goal) {
     ...goal,
     progressPct,
     remaining,
+    saved,
     projectedCompletionDate,
   };
 }
