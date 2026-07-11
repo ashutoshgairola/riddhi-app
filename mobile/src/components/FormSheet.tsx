@@ -35,7 +35,7 @@ import { BottomSheet } from './BottomSheet';
 import { CalendarPicker, type Anchor } from './CalendarPicker';
 import { AppIcon } from './contentIcons';
 import { MI } from './icons';
-import { IconPickerSheet } from './IconPickerSheet';
+import { useIconPicker } from './IconPickerSheet';
 import { Btn, Chip } from './ui';
 import { BANK_NAMES } from '../assets/bankLogos';
 import { useTheme } from '../theme/ThemeProvider';
@@ -155,62 +155,56 @@ function DateField({
 }
 
 /**
- * Icon field: a tappable chip showing the currently picked content icon
- * (via `AppIcon`) that opens `IconPickerSheet`. The value stays the icon's
+ * Icon field: a tappable chip showing the currently picked content icon (via
+ * `AppIcon`). Tapping opens the shared `IconPickerSheet` that the FormSheet
+ * hoists to its root via `openPicker` (see `useIconPicker`). The picker MUST
+ * render outside the sheet's clipped body: its overlay is `absoluteFill`, so
+ * nesting it inside this small field `View` clips the icon grid to the chip's
+ * height (only the header/search sliver shows). The value stays the icon's
  * name string, like every other field.
  */
 function IconField({
   value,
   color,
   onChange,
+  openPicker,
 }: {
   value: string;
   color?: string;
   onChange: (name: string) => void;
+  openPicker: (cfg: {
+    value?: string;
+    color?: string;
+    title?: string;
+    onPick: (name: string) => void;
+  }) => void;
 }) {
   const { t } = useTheme();
-  const [open, setOpen] = useState(false);
   const accent = color ?? t.em;
   return (
-    <View>
-      <Pressable
-        onPress={() => {
-          Keyboard.dismiss();
-          setOpen(true);
+    <Pressable
+      onPress={() => {
+        Keyboard.dismiss();
+        openPicker({ value, color: accent, title: 'Choose icon', onPick: onChange });
+      }}
+      style={[styles.input, styles.dateRow, { backgroundColor: t.bg2, borderColor: t.border }]}
+    >
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: accent + '22',
         }}
-        style={[
-          styles.input,
-          styles.dateRow,
-          { backgroundColor: t.bg2, borderColor: open ? t.em : t.border },
-        ]}
       >
-        <View
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 10,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: accent + '22',
-          }}
-        >
-          {value ? <AppIcon value={value} size={18} color={accent} /> : null}
-        </View>
-        <Text style={[styles.dateText, { color: value ? t.text1 : t.text3, fontFamily: weight(600) }]}>
-          {value ? 'Change icon' : 'Choose icon'}
-        </Text>
-      </Pressable>
-      <IconPickerSheet
-        open={open}
-        value={value}
-        color={accent}
-        onPick={(name) => {
-          onChange(name);
-          setOpen(false);
-        }}
-        onClose={() => setOpen(false)}
-      />
-    </View>
+        {value ? <AppIcon value={value} size={18} color={accent} /> : null}
+      </View>
+      <Text style={[styles.dateText, { color: value ? t.text1 : t.text3, fontFamily: weight(600) }]}>
+        {value ? 'Change icon' : 'Choose icon'}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -459,6 +453,9 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [keyboardPad, setKeyboardPad] = useState(0);
+  // One shared icon picker, rendered at the FormSheet root (outside the
+  // BottomSheet body) so its full-screen overlay isn't clipped by the sheet.
+  const iconPicker = useIconPicker();
 
   // Re-seed values each time a (new) form opens.
   useEffect(() => {
@@ -521,7 +518,8 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
   };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={config?.title}>
+    <>
+      <BottomSheet open={open} onClose={onClose} title={config?.title}>
       <View style={styles.body}>
         {(config?.fields ?? []).map((f) => (
           <View key={f.key} style={styles.field}>
@@ -557,6 +555,7 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
                 value={values[f.key] ?? ''}
                 color={f.color}
                 onChange={(name) => setValues((v) => ({ ...v, [f.key]: name }))}
+                openPicker={iconPicker.pick}
               />
             ) : f.kind === 'color' ? (
               <ColorField
@@ -602,7 +601,9 @@ export function FormSheet({ open, config, onClose, onError }: FormSheetProps) {
             keyboard so the fields stay visible while typing. */}
         {keyboardPad > 0 && <View style={{ height: keyboardPad }} />}
       </View>
-    </BottomSheet>
+      </BottomSheet>
+      {iconPicker.sheet}
+    </>
   );
 }
 
