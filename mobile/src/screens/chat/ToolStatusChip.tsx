@@ -54,7 +54,7 @@ export function ToolStatusChip({
     <View style={[styles.chip, { backgroundColor: t.bg1, borderColor: t.border }]}>
       {done ? (
         ok ? (
-          <MI.check size={11} color={t.em} strokeWidth={3} />
+          <MI.check size={16} color={t.em} strokeWidth={3} />
         ) : (
           <MI.close size={16} color={t.red} strokeWidth={3} />
         )
