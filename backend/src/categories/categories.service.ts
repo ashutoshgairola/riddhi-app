@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { CategoriesRepository } from './categories.repository';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -65,6 +65,18 @@ export class CategoriesService {
 
   async remove(id: string, userId: string): Promise<void> {
     const category = await this.findOne(id, userId);
-    await this.categoriesRepository.remove(category);
+    try {
+      await this.categoriesRepository.remove(category);
+    } catch (err) {
+      const code =
+        (err as { code?: string }).code ??
+        (err as { driverError?: { code?: string } }).driverError?.code;
+      if (code === '23503') {
+        throw new ConflictException(
+          'Category still has transactions — reassign them before deleting.',
+        );
+      }
+      throw err;
+    }
   }
 }
