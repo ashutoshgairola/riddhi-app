@@ -42,6 +42,7 @@ import Svg, {
 
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -497,12 +498,12 @@ const styles = StyleSheet.create({
   barsRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 6,
+    gap: spacing.xs,
   },
   barGroup: {
     flex: 1,
     flexDirection: 'row',
-    gap: 3,
+    gap: spacing.xxs,
     alignItems: 'flex-end',
   },
   bar: {
@@ -513,10 +514,10 @@ const styles = StyleSheet.create({
   },
   barLabelsRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xs,
     borderTopWidth: 1,
-    paddingTop: 8,
-    marginTop: 6,
+    paddingTop: spacing.xs,
+    marginTop: spacing.xs,
   },
   barLabel: {
     flex: 1,
@@ -544,6 +545,6 @@ const styles = StyleSheet.create({
   },
   donutTotalValue: {
     fontSize: 20,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 });
