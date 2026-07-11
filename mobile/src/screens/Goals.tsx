@@ -174,7 +174,7 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
                         {g.name}
                       </Text>
                       <View style={styles.goalTargetRow}>
-                        <AppIcon value="calendar2" size={16} color={t.text3} />
+                        <AppIcon value="calendar2" size={16} color={g.color} />
                         <Text style={[styles.goalTarget, { color: t.text3 }]}>Target {g.date}</Text>
                       </View>
                     </View>

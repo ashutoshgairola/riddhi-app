@@ -229,7 +229,7 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
         {recentTxs.map((tx, i) => (
           <ListRow key={i} last={i === recentTxs.length - 1}>
             <View style={[styles.txIconBox, { backgroundColor: t.bg3 }]}>
-              <AppIcon value={tx.i} size={18} color={t.text1} />
+              <AppIcon value={tx.i} size={18} color={tx.a > 0 ? t.em : t.red} />
             </View>
             <View style={styles.txTextBlock}>
               <Text style={[styles.txDesc, { color: t.text1, fontFamily: weight(600) }]}>{tx.d}</Text>
