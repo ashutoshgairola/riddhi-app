@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Polyline, RadialGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppIcon } from '../../components/contentIcons';
 import { Btn } from '../../components/ui';
 import { PageBackground } from '../../components/PageBackground';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -80,7 +81,7 @@ export function OBDone({
           {summary.map((s) => (
             <View key={s.l} style={[styles.sumRow, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
               <View style={[styles.sumIcon, { backgroundColor: t.emDim }]}>
-                <Text style={{ fontSize: 16, color: t.em }}>{s.i}</Text>
+                <AppIcon value={s.i} size={16} color={t.em} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 11, color: t.text3, fontFamily: weight(600), letterSpacing: 0.66 }}>

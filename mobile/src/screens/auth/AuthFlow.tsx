@@ -4,11 +4,12 @@
  * change: translateX 100%->0, opacity .4->1, 0.32s ease.
  */
 import { useEffect, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text } from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ease } from '../../theme/tokens';
+import { AppIcon } from '../../components/contentIcons';
 import { BackendUrlCard } from '../BackendUrlCard';
 import { Welcome } from './Welcome';
 import { Login } from './Login';
@@ -88,7 +89,10 @@ export function AuthFlow() {
             }}
             accessibilityLabel="Open backend URL settings"
           >
-            <Text style={styles.devBtnText}>⚙︎ Backend URL</Text>
+            <View style={styles.devBtnRow}>
+              <AppIcon value="settings2" size={16} color={styles.devBtnText.color} />
+              <Text style={styles.devBtnText}>Backend URL</Text>
+            </View>
           </Pressable>
           <Modal
             visible={devOpen}
@@ -128,6 +132,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     zIndex: 999,
   },
+  devBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   devBtnText: { color: 'rgba(255,255,255,0.85)', fontSize: 11 },
   backdrop: {
     flex: 1,

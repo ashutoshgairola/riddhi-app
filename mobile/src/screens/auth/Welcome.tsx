@@ -10,6 +10,7 @@ import { PageBackground } from "../../components/PageBackground";
 import { useFeedback } from "../../feedback/FeedbackProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, weight } from "../../theme/tokens";
+import { AppIcon } from "../../components/contentIcons";
 import { FaceIdGlyph, PressableScale, SpringIn, Wordmark } from "./authUi";
 
 const FEATS = [
@@ -20,13 +21,13 @@ const FEATS = [
     d: "Transactions logged on-device",
   },
   {
-    i: "◎",
+    i: "target",
     c: "#c9a86a",
     l: "Smart budgets & goals",
     d: "Know what's safe to spend",
   },
   {
-    i: "💬",
+    i: "ledger",
     c: "#9d8bd6",
     l: "Ask Munshi ji anything",
     d: "Plan and log by chatting",
@@ -114,7 +115,7 @@ export function Welcome({
                 <View
                   style={[styles.featIcon, { backgroundColor: f.c + "22" }]}
                 >
-                  <Text style={{ fontSize: 19, color: f.c }}>{f.i}</Text>
+                  <AppIcon value={f.i} size={19} color={f.c} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text

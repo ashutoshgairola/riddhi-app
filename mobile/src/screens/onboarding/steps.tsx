@@ -7,6 +7,7 @@ import Svg, { Path, Polyline, Rect } from 'react-native-svg';
 
 import { useBiometricLabel } from '../../auth/biometricLabel';
 import { BankLogo } from '../../components/BankLogo';
+import { AppIcon } from '../../components/contentIcons';
 import { Chip, Toggle } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
 import { radius, weight } from '../../theme/tokens';
@@ -25,9 +26,9 @@ export function CheckSm({ color = '#1a1228', size = 13, strokeWidth = 3.4 }: { c
 export const GOAL_OPTS = [
   { id: 'track', i: '📊', l: 'Track my spending', d: 'See where money goes' },
   { id: 'save', i: '🌱', l: 'Save more', d: 'Build a cushion' },
-  { id: 'budget', i: '◎', l: 'Stick to a budget', d: 'Spend with intent' },
+  { id: 'budget', i: 'target', l: 'Stick to a budget', d: 'Spend with intent' },
   { id: 'invest', i: '▲', l: 'Grow investments', d: 'Track my portfolio' },
-  { id: 'debt', i: '✂️', l: 'Pay off debt', d: 'Clear cards & loans' },
+  { id: 'debt', i: 'scissors', l: 'Pay off debt', d: 'Clear cards & loans' },
 ];
 
 export function OBGoals({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
@@ -47,7 +48,7 @@ export function OBGoals({ value, onChange }: { value: string[]; onChange: (v: st
               ]}
             >
               <View style={[styles.optIcon, { backgroundColor: on ? t.em : t.bg3 }]}>
-                <Text style={{ fontSize: 20, color: on ? '#1a1228' : t.text2 }}>{o.i}</Text>
+                <AppIcon value={o.i} size={20} color={on ? '#1a1228' : t.em} />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 14.5, fontFamily: weight(700), color: on ? t.em : t.text1 }}>{o.l}</Text>
@@ -217,7 +218,7 @@ export function OBSync({ value, onChange }: { value: boolean; onChange: (v: bool
         {SYNC_FEATS.map((x) => (
           <View key={x.l} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
             <View style={[styles.syncFeatIcon, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
-              <Text style={{ fontSize: 15 }}>{x.i}</Text>
+              <AppIcon value={x.i} size={18} color={t.em} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13.5, color: t.text1, fontFamily: weight(700) }}>{x.l}</Text>
@@ -270,7 +271,7 @@ export function OBGoal({
                   { backgroundColor: on ? t.emDim : t.bg2, borderColor: on ? t.emGlow : t.border },
                 ]}
               >
-                <Text style={{ fontSize: 15 }}>{p.i}</Text>
+                <AppIcon value={p.i} size={16} color={t.em} />
                 <Text style={{ fontSize: 13, color: on ? t.em : t.text2, fontFamily: weight(600) }}>{p.l}</Text>
               </View>
             </Pressable>
