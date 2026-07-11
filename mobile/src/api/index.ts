@@ -806,6 +806,16 @@ export const api = {
       bumpData();
     },
 
+    async update(id: string, input: Partial<NewCategoryInput>): Promise<void> {
+      await apiClient.patch(`/categories/${id}`, input);
+      bumpData();
+    },
+
+    async remove(id: string): Promise<void> {
+      await apiClient.delete(`/categories/${id}`);
+      bumpData();
+    },
+
     /** Category name → id, creating the category if it doesn't exist yet.
      * Exposed for flows (e.g. notification-detected confirm) that need a
      * concrete `categoryId` rather than a name — mirrors the same
