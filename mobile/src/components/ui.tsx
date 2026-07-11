@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView } from './Glass';
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, radius, spring, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { MI } from './icons';
 import { useNav } from '../app/navContext';
 
@@ -68,7 +69,7 @@ export function Topbar({ title, left, right, scrolled = false }: TopbarProps) {
   );
 
   if (!scrolled) {
-    return <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>{content}</View>;
+    return <View style={[styles.topbar, { paddingTop: insets.top + spacing.md }]}>{content}</View>;
   }
 
   // `.m-topbar.scrolled` (mobile.css:198–203) is NOT the glass-card recipe:
@@ -80,7 +81,7 @@ export function Topbar({ title, left, right, scrolled = false }: TopbarProps) {
       style={[
         styles.topbar,
         styles.topbarScrolled,
-        { paddingTop: insets.top + 14, borderBottomColor: t.topbarScrolledBorder },
+        { paddingTop: insets.top + spacing.md, borderBottomColor: t.topbarScrolledBorder },
       ]}
     >
       <BlurView
@@ -434,7 +435,7 @@ export function SearchButton() {
  * first. Values mirror the former per-screen `topbarActions` style. */
 export function TopbarActions({ children }: { children: React.ReactNode }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 0 }}>
       {children}
     </View>
   );
@@ -444,9 +445,9 @@ const styles = StyleSheet.create({
   // Topbar
   topbar: {
     position: 'relative',
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: 'transparent',
   },
@@ -456,7 +457,7 @@ const styles = StyleSheet.create({
   topbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.xs,
   },
   topbarTitle: {
     fontSize: 19,
@@ -492,9 +493,9 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    gap: spacing.xxs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 99,
     borderWidth: 1,
     flexShrink: 0,
@@ -506,9 +507,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
-    paddingHorizontal: 4,
-    paddingBottom: 12,
+    paddingTop: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: 15,
@@ -524,9 +525,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
   },
 
@@ -568,9 +569,9 @@ const styles = StyleSheet.create({
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
 
   // HScroll
@@ -579,8 +580,8 @@ const styles = StyleSheet.create({
   },
   hscrollContent: {
     flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 18,
+    gap: spacing.sm,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.md,
   },
 });
