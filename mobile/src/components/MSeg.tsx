@@ -35,6 +35,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spring, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 /** `.m-seg-indicator` / `.m-seg-btn` transition duration (mobile.css:570,583 — `.35s`). */
 const INDICATOR_DURATION_MS = 350;
@@ -162,13 +163,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     position: 'relative',
     borderRadius: radius.md,
-    padding: 4,
+    padding: spacing.xxs,
     borderWidth: 1,
   },
   btn: {
     textAlign: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
     fontSize: 13.5,
     zIndex: 2,
     // Keeps compact (non-stretch) buttons visually equal even when glyph
