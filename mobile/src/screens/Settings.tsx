@@ -53,6 +53,7 @@ import {
   setBiometricEnabled,
   verifyPin,
 } from "../auth/tokenStore";
+import { AppIcon } from "../components/contentIcons";
 import { GlassCard } from "../components/Glass";
 import { MI } from "../components/icons";
 import { MSeg } from "../components/MSeg";
@@ -120,7 +121,7 @@ function Row({ icon, color, title, sub, right, onPress, last }: RowProps) {
   return (
     <ListRow onPress={onPress} last={last}>
       <View style={[styles.iconBox, { backgroundColor: color + "22" }]}>
-        <Text style={[styles.iconGlyph, { color }]}>{icon}</Text>
+        <AppIcon value={icon} size={20} color={color} />
       </View>
       <View style={styles.textBlock}>
         <Text
@@ -394,7 +395,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             }
           />
           <Row
-            icon="₹"
+            icon="coins"
             color={t.em}
             title="Currency"
             sub={currencySub}
@@ -556,7 +557,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             }
           />
           <Row
-            icon="🧮"
+            icon="ledger"
             color={t.em}
             title="Munshi ji suggestions"
             sub="Daily AI nudge when noteworthy"
@@ -781,9 +782,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-  },
-  iconGlyph: {
-    fontSize: 15,
   },
   textBlock: {
     flex: 1,

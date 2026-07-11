@@ -119,7 +119,7 @@ function DateField({
         >
           {label ?? placeholder ?? 'Select date'}
         </Text>
-        <Text style={styles.dateIcon}>📅</Text>
+        <AppIcon value="calendar2" size={16} color={t.em} />
       </Pressable>
 
       <CalendarPicker
@@ -494,9 +494,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dateText: {
-    fontSize: 15,
-  },
-  dateIcon: {
     fontSize: 15,
   },
   bankInputRow: {
