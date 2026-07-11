@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
+import { ContributeGoalDto } from './dto/contribute-goal.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('goals')
@@ -42,6 +43,15 @@ export class GoalsController {
     @Body() dto: CreateGoalDto,
   ) {
     return this.goalsService.create(user.userId, dto);
+  }
+
+  @Post(':id/contribute')
+  contribute(
+    @CurrentUser() user: { userId: string; email: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ContributeGoalDto,
+  ) {
+    return this.goalsService.contribute(id, user.userId, dto);
   }
 
   @Patch(':id')

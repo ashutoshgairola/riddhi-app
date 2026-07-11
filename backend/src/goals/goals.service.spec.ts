@@ -1,5 +1,7 @@
-import { computeGoalFields } from './goals.service';
+import { computeGoalFields, GoalsService } from './goals.service';
 import { GoalType, GoalStatus } from '../common/enums';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { TransactionType } from '../common/enums';
 
 function baseGoal(overrides: any = {}): any {
   return {
@@ -50,5 +52,73 @@ describe('computeGoalFields', () => {
     const result = computeGoalFields(goal);
     expect(result.progressPct).toBe(100);
     expect(result.remaining).toBe(0);
+  });
+});
+
+describe('GoalsService.contribute', () => {
+  function makeService(goal: any) {
+    const goalsRepository = {
+      findOneByUser: jest.fn().mockResolvedValue(goal),
+    };
+    const transactionsService = {
+      create: jest.fn().mockResolvedValue({ id: 'tx1' }),
+    };
+    const categoriesService = {
+      findAll: jest.fn().mockResolvedValue([{ id: 'cat-transfer', name: 'Transfer' }]),
+      create: jest.fn(),
+    };
+    const events = { emit: jest.fn() };
+    const svc = new GoalsService(
+      goalsRepository as any,
+      events as any,
+      transactionsService as any,
+      categoriesService as any,
+    );
+    return { svc, goalsRepository, transactionsService, categoriesService };
+  }
+
+  const linkedGoal = {
+    id: 'g1',
+    name: 'Emergency Fund',
+    targetAmount: 100000,
+    currentAmount: 0,
+    accountId: 'goal-acct',
+    account: { id: 'goal-acct', balance: 0 },
+  };
+
+  it('creates a transfer from the source into the goal account', async () => {
+    const { svc, transactionsService } = makeService({ ...linkedGoal });
+    await svc.contribute('g1', 'u1', { amount: 5000, sourceAccountId: 'src-acct' });
+    expect(transactionsService.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({
+        type: TransactionType.TRANSFER,
+        accountId: 'src-acct',
+        destinationAccountId: 'goal-acct',
+        amount: 5000,
+        categoryId: 'cat-transfer',
+      }),
+    );
+  });
+
+  it('throws when the goal is not found', async () => {
+    const { svc } = makeService(null);
+    await expect(
+      svc.contribute('g1', 'u1', { amount: 5000, sourceAccountId: 'src-acct' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('throws when the goal has no linked account', async () => {
+    const { svc } = makeService({ ...linkedGoal, accountId: null, account: null });
+    await expect(
+      svc.contribute('g1', 'u1', { amount: 5000, sourceAccountId: 'src-acct' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('throws when source equals the goal account', async () => {
+    const { svc } = makeService({ ...linkedGoal });
+    await expect(
+      svc.contribute('g1', 'u1', { amount: 5000, sourceAccountId: 'goal-acct' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
