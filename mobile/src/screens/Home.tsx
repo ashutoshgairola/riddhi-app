@@ -113,16 +113,17 @@ function fmtK(n: number): string {
 }
 
 /** "Due in 3d" / "Renews today" style label; falls back to a short date when
- * the day count is large or the renewal has slipped past. */
-function dueLabel(inDays: number, isoDate: string): string {
+ * the day count is large or the renewal has slipped past. `verb` lets callers
+ * say "Due" (bills) or "Renews" (subscriptions). */
+function dueLabel(inDays: number, isoDate: string, verb = "Due"): string {
   if (inDays < 0 || inDays > 30) {
     return new Date(isoDate + "T00:00:00Z").toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
     });
   }
-  if (inDays === 0) return "Due today";
-  return `Due in ${inDays}d`;
+  if (inDays === 0) return `${verb} today`;
+  return `${verb} in ${inDays}d`;
 }
 
 // ── Section label (MobileHome.jsx Label, lines 75–80) ────────────────
@@ -658,39 +659,49 @@ function BillsDueSection({
   return (
     <>
       <Label>Bills due</Label>
-      <SpringIn delay={40} style={styles.recentList}>
-        {bills.map((b) => (
-          <Pressable key={String(b.account.id)} onPress={() => onOpen(b)}>
-            <View style={styles.dueRow}>
-              <View style={styles.dueRowMain}>
-                <Text
-                  style={[
-                    styles.dueTitle,
-                    { color: t.text1, fontFamily: weight(700) },
-                  ]}
-                >
-                  {b.account.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.dueSub,
-                    { color: t.text3, fontFamily: weight(500) },
-                  ]}
-                >
-                  {`Min ${hide ? MASKED_AMOUNT : fmt(b.minDue)} · ${dueLabel(b.daysUntilDue, b.dueDate)}`}
-                </Text>
-              </View>
-              <Text
+      <SpringIn delay={40}>
+        <LiquidGlass style={styles.dueCard} padding={0} radius={radius.lg}>
+          {bills.map((b, i) => (
+            <Pressable key={String(b.account.id)} onPress={() => onOpen(b)}>
+              <View
                 style={[
-                  styles.dueAmount,
-                  { color: t.text1, fontFamily: weight(800) },
+                  styles.dueRow,
+                  i > 0 && {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: t.glassBrd,
+                  },
                 ]}
               >
-                {hide ? MASKED_AMOUNT : fmt(b.billed)}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+                <View style={styles.dueRowMain}>
+                  <Text
+                    style={[
+                      styles.dueTitle,
+                      { color: t.text1, fontFamily: weight(700) },
+                    ]}
+                  >
+                    {b.account.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dueSub,
+                      { color: t.text3, fontFamily: weight(500) },
+                    ]}
+                  >
+                    {`Min ${hide ? MASKED_AMOUNT : fmt(b.minDue)} · ${dueLabel(b.daysUntilDue, b.dueDate)}`}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.dueAmount,
+                    { color: t.text1, fontFamily: weight(800) },
+                  ]}
+                >
+                  {hide ? MASKED_AMOUNT : fmt(b.billed)}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </LiquidGlass>
       </SpringIn>
     </>
   );
@@ -712,40 +723,50 @@ function UpcomingSubsSection({
       <Label action="See all →" onAction={onSeeAll}>
         Upcoming subscriptions
       </Label>
-      <SpringIn delay={50} style={styles.recentList}>
-        {rows.map((r) => (
-          <Pressable key={r.subId} onPress={onSeeAll}>
-            <View style={styles.dueRow}>
-              <AppIconBox value={r.emoji} color={r.color} size={42} iconSize={19} />
-              <View style={[styles.dueRowMain, { marginLeft: 12 }]}>
-                <Text
-                  style={[
-                    styles.dueTitle,
-                    { color: t.text1, fontFamily: weight(700) },
-                  ]}
-                >
-                  {r.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.dueSub,
-                    { color: t.text3, fontFamily: weight(500) },
-                  ]}
-                >
-                  {dueLabel(r.inDays, r.nextRenewalDate)}
-                </Text>
-              </View>
-              <Text
+      <SpringIn delay={50}>
+        <LiquidGlass style={styles.dueCard} padding={0} radius={radius.lg}>
+          {rows.map((r, i) => (
+            <Pressable key={r.subId} onPress={onSeeAll}>
+              <View
                 style={[
-                  styles.dueAmount,
-                  { color: t.text1, fontFamily: weight(800) },
+                  styles.dueRow,
+                  i > 0 && {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: t.glassBrd,
+                  },
                 ]}
               >
-                {hide ? MASKED_AMOUNT : fmt(r.amount)}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+                <AppIconBox value={r.emoji} color={r.color} size={42} iconSize={19} />
+                <View style={[styles.dueRowMain, { marginLeft: 12 }]}>
+                  <Text
+                    style={[
+                      styles.dueTitle,
+                      { color: t.text1, fontFamily: weight(700) },
+                    ]}
+                  >
+                    {r.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dueSub,
+                      { color: t.text3, fontFamily: weight(500) },
+                    ]}
+                  >
+                    {dueLabel(r.inDays, r.nextRenewalDate, "Renews")}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.dueAmount,
+                    { color: t.text1, fontFamily: weight(800) },
+                  ]}
+                >
+                  {hide ? MASKED_AMOUNT : fmt(r.amount)}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </LiquidGlass>
       </SpringIn>
     </>
   );
@@ -1085,6 +1106,7 @@ const styles = StyleSheet.create({
   },
 
   // Bills due / Upcoming subscriptions rows
+  dueCard: { overflow: "hidden" },
   dueRow: {
     flexDirection: "row",
     alignItems: "center",
