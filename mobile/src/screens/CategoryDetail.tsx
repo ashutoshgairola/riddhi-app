@@ -162,6 +162,58 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
     });
   };
 
+  const catId = categoryIds[0];
+
+  const editCategory = () => {
+    if (!catId) return;
+    form({
+      title: `Edit category — ${name}`,
+      fields: [
+        { key: 'name', label: 'Name', initial: name },
+        { kind: 'icon', key: 'icon', label: 'Icon', initial: icon, color },
+        { kind: 'color', key: 'color', label: 'Colour', initial: color },
+      ],
+      submitLabel: 'Save category',
+      onSubmit: async (v) => {
+        await api.categories.update(catId, {
+          name: v['name']!,
+          icon: v['icon'] || icon,
+          color: v['color'] || color,
+        });
+        toast('Category updated', '🏷');
+        pop();
+      },
+    });
+  };
+
+  const deleteCategory = () => {
+    if (!catId) return;
+    const hasTxns = txns.length > 0;
+    sheet({
+      // SheetConfig has no `message`/subtitle field (only title/options/
+      // sections) — fold the warning into the title.
+      title: hasTxns
+        ? `Delete ${name}? It still has transactions — reassign them to another category first.`
+        : `Delete ${name}?`,
+      options: [
+        {
+          label: 'Delete category',
+          icon: '🗑',
+          danger: true,
+          onPress: async () => {
+            try {
+              await api.categories.remove(catId);
+              toast('Category deleted', '🗑');
+              pop();
+            } catch {
+              toast("Couldn't delete — reassign its transactions first", '📡');
+            }
+          },
+        },
+      ],
+    });
+  };
+
   const deleteTx = (tx: SwipeTx) => {
     api.transactions
       .remove(tx.id)
@@ -177,7 +229,7 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
         <GlassCard contentStyle={styles.headerCard}>
           <View style={styles.headerRow}>
             <View style={[styles.iconBox, { backgroundColor: color + '22' }]}>
-              <Text style={styles.iconGlyph}>{icon}</Text>
+              <AppIcon value={icon} size={20} color={color} />
             </View>
             <View style={styles.headerText}>
               <Text style={[styles.headerName, { color: t.text1, fontFamily: weight(700) }]}>
@@ -245,6 +297,31 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
                 </View>
               ) : null}
             </>
+          ) : null}
+
+          {!isBudget ? (
+            <View style={styles.actionsRow}>
+              <Text
+                onPress={editCategory}
+                style={[styles.actionBtn, {
+                  color: t.text1,
+                  backgroundColor: t.bg3,
+                  fontFamily: weight(700),
+                }]}
+              >
+                Edit
+              </Text>
+              <Text
+                onPress={deleteCategory}
+                style={[styles.actionBtn, {
+                  color: t.red,
+                  backgroundColor: t.redDim,
+                  fontFamily: weight(700),
+                }]}
+              >
+                Delete
+              </Text>
+            </View>
           ) : null}
         </GlassCard>
       </SpringIn>
