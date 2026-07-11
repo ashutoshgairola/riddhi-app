@@ -20,6 +20,7 @@ import { BlurView, type BlurTint } from 'expo-blur';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { radius } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 export interface GlassViewProps extends PropsWithChildren {
   /** Styles the outer wrapper — placement props (margins, width/flex in a
@@ -95,7 +96,7 @@ export function GlassView({ style, contentStyle, intensity = 30, radius: r = rad
  */
 export function GlassCard({ style, contentStyle, children }: GlassCardProps) {
   return (
-    <GlassView style={style} contentStyle={contentStyle} intensity={40} radius={radius.xl} padding={18}>
+    <GlassView style={style} contentStyle={contentStyle} intensity={40} radius={radius.xl} padding={spacing.md}>
       {children}
     </GlassView>
   );
