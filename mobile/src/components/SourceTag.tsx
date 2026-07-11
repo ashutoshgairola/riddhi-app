@@ -9,6 +9,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { spacing } from '../theme/spacing';
 import type { Tokens } from '../theme/tokens';
 import type { TxSource, SourceKind } from '../api/paymentSource';
 
@@ -44,9 +45,9 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 1.5,
-    paddingHorizontal: 7,
+    gap: spacing.xxs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
     borderWidth: 1,
     alignSelf: 'flex-start',
