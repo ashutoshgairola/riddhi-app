@@ -8,6 +8,8 @@ import { Transaction } from '../transactions/transaction.entity';
 import { CreditCard } from './credit-card.entity';
 import { TransactionType, AccountType, PaymentMethod } from '../common/enums';
 import { computeCardSummary, CardTxn, CardLedgerTxn, CategoryMeta } from './card-summary';
+import { buildCardBillsDue, CardBillInput, CardBillDue } from './card-bills-due';
+import { Account } from '../accounts/account.entity';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { PayCardDto } from './dto/pay-card.dto';
 
@@ -29,22 +31,14 @@ export class CreditCardService {
     return card;
   }
 
-  async getSummary(accountId: string, userId: string) {
-    const account = await this.accountsService.findOne(accountId, userId);
-    if (account.type !== AccountType.CREDIT) {
-      throw new BadRequestException('Account is not a credit card');
-    }
-    const card = await this.loadCard(accountId, userId);
-
+  private async loadCardCycle(
+    accountId: string,
+    userId: string,
+  ): Promise<{ swipes: Transaction[]; paymentsIn: Transaction[]; txns: CardTxn[] }> {
     const [swipes, paymentsIn] = await Promise.all([
-      this.txRepo.find({
-        where: { userId, accountId, type: TransactionType.EXPENSE },
-      }),
-      this.txRepo.find({
-        where: { userId, destinationAccountId: accountId, type: TransactionType.TRANSFER },
-      }),
+      this.txRepo.find({ where: { userId, accountId, type: TransactionType.EXPENSE } }),
+      this.txRepo.find({ where: { userId, destinationAccountId: accountId, type: TransactionType.TRANSFER } }),
     ]);
-
     const toCardTxn = (t: Transaction, isPaymentIn: boolean): CardTxn => ({
       amount: Math.abs(t.amount),
       date: new Date(t.date).toISOString(),
@@ -52,11 +46,21 @@ export class CreditCardService {
       categoryId: t.categoryId,
       isPaymentIn,
     });
-
     const txns: CardTxn[] = [
       ...swipes.map((t) => toCardTxn(t, false)),
       ...paymentsIn.map((t) => toCardTxn(t, true)),
     ];
+    return { swipes, paymentsIn, txns };
+  }
+
+  async getSummary(accountId: string, userId: string) {
+    const account = await this.accountsService.findOne(accountId, userId);
+    if (account.type !== AccountType.CREDIT) {
+      throw new BadRequestException('Account is not a credit card');
+    }
+    const card = await this.loadCard(accountId, userId);
+
+    const { swipes, paymentsIn, txns } = await this.loadCardCycle(accountId, userId);
 
     // Merged ledger for the "Card transactions" list: swipes are signed
     // negative (a debit against the card), payments-in signed positive (a
@@ -118,6 +122,39 @@ export class CreditCardService {
       name: account.name,
       institutionName: account.institutionName,
     };
+  }
+
+  /** Home "Bills due" widget: every credit account that still owes a statement
+   * bill, soonest-due first. Reuses the same per-card math as getSummary. */
+  async getBillsDue(userId: string): Promise<CardBillDue<Account>[]> {
+    const accounts = (await this.accountsService.findAll(userId)).filter(
+      (a) => a.type === AccountType.CREDIT,
+    );
+    const cards = await this.cardRepo.find({ where: { userId } });
+    const cardByAccount = new Map(cards.map((c) => [c.accountId, c]));
+
+    const inputs: CardBillInput<Account>[] = [];
+    for (const account of accounts) {
+      const card = cardByAccount.get(account.id);
+      if (!card) continue; // legacy credit account, not yet configured
+      const { txns } = await this.loadCardCycle(account.id, userId);
+      inputs.push({
+        account,
+        config: {
+          creditLimit: card.creditLimit,
+          statementDay: card.statementDay,
+          graceDays: card.graceDays,
+          statementDate: card.statementDate,
+          statementBilled: card.statementBilled,
+          statementMinDue: card.statementMinDue,
+          statementDueDate: card.statementDueDate,
+          statementRewards: card.statementRewards,
+        },
+        balance: account.balance,
+        txns,
+      });
+    }
+    return buildCardBillsDue(inputs, new Date());
   }
 
   async updateConfig(accountId: string, userId: string, dto: UpdateCardDto) {

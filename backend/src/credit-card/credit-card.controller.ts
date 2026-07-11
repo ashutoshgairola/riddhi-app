@@ -10,6 +10,11 @@ import { PayCardDto } from './dto/pay-card.dto';
 export class CreditCardController {
   constructor(private readonly creditCardService: CreditCardService) {}
 
+  @Get('cards/due')
+  getBillsDue(@CurrentUser() user: { userId: string; email: string }) {
+    return this.creditCardService.getBillsDue(user.userId);
+  }
+
   @Get(':id/card')
   getSummary(
     @CurrentUser() user: { userId: string; email: string },
