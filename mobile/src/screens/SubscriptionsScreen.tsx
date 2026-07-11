@@ -109,7 +109,7 @@ function flagVisual(kind: SubFlagView['kind'], t: Tokens) {
 function flagSubtitle(f: SubFlagView): string {
   if (f.kind === 'hike') return `Up ${f.pct}% to ${formatInr(f.to)} · +${formatInr(f.extraYearly)}/yr`;
   if (f.kind === 'renewal_soon') return `Renews in ${f.inDays}d · ${formatInr(f.amount)}`;
-  return `Maybe unused · costs ${formatInr(f.yearlyCost)}/yr`;
+  return `Still paying for this? · ${formatInr(f.yearlyCost)}/yr`;
 }
 
 export function Subscriptions({ entry: _entry }: { entry: ScreenEntry }) {

@@ -214,10 +214,9 @@ export function SubscriptionsReview({ entry: _entry }: { entry: ScreenEntry }) {
     const targets = candidates.filter((c) => !submitting.current.has(c.merchantDescriptor));
     if (targets.length === 0 || bulkBusy) return;
     setBulkBusy(true);
-    const count = targets.length;
     targets.forEach((c) => submitting.current.add(c.merchantDescriptor));
     try {
-      await Promise.all(
+      const results = await Promise.allSettled(
         targets.map((c) =>
           subscriptionsApi.create({
             ...candidateToCreatePayload(c, null),
@@ -225,11 +224,25 @@ export function SubscriptionsReview({ entry: _entry }: { entry: ScreenEntry }) {
           }),
         ),
       );
-      setCandidates((prev) => prev.filter((x) => !targets.some((c) => c.merchantDescriptor === x.merchantDescriptor)));
-      toast(`Added ${count} subscription${count === 1 ? '' : 's'}`, '✅');
-    } catch {
-      targets.forEach((c) => submitting.current.delete(c.merchantDescriptor));
-      toast("Some subscriptions couldn't be added — try again", '📡');
+      const succeeded: string[] = [];
+      let failedCount = 0;
+      results.forEach((r, i) => {
+        const descriptor = targets[i]!.merchantDescriptor;
+        if (r.status === 'fulfilled') {
+          succeeded.push(descriptor);
+        } else {
+          failedCount += 1;
+          // Keep the row visible and unlock it so a retry can re-submit.
+          submitting.current.delete(descriptor);
+        }
+      });
+      if (succeeded.length > 0) {
+        setCandidates((prev) => prev.filter((x) => !succeeded.includes(x.merchantDescriptor)));
+        toast(`Added ${succeeded.length} subscription${succeeded.length === 1 ? '' : 's'}`, '✅');
+      }
+      if (failedCount > 0) {
+        toast("Some subscriptions couldn't be added — try again", '📡');
+      }
     } finally {
       setBulkBusy(false);
     }

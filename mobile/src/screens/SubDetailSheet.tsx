@@ -101,7 +101,7 @@ function flagMessage(f: SubFlagView): string {
   if (f.kind === 'renewal_soon') {
     return `Renews in ${f.inDays} day${f.inDays === 1 ? '' : 's'} · ${formatInr(f.amount)}.`;
   }
-  return `Might be unused. Consider cancelling to save ${formatInr(f.yearlyCost)}/yr.`;
+  return `Still paying for this? Cancelling saves ~${formatInr(f.yearlyCost)}/yr.`;
 }
 
 export interface SubDetailSheetProps {

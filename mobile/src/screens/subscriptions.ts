@@ -16,6 +16,7 @@ export interface CreateSubPayload {
   amount: number; cycle: 'monthly' | 'yearly'; nextRenewalDate: string; firstSeenDate: string;
   accountId: string | null; paymentMethod: string | null; categoryId: string;
   reminderDays: number | null; transactionIds: string[];
+  priceHistory: { amount: number; since: string }[];
 }
 
 export function candidateToCreatePayload(c: SubCandidateView, reminderDays: number | null): CreateSubPayload {
@@ -23,7 +24,7 @@ export function candidateToCreatePayload(c: SubCandidateView, reminderDays: numb
     name: c.name, merchantDescriptor: c.merchantDescriptor, emoji: c.emoji, color: c.color,
     amount: c.amount, cycle: c.cycle, nextRenewalDate: c.nextRenewalDate, firstSeenDate: c.firstSeenDate,
     accountId: c.accountId, paymentMethod: c.paymentMethod, categoryId: c.categoryId,
-    reminderDays, transactionIds: c.transactionIds,
+    reminderDays, transactionIds: c.transactionIds, priceHistory: c.priceHistory,
   };
 }
 
