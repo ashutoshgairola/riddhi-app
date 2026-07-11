@@ -25,7 +25,7 @@
  *   statements:   parse / import
  */
 
-import { apiClient, setAuthToken as _setAuthToken, setSessionHandlers as _setSessionHandlers } from './client';
+import { apiClient, setAuthToken as _setAuthToken } from './client';
 import { bumpData } from './refresh';
 import {
   toTxView,
@@ -108,9 +108,6 @@ export const USE_BACKEND = true;
 
 /** Re-export so screens can call api.setAuthToken(token). */
 export const setAuthToken = _setAuthToken;
-
-/** Re-export so AuthProvider can inject the 401 refresh/session-expired handlers. */
-export const setSessionHandlers = _setSessionHandlers;
 
 export { authApi } from './auth';
 export type { ApiUser, AuthResponse, AuthTokens, OnboardingPayload } from './auth';
