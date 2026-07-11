@@ -21,6 +21,7 @@ import {
 import { Chip } from './ui';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_FULL = [
@@ -323,25 +324,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderWidth: 1,
     borderRadius: radius.lg,
-    padding: 14,
+    padding: spacing.md,
     shadowColor: '#000',
     shadowOpacity: 0.4,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 12,
   },
-  chipsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  chipsRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
-    paddingHorizontal: 4,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.xxs,
   },
-  arrow: { fontSize: 26, lineHeight: 28, paddingHorizontal: 8 },
+  arrow: { fontSize: 26, lineHeight: 28, paddingHorizontal: spacing.xs },
   title: { fontSize: 15 },
   weekRow: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', fontSize: 11, paddingVertical: 6 },
+  weekday: { flex: 1, textAlign: 'center', fontSize: 11, paddingVertical: spacing.xs },
   cell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   cellInner: {
     width: 34,
@@ -351,6 +352,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  monthCell: { width: '25%', paddingVertical: 8, alignItems: 'center' },
-  monthInner: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.sm },
+  monthCell: { width: '25%', paddingVertical: spacing.xs, alignItems: 'center' },
+  monthInner: { paddingVertical: spacing.xs, paddingHorizontal: spacing.xs, borderRadius: radius.sm },
 });
