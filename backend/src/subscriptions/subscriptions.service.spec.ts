@@ -25,14 +25,38 @@ describe('SubscriptionsService', () => {
     return { svc, subRepo, ignoreRepo, txRepo, capturedRepo };
   }
 
-  it('create persists a row and back-links historical transactions', async () => {
+  it('create persists a row and back-links historical transactions, recategorizing them to the Subscriptions category', async () => {
     const { svc, subRepo, txRepo } = build();
     const sub = await svc.create('u1', {
       name: 'Netflix', merchantDescriptor: 'netflix.com', amount: 649, cycle: 'monthly',
       nextRenewalDate: '2026-05-10', firstSeenDate: '2025-01-01', transactionIds: ['t1', 't2'],
     } as any);
     expect(subRepo.save).toHaveBeenCalled();
-    expect(txRepo.update).toHaveBeenCalledWith({ id: expect.anything(), userId: 'u1' }, { subscriptionId: sub.id });
+    expect(txRepo.update).toHaveBeenCalledWith({ id: 't1', userId: 'u1' }, { subscriptionId: sub.id, categoryId: 'cat-sub' });
+    expect(txRepo.update).toHaveBeenCalledWith({ id: 't2', userId: 'u1' }, { subscriptionId: sub.id, categoryId: 'cat-sub' });
+  });
+
+  it('create back-links charges to an explicitly chosen category (not forced to Subscriptions)', async () => {
+    const { svc, txRepo } = build();
+    const sub = await svc.create('u1', {
+      name: 'Netflix', merchantDescriptor: 'netflix.com', amount: 649, cycle: 'monthly',
+      nextRenewalDate: '2026-05-10', firstSeenDate: '2025-01-01', transactionIds: ['t1'], categoryId: 'cat-ent',
+    } as any);
+    expect(txRepo.update).toHaveBeenCalledWith({ id: 't1', userId: 'u1' }, { subscriptionId: sub.id, categoryId: 'cat-ent' });
+  });
+
+  it('create does not clear the charge category when no Subscriptions category resolves', async () => {
+    const emptyCats = { findAll: jest.fn(async () => [] as any[]) };
+    const subRepo = makeRepo<any>();
+    const ignoreRepo = makeRepo<any>();
+    const txRepo = { ...makeRepo<any>(), find: jest.fn(async () => []) } as any;
+    const capturedRepo = { ...makeRepo<any>(), find: jest.fn(async () => []) } as any;
+    const svc = new SubscriptionsService(subRepo as any, ignoreRepo as any, txRepo as any, capturedRepo as any, emptyCats as any);
+    const sub = await svc.create('u1', {
+      name: 'Netflix', merchantDescriptor: 'netflix.com', amount: 649, cycle: 'monthly',
+      nextRenewalDate: '2026-05-10', firstSeenDate: '2025-01-01', transactionIds: ['t1'],
+    } as any);
+    expect(txRepo.update).toHaveBeenCalledWith({ id: 't1', userId: 'u1' }, { subscriptionId: sub.id });
   });
 
   it('create persists a provided priceHistory (detected hike survives confirm)', async () => {
@@ -152,6 +176,20 @@ describe('SubscriptionsService', () => {
       await svc.attachTransaction('u1', { id: 't9', description: 'NETFLIX.COM', amount: 649, date: '2026-05-02', accountId: 'a1' });
       const saved = subRepo.rows.find((r: any) => r.id === 's1');
       expect(saved.nextRenewalDate).toBe('2026-06-02');
+    });
+
+    it('recategorizes the linked charge to the subscription category', async () => {
+      const { svc, subRepo, txRepo } = build();
+      subRepo.rows.push(activeSub({ categoryId: 'cat-sub' }));
+      await svc.attachTransaction('u1', { id: 't9', description: 'NETFLIX.COM', amount: 499, date: '2026-05-02', accountId: 'a1' });
+      expect(txRepo.update).toHaveBeenCalledWith({ id: 't9', userId: 'u1' }, { subscriptionId: 's1', categoryId: 'cat-sub' });
+    });
+
+    it('does not clear the charge category when the subscription has no category', async () => {
+      const { svc, subRepo, txRepo } = build();
+      subRepo.rows.push(activeSub({ categoryId: null }));
+      await svc.attachTransaction('u1', { id: 't9', description: 'NETFLIX.COM', amount: 499, date: '2026-05-02', accountId: 'a1' });
+      expect(txRepo.update).toHaveBeenCalledWith({ id: 't9', userId: 'u1' }, { subscriptionId: 's1' });
     });
 
     it('does nothing when no ACTIVE sub matches (e.g. cancelled)', async () => {

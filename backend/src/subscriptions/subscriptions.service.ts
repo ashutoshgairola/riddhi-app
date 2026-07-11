@@ -108,7 +108,10 @@ export class SubscriptionsService {
     });
     const saved = await this.subRepo.save(sub);
     for (const id of dto.transactionIds ?? []) {
-      await this.txRepo.update({ id, userId }, { subscriptionId: saved.id });
+      // Spec §6: back-linked charges carry the subscription's category so the
+      // Subscriptions budget/report aggregation sees them. Guarded so a sub with
+      // no resolved category never wipes the charge's existing category.
+      await this.txRepo.update({ id, userId }, { subscriptionId: saved.id, ...(saved.categoryId ? { categoryId: saved.categoryId } : {}) });
     }
     return saved;
   }
@@ -176,7 +179,9 @@ export class SubscriptionsService {
     const subs = await this.subRepo.find({ where: { userId } });
     const match = matchSubscription(tx.description, tx.accountId, subs);
     if (!match) return;
-    await this.txRepo.update({ id: tx.id, userId }, { subscriptionId: match.id });
+    // Spec §6: a reverse-linked recurring charge also carries the subscription's
+    // category (guarded, same as create) so it aggregates under Subscriptions.
+    await this.txRepo.update({ id: tx.id, userId }, { subscriptionId: match.id, ...(match.categoryId ? { categoryId: match.categoryId } : {}) });
 
     const amount = Math.abs(tx.amount);
     if (amount !== match.amount) {
