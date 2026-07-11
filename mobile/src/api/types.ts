@@ -96,6 +96,9 @@ export interface ApiGoal {
   contributionAmount?: number; // ₹
   color?: string;
   notes?: string;
+  saved?: number; // ₹ — backend-computed (linked account balance or currentAmount)
+  remaining?: number; // ₹
+  progressPct?: number;
 }
 
 export interface ApiInvestment {
@@ -325,10 +328,14 @@ export interface BudgetCategoryView {
 
 /** Goal view — matches Goal in Goals.tsx */
 export interface GoalView {
+  id: string;
+  accountId?: string;
   name: string;
   emoji: string;
   color: string;
-  current: number;
+  current: number; // mirrors `saved`, kept for existing card display
+  saved: number;
+  remaining: number;
   target: number;
   date: string; // display string e.g. "Dec 2026"
 }
@@ -481,6 +488,7 @@ export interface ApiCategoryActivity {
 export type NotifViewType = 'budget' | 'goal' | 'tx' | 'report' | 'security' | 'munshi';
 
 export interface NotificationView {
+  id: string;
   icon: string;
   title: string;
   body: string;
@@ -569,6 +577,8 @@ export interface NewGoalInput {
   current?: number;
   /** ISO date. */
   targetDate: string;
+  /** Linked savings account the goal's progress derives from. */
+  accountId?: string;
 }
 
 export interface NewCategoryInput {

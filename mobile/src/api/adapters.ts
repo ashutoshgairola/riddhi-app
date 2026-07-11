@@ -229,11 +229,16 @@ export function toGoalView(goal: ApiGoal): GoalView {
   // Format targetDate ISO → display e.g. "Dec 2026"
   const d = new Date(goal.targetDate);
   const displayDate = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  const saved = goal.saved ?? goal.currentAmount;
   return {
+    id: goal.id,
+    accountId: goal.accountId,
     name: goal.name,
     emoji: goalEmoji(goal.type),
     color: goal.color ?? '#7faf93',
-    current: goal.currentAmount,
+    current: saved,
+    saved,
+    remaining: goal.remaining ?? Math.max(goal.targetAmount - saved, 0),
     target: goal.targetAmount,
     date: displayDate,
   };
@@ -304,6 +309,7 @@ const NOTIF_ICONS: Record<NotifViewType, string> = {
 export function toNotificationView(n: ApiNotification): NotificationView {
   const type: NotifViewType = (NOTIF_TYPE_MAP[n.type] ?? 'tx') as NotifViewType;
   return {
+    id: n.id,
     icon: NOTIF_ICONS[type],
     title: n.title,
     body: n.body,
@@ -452,7 +458,11 @@ function formatRelativeTime(isoDate: string): string {
   const now = Date.now();
   const then = new Date(isoDate).getTime();
   const diffMs = now - then;
-  const diffHours = Math.floor(diffMs / 3600000);
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  if (diffSec < 60) return diffSec < 1 ? 'just now' : `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return 'Yesterday';
