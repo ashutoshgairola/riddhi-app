@@ -76,6 +76,13 @@ const ITEMS: MoreItem[] = [
     d: "All alerts & updates",
   },
   {
+    id: "subscriptions",
+    l: "Subscriptions",
+    i: "🔁",
+    c: "#a78bfa",
+    d: "Recurring charges & burn",
+  },
+  {
     id: "settings",
     l: "Settings",
     i: "⚙",

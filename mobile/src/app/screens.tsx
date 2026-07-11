@@ -26,6 +26,7 @@ import { Search } from '../screens/Search';
 import { Settings } from '../screens/Settings';
 import { StatementReview } from '../screens/StatementReviewScreen';
 import { Subscriptions } from '../screens/SubscriptionsScreen';
+import { SubscriptionsReview } from '../screens/SubscriptionsReview';
 import { Sync } from '../screens/Sync';
 import { TxCategories } from '../screens/TxCategories';
 import { TxDetail } from '../screens/TxDetail';
@@ -34,11 +35,12 @@ import type { ScreenEntry, ScreenKind } from './navContext';
 
 type ScreenComponent = React.ComponentType<{ entry: ScreenEntry }>;
 
-/** Kind -> component. `Partial` (rather than every `ScreenKind` required)
- * because `'subscriptions-review'` (Task 13's detect/add-subscription
- * flow) has no screen yet — a later task registers it; until then
- * `renderScreen`'s existing `?? SCREEN_REGISTRY.home` fallback below
- * quietly lands on Home instead of a missing-component crash. */
+/** Kind -> component. Still `Partial` (rather than every `ScreenKind`
+ * required) for future kinds added ahead of their screen — `renderScreen`'s
+ * `?? SCREEN_REGISTRY.home` fallback below quietly lands on Home instead of
+ * a missing-component crash in that window. `'subscriptions-review'`
+ * (Task 13's detect/add-subscription flow) is registered here (Task 14),
+ * completing the union Task 13 left partial. */
 export const SCREEN_REGISTRY: Partial<Record<ScreenKind, ScreenComponent>> = {
   home: Home,
   txns: Txns,
@@ -52,6 +54,7 @@ export const SCREEN_REGISTRY: Partial<Record<ScreenKind, ScreenComponent>> = {
   'account-detail': AccountDetail,
   'card-detail': CardDetail,
   subscriptions: Subscriptions,
+  'subscriptions-review': SubscriptionsReview,
   'statement-review': StatementReview,
   'monitored-apps': MonitoredApps,
   'tx-cats': TxCategories,
