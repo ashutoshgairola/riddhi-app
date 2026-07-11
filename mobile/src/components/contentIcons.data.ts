@@ -27,7 +27,7 @@ export const M_EMOJI: Record<string, ContentIconName> = {
   '📒': 'ledger', '🔄': 'sync', '🔁': 'repeat2', '⊙': 'target', '🎯': 'target', '🎉': 'party', '🥳': 'party', '🎊': 'party',
   '▲': 'trendUp', '📈': 'trendUp', '📉': 'trendDown', '≋': 'chart', '📊': 'chart', '💳': 'card2', '🏷': 'tag', '🔔': 'bell3',
   '⚙': 'settings2', '🍽': 'food', '🚗': 'car', '🚕': 'car', '🛍': 'bag', '🛒': 'cart', '⚡': 'bolt', '💊': 'pill', '🎬': 'film',
-  '💼': 'briefcase', '💻': 'laptop', '↩': 'undo', '🎁': 'gift', '🏦': 'bank2', '✅': 'check', '✓': 'check', '📤': 'export',
+  '💼': 'briefcase', '💻': 'laptop', '↩': 'undo', '🎁': 'gift', '🏦': 'bank2', '✅': 'check', '✓': 'check', '☑': 'check', '📤': 'export',
   '❓': 'help', '💸': 'cash', '💰': 'coins', '🪙': 'coins', '📧': 'mail', '✉': 'mail', '🔒': 'lock', '🍎': 'apple', '⚠': 'warn',
   '📄': 'doc', '📑': 'doc', '📜': 'doc', '📋': 'doc', '🧾': 'doc', '✨': 'sparkle2', '🎄': 'tree', '🏡': 'home2', '🏠': 'home2',
   '🎓': 'gradCap', '🍾': 'drink', '🏆': 'trophy', '🎃': 'flame', '⚽': 'ball', '🎸': 'music', '🐣': 'plant', '➕': 'plus2',
