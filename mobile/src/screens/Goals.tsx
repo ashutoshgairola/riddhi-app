@@ -190,7 +190,7 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
 
         <View style={styles.goalList}>
           {goals.map((g, i) => {
-            const pct = Math.round((g.current / g.target) * 100);
+            const pct = Math.min(100, Math.max(0, Math.round((g.current / g.target) * 100)));
             return (
               // animationDelay: `${0.05 + i*0.05}s` (MobileSecondary.jsx:130)
               <SpringIn key={g.id} delay={50 + i * 50}>
