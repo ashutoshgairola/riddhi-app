@@ -18,7 +18,8 @@ import { GlassCard } from '../components/Glass';
 import { AppIconBox } from '../components/contentIcons';
 import { ProgressBar } from '../components/ui';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight, type Tokens } from '../theme/tokens';
+import { weight, type Tokens } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import type { FormFieldSpec } from '../components/FormSheet';
@@ -108,7 +109,7 @@ export function GoalDetail({ entry }: { entry: ScreenEntry }) {
     // savings account") before the real goal arrives.
     return (
       <MPageShell title="Goal" onBack={pop}>
-        <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+        <View style={{ paddingVertical: spacing.xxl, alignItems: 'center' }}>
           <ActivityIndicator color={t.text3} />
         </View>
       </MPageShell>
@@ -171,17 +172,17 @@ function Stat({ label, value, t }: { label: string; value: string; t: Tokens }) 
 }
 
 const styles = StyleSheet.create({
-  body: { paddingHorizontal: space[18], paddingTop: space[8], gap: space[14] },
-  headerCard: { padding: space[18], gap: space[12] },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: space[12] },
+  body: { paddingHorizontal: spacing.md, paddingTop: spacing.xs, gap: spacing.md },
+  headerCard: { padding: spacing.lg, gap: spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
   name: { fontSize: 18 },
-  sub: { fontSize: 12, marginTop: space[2] },
+  sub: { fontSize: 12, marginTop: spacing.xxs },
   pct: { fontSize: 18 },
-  stats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[4] },
-  stat: { gap: space[2] },
+  stats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xxs },
+  stat: { gap: spacing.xxs },
   statLabel: { fontSize: 12 },
   statValue: { fontSize: 16 },
-  actionCard: { padding: space[18], alignItems: 'center' },
+  actionCard: { padding: spacing.lg, alignItems: 'center' },
   action: { fontSize: 16 },
 });
