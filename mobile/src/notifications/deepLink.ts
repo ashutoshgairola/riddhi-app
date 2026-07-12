@@ -1,4 +1,5 @@
 import type { ScreenKind } from '../app/navContext';
+import type { NotifViewType } from '../api/types';
 
 /** Screens a notification tap is allowed to deep-link into. */
 const ALLOWED: ScreenKind[] = ['budgets', 'goals', 'reports', 'chat', 'tx-detail', 'sync', 'subscriptions'];
@@ -25,4 +26,20 @@ export function mapNotificationToScreen(data: unknown): NotifNavTarget | null {
     return { kind: 'tx-detail', data: { id } };
   }
   return { kind: screen as ScreenKind };
+}
+
+/** Screen a notification of a given type opens when it has no deep-link
+ * payload (legacy rows). Every type resolves to a target so all cards are
+ * tappable. */
+const TYPE_FALLBACK: Record<NotifViewType, ScreenKind> = {
+  budget: 'budgets',
+  goal: 'goals',
+  tx: 'txns',
+  report: 'reports',
+  security: 'settings',
+  munshi: 'chat',
+};
+
+export function fallbackTargetForType(type: NotifViewType): NotifNavTarget {
+  return { kind: TYPE_FALLBACK[type] };
 }
