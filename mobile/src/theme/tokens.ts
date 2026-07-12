@@ -125,43 +125,11 @@ export const radius = {
   xl3: 38,
 } as const;
 
-// ── Spacing scale (`space`) ─────────────────────────────────────────
-// Single source of truth for vertical/horizontal rhythm — margins,
-// paddings and gaps. The app was authored on a 2px grid (the workhorse
-// values 6/10/14/18/22/26 all sit on 2px-off-4px midpoints), so the scale
-// is a 2px ladder rather than a strict 4pt grid: this keeps the ported
-// design's rhythm intact while removing magic numbers.
-//
-// Keys are the pixel value, so `space[14]` reads as "14px" at the call
-// site AND the `as const` object is the allow-list — TypeScript rejects an
-// off-scale `space[13]`, which is what enforces the grid going forward.
-//
-// Off-scale legacy values were snapped by "round odd up to the next even"
-// (3→4, 5→6, 7→8, 9→10, 11→12, 13→14, 15→16) plus 22→24 and 26→28.
-// Structural negative offsets (e.g. HScroll's -18 bleed that cancels the
-// 18px body padding) and non-spacing props (borderRadius — see `radius`
-// above — sizes, positions, font sizes, line heights) are NOT part of
-// this scale and stay as literals.
-export const space = {
-  0: 0,
-  2: 2,
-  4: 4,
-  6: 6,
-  8: 8,
-  10: 10,
-  12: 12,
-  14: 14,
-  16: 16,
-  18: 18,
-  20: 20,
-  24: 24,
-  28: 28,
-  32: 32,
-  40: 40,
-  48: 48,
-} as const;
-
-export type Space = (typeof space)[keyof typeof space];
+// ── Spacing scale ───────────────────────────────────────────────────
+// The margin/padding/gap rhythm now lives in `./spacing` as a strict
+// 8-point grid exposed as named "friendship" tokens (`spacing.md`, …).
+// The former pixel-keyed 2px `space` ladder was retired in the 8pt
+// migration (see docs/superpowers/plans/2026-07-11-8pt-spacing-*.md).
 
 // ── Easing (`--ease` / `--spring`, mobile.css:52–53) ────────────────
 // Raw cubic-bezier control points, exactly as authored in the CSS.
