@@ -43,7 +43,8 @@ import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, space, weight } from '../theme/tokens';
+import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
@@ -247,18 +248,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[4],
-    paddingHorizontal: space[18],
-    paddingBottom: space[24],
+    paddingTop: spacing.xxs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
   },
   subtitle: {
     fontSize: 13,
-    marginTop: space[8],
-    marginBottom: space[14],
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
   },
   goalList: {
     flexDirection: 'column',
-    gap: space[14],
+    gap: spacing.md,
   },
   goalCard: {
     position: 'relative',
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
   // `.m-card`'s 18px padding, on an inner wrapper so `accentBar` (an
   // absolute sibling) stays flush with the card edge.
   goalCardBody: {
-    padding: space[18],
+    padding: spacing.md,
   },
   accentBar: {
     position: 'absolute',
@@ -279,8 +280,8 @@ const styles = StyleSheet.create({
   goalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    marginBottom: space[14],
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   goalTextBlock: {
     flex: 1,
@@ -292,8 +293,8 @@ const styles = StyleSheet.create({
   goalTargetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
-    marginTop: space[2],
+    gap: spacing.xxs,
+    marginTop: spacing.xxs,
   },
   goalTarget: {
     fontSize: 12,
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   goalCurrent: {
     fontSize: 18,
