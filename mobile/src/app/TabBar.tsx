@@ -39,7 +39,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LiquidGlass } from '../components/LiquidGlass';
 import { MI, type IconName } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { space } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useNav, type ScreenKind } from './navContext';
 
 // MTabs (MobileApp.jsx:3–9) — `fab` is a sentinel for the centre slot.
@@ -213,12 +213,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     height: 70,
-    marginHorizontal: space[14],
+    marginHorizontal: spacing.md,
     marginTop: 0,
-    paddingVertical: space[8],
-    paddingHorizontal: space[10],
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
     borderRadius: RADIUS,
-    gap: space[4],
+    gap: spacing.xxs,
     position: 'relative',
     // Lift the whole capsule (incl. the centre FAB) above the FabActions dim
     // backdrop (zIndex 60) so the navbar stays crisp/unblurred and tappable
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[4],
+    gap: spacing.xxs,
     borderRadius: 14,
     position: 'relative',
   },
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    padding: space[6],
+    padding: spacing.xs,
     marginTop: -29,
     backgroundColor: 'rgba(24,19,34,0.6)',
     shadowColor: 'rgba(139,108,240,0.45)',
