@@ -42,7 +42,8 @@ import { GlassCard, GlassView } from '../components/Glass';
 import { Btn, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { ease, radius, space, weight } from '../theme/tokens';
+import { ease, radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
   list: {
-    marginBottom: space[4],
+    marginBottom: spacing.xxs,
   },
   cardWrap: {
     overflow: 'hidden',
@@ -359,27 +360,27 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: space[12],
-    paddingHorizontal: space[16],
-    paddingTop: space[14],
-    paddingBottom: space[12],
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   nameBlock: {
     flex: 1,
     minWidth: 0,
-    gap: space[6],
+    gap: spacing.xxs,
   },
   nameInput: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: space[12],
-    paddingVertical: space[10],
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     fontSize: 14.5,
   },
   hintChip: {
     alignSelf: 'flex-start',
-    paddingVertical: space[4],
-    paddingHorizontal: space[8],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
     borderWidth: 1,
   },
@@ -390,9 +391,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: space[10],
-    paddingHorizontal: space[16],
-    paddingBottom: space[14],
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   detailText: {
     flex: 1,
@@ -401,9 +402,9 @@ const styles = StyleSheet.create({
   payPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
-    paddingVertical: space[2],
-    paddingHorizontal: space[8],
+    gap: spacing.xxs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
     borderWidth: 1,
     flexShrink: 0,
@@ -423,7 +424,7 @@ const styles = StyleSheet.create({
   },
   dismissBtn: {
     flex: 1,
-    paddingVertical: space[12],
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
@@ -433,25 +434,25 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     flex: 2,
-    paddingVertical: space[12],
+    paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[8],
+    gap: spacing.xs,
   },
   confirmLabel: {
     fontSize: 13.5,
   },
   emptyCard: {
-    padding: space[24],
+    padding: spacing.lg,
     alignItems: 'center',
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
   },
   manualBtn: {
-    marginTop: space[6],
+    marginTop: spacing.xs,
   },
 });
