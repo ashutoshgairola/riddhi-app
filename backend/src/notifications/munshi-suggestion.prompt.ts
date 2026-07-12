@@ -5,7 +5,7 @@ export interface MunshiSnapshot {
     totalSpent: number;
     topCategories: { name: string; allocated: number; spent: number }[];
   } | null;
-  goals: { name: string; progressPct: number }[];
+  goals: { id: string; name: string; progressPct: number }[];
 }
 
 const inr = (n: number): string => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -30,6 +30,8 @@ You write ONE short push notification based on the user's snapshot. Rules:
 - Reply with STRICT JSON only, no prose, no markdown fences.
 - If there is nothing genuinely worth a nudge today, reply exactly {"skip": true}.
 - Otherwise reply {"title": "<=40 chars", "body": "<=120 chars"}.
+- If the nudge is primarily about the budget, add "focus": "budget".
+- If it is primarily about one goal, add "focus": "goal" and "focusGoal": "<the goal's exact name from the snapshot>".
 - Never invent numbers not present in the snapshot.`;
 
 export function buildMunshiPrompt(s: MunshiSnapshot): string {
@@ -53,9 +55,14 @@ export function buildMunshiPrompt(s: MunshiSnapshot): string {
   return `User snapshot:\n${lines.join('\n')}\n\nWrite the notification now.`;
 }
 
-export function parseMunshiSuggestion(
-  text: string,
-): { title: string; body: string } | null {
+export interface MunshiSuggestion {
+  title: string;
+  body: string;
+  focus?: 'budget' | 'goal';
+  focusGoal?: string;
+}
+
+export function parseMunshiSuggestion(text: string): MunshiSuggestion | null {
   try {
     const cleaned = text
       .trim()
@@ -64,14 +71,37 @@ export function parseMunshiSuggestion(
       .trim();
     const obj = JSON.parse(cleaned) as Record<string, unknown>;
     if (obj.skip === true) return null;
-    if (typeof obj.title === 'string' && typeof obj.body === 'string') {
-      return {
-        title: obj.title.slice(0, 60),
-        body: obj.body.slice(0, 160),
-      };
+    if (typeof obj.title !== 'string' || typeof obj.body !== 'string') return null;
+    const result: MunshiSuggestion = {
+      title: obj.title.slice(0, 60),
+      body: obj.body.slice(0, 160),
+    };
+    if (obj.focus === 'budget' || obj.focus === 'goal') {
+      result.focus = obj.focus;
+      if (
+        result.focus === 'goal' &&
+        typeof obj.focusGoal === 'string' &&
+        obj.focusGoal.trim()
+      ) {
+        result.focusGoal = obj.focusGoal.trim();
+      }
     }
-    return null;
+    return result;
   } catch {
     return null;
   }
+}
+
+export function munshiDeepLink(
+  s: MunshiSuggestion,
+  goals: { id: string; name: string }[],
+): { screen: string; id?: string } {
+  if (s.focus === 'budget') return { screen: 'budgets' };
+  if (s.focus === 'goal') {
+    const match = s.focusGoal
+      ? goals.find((g) => g.name.toLowerCase() === s.focusGoal!.toLowerCase())
+      : undefined;
+    return match ? { screen: 'goal-detail', id: match.id } : { screen: 'goals' };
+  }
+  return { screen: 'chat' };
 }
