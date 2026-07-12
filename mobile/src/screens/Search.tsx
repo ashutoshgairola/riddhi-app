@@ -36,7 +36,8 @@ import { AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useNav, type ScreenEntry, type ScreenKind } from '../app/navContext';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
@@ -209,18 +210,18 @@ const styles = StyleSheet.create({
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
-    paddingTop: space[14],
-    paddingHorizontal: space[18],
-    paddingBottom: space[12],
+    gap: spacing.xs,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[8],
+    gap: spacing.xs,
     borderRadius: 12,
-    paddingHorizontal: space[14],
+    paddingHorizontal: spacing.md,
     height: 42,
     borderWidth: 1,
   },
@@ -236,12 +237,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[12],
-    paddingHorizontal: space[18],
-    paddingBottom: space[32],
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
   },
   recentWrap: {
-    marginBottom: space[18],
+    marginBottom: spacing.md,
   },
   txIconBox: {
     width: 36,
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   },
   txCat: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   txAmount: {
     fontSize: 13,
