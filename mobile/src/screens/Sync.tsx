@@ -51,7 +51,8 @@ import { MI } from '../components/icons';
 import { AppIconBox } from '../components/contentIcons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
@@ -697,12 +698,12 @@ const styles = StyleSheet.create({
   // mix of marginBottom on cards + marginTop on section heads) is what fixes
   // the old 24+24=48 double-gap — RN margins add, they don't collapse.
   block: {
-    marginBottom: space[20],
+    marginBottom: spacing.xl,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
+    gap: spacing.sm,
   },
   statusIconBox: {
     position: 'relative',
@@ -731,19 +732,19 @@ const styles = StyleSheet.create({
   },
   statusSubtitle: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   banksRow: {
     flexDirection: 'row',
-    gap: space[8],
-    marginTop: space[14],
-    paddingTop: space[14],
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
   },
   bankCol: {
     flex: 1,
     alignItems: 'center',
-    gap: space[6],
+    gap: spacing.xxs,
   },
   bankLabel: {
     fontSize: 10,
@@ -755,9 +756,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: space[4],
-    paddingHorizontal: space[4],
-    paddingBottom: space[12],
+    paddingTop: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: 15,
@@ -773,8 +774,8 @@ const styles = StyleSheet.create({
   // card's inner overlay (on `style` the centering never applies and the
   // paddings stack outside GlassCard's own 18px).
   emptyCardContent: {
-    paddingVertical: space[28],
-    paddingHorizontal: space[20],
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
   emptyIconBox: {
@@ -783,14 +784,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space[12],
+    marginBottom: spacing.sm,
   },
   emptyTitle: {
     fontSize: 14.5,
   },
   emptyBody: {
     fontSize: 12.5,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
     lineHeight: 18.75,
     textAlign: 'center',
   },
@@ -804,8 +805,8 @@ const styles = StyleSheet.create({
   recentMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[6],
-    marginTop: space[2],
+    gap: spacing.xxs,
+    marginTop: spacing.xxs,
   },
   recentCat: {
     fontSize: 11.5,
@@ -826,18 +827,18 @@ const styles = StyleSheet.create({
   duplicateHint: {
     fontSize: 11,
     marginTop: -8, // structural: pulls up into DetectedCard's idle 12px gap
-    marginBottom: space[8],
-    paddingHorizontal: space[16],
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   // No marginTop: gets its top gap from the previous block's `block` margin.
   infoRow: {
     flexDirection: 'row',
-    gap: space[10],
+    gap: spacing.xs,
     alignItems: 'flex-start',
-    paddingHorizontal: space[4],
+    paddingHorizontal: spacing.xxs,
   },
   infoIconWrap: {
-    marginTop: space[2],
+    marginTop: spacing.xxs,
     flexShrink: 0,
   },
   infoText: {
