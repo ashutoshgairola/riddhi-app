@@ -14,6 +14,9 @@ describe('mapNotificationToScreen', () => {
   it('rejects a null payload', () => {
     expect(mapNotificationToScreen(null)).toBeNull();
   });
+  it('returns null for tx-detail without a string id', () => {
+    expect(mapNotificationToScreen({ screen: 'tx-detail' })).toBeNull();
+  });
 });
 
 describe('fallbackTargetForType', () => {

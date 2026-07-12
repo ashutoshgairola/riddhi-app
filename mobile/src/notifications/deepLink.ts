@@ -22,8 +22,11 @@ export function mapNotificationToScreen(data: unknown): NotifNavTarget | null {
     return null;
   }
   const id = (data as Record<string, unknown>).id;
-  if (screen === 'tx-detail' && typeof id === 'string') {
-    return { kind: 'tx-detail', data: { id } };
+  // tx-detail can only render with a string id (the detail screen fetches by
+  // id); an id-less tx-detail payload resolves to null so the caller falls
+  // back to a safe screen instead of pushing a detail with no id.
+  if (screen === 'tx-detail') {
+    return typeof id === 'string' ? { kind: 'tx-detail', data: { id } } : null;
   }
   return { kind: screen as ScreenKind };
 }
