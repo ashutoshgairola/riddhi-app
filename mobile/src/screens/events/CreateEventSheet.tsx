@@ -27,7 +27,8 @@ import { useIconPicker } from '../../components/IconPickerSheet';
 import { Btn } from '../../components/ui';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, space, weight } from '../../theme/tokens';
+import { radius, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { EV_TEMPLATES, seedFromTemplate } from './templates';
 import { parseYMD, toYMD, formatRange } from './eventDates';
 import type { NewEventInput } from '../../api/types';
@@ -247,7 +248,7 @@ export function CreateEventSheet({
               </Text>
             </Pressable>
 
-            <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: space[14] }]}>
+            <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: spacing.md }]}>
               PICK A COLOUR
             </Text>
             <View style={styles.swatchRow}>
@@ -270,7 +271,7 @@ export function CreateEventSheet({
           </View>
         ) : null}
 
-        <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: space[18] }]}>
+        <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: spacing.md }]}>
           EVENT NAME
         </Text>
         <TextInput
@@ -439,25 +440,25 @@ export function CreateEventSheet({
 
 const styles = StyleSheet.create({
   body: {
-    paddingBottom: space[6],
+    paddingBottom: spacing.xs,
   },
   label: {
     fontSize: 10.5,
     letterSpacing: 0.84,
-    marginBottom: space[8],
+    marginBottom: spacing.xs,
   },
   templateGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: space[10],
+    gap: spacing.xs,
   },
   templateCard: {
     width: '48.3%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
-    paddingVertical: space[12],
-    paddingHorizontal: space[14],
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -470,16 +471,16 @@ const styles = StyleSheet.create({
   },
   templateSub: {
     fontSize: 10.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   emojiSection: {
-    marginTop: space[14],
+    marginTop: spacing.md,
   },
   iconPickRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    padding: space[10],
+    gap: spacing.sm,
+    padding: spacing.xs,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -489,7 +490,7 @@ const styles = StyleSheet.create({
   swatchRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: space[12],
+    gap: spacing.sm,
   },
   swatch: {
     width: 34,
@@ -501,7 +502,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: space[14],
+    paddingHorizontal: spacing.md,
     fontSize: 15,
   },
   nameInput: {
@@ -510,9 +511,9 @@ const styles = StyleSheet.create({
   multiDayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    marginTop: space[14],
-    padding: space[14],
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -533,12 +534,12 @@ const styles = StyleSheet.create({
   },
   multiDaySubtitle: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   fieldsRow: {
     flexDirection: 'row',
-    gap: space[10],
-    marginTop: space[12],
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
   fieldFlex: {
     flex: 1,
@@ -565,9 +566,9 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     height: 46,
-    paddingLeft: space[28],
+    paddingLeft: spacing.lg,
   },
   createBtn: {
-    marginTop: space[18],
+    marginTop: spacing.md,
   },
 });
