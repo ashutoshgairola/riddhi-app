@@ -33,7 +33,8 @@ import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
@@ -177,21 +178,23 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
 
 const styles = StyleSheet.create({
   segWrap: {
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   list: {
     flexDirection: 'column',
-    gap: space[10],
+    // "sibling cards in a list" pattern — aligned with Accounts.accountList /
+    // Budgets.categoryList (see 8pt-spacing-audit.md sibling consistency flag).
+    gap: spacing.md,
   },
   // Padding override (14 vs GlassCard's 18) — contentStyle so it replaces
   // the overlay's padding instead of stacking on the outer wrapper.
   cardContent: {
-    padding: space[14],
+    padding: spacing.md,
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
+    gap: spacing.sm,
   },
   textBlock: {
     flex: 1,
@@ -202,7 +205,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   total: {
     fontFamily: weight(700),
@@ -211,9 +214,9 @@ const styles = StyleSheet.create({
   subsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: space[6],
-    marginTop: space[10],
-    paddingTop: space[10],
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
     borderTopWidth: 1,
   },
 });
