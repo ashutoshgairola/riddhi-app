@@ -50,7 +50,8 @@ import { AppIcon, AppIconBox } from '../../components/contentIcons';
 import { PageBackground } from '../../components/PageBackground';
 import { SpringIn } from '../../components/SpringIn';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, space, weight } from '../../theme/tokens';
+import { radius, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { useNav, type ScreenEntry } from '../../app/navContext';
 import { api } from '../../api';
 import { useApiData } from '../../api/useApi';
@@ -244,14 +245,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[4],
-    paddingHorizontal: space[18],
-    paddingBottom: space[24],
+    paddingTop: spacing.xxs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
   },
   subtitle: {
     fontSize: 13,
-    marginTop: space[8],
-    marginBottom: space[16],
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
   },
 
   // Empty state
@@ -259,35 +260,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   emptyCardBody: {
-    paddingVertical: space[40],
-    paddingHorizontal: space[20],
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 15,
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   emptySubtitle: {
     fontSize: 12.5,
-    marginTop: space[6],
+    marginTop: spacing.xs,
     lineHeight: 18,
     textAlign: 'center',
   },
   emptyBtn: {
-    marginTop: space[16],
+    marginTop: spacing.md,
   },
 
   // Event list/cards
   eventList: {
     flexDirection: 'column',
-    gap: space[14],
+    gap: spacing.md,
   },
   eventCard: {
     position: 'relative',
     overflow: 'hidden',
   },
   eventCardBody: {
-    padding: space[18],
+    padding: spacing.md,
   },
   accentBar: {
     position: 'absolute',
@@ -299,8 +300,8 @@ const styles = StyleSheet.create({
   eventHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[14],
-    marginBottom: space[14],
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   eventTextBlock: {
     flex: 1,
@@ -311,13 +312,13 @@ const styles = StyleSheet.create({
   },
   eventMetaRow: {
     flexDirection: 'row',
-    gap: space[10],
-    marginTop: space[4],
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
   },
   eventMetaChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
+    gap: spacing.xxs,
   },
   eventMetaText: {
     fontSize: 11.5,
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   eventPaid: {
     fontSize: 15,
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   eventOverRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
+    gap: spacing.xxs,
   },
   eventLeftOrOver: {
     fontSize: 11.5,
