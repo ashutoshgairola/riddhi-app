@@ -26,7 +26,8 @@ import { GlassCard } from '../components/Glass';
 import { ListCard, ProgressBar, SearchButton } from '../components/ui';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
@@ -355,13 +356,13 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
 
 const styles = StyleSheet.create({
   headerCard: {
-    padding: space[16],
-    marginTop: space[4],
+    padding: spacing.md,
+    marginTop: spacing.xxs,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
+    gap: spacing.sm,
   },
   iconBox: {
     width: 44,
@@ -382,18 +383,18 @@ const styles = StyleSheet.create({
   },
   headerMeta: {
     fontSize: 12,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   pctBadge: {
     fontSize: 14,
-    paddingVertical: space[4],
-    paddingHorizontal: space[10],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
     borderRadius: 99,
     overflow: 'hidden',
   },
   headerActions: {
     flexDirection: 'row',
-    gap: space[8],
+    gap: spacing.xs,
   },
   headerIconBtn: {
     width: 36,
@@ -404,48 +405,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   barWrap: {
-    marginTop: space[14],
+    marginTop: spacing.md,
   },
   overWarnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
-    marginTop: space[8],
+    gap: spacing.xxs,
+    marginTop: spacing.xs,
   },
   overWarn: {
     fontSize: 11,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: space[8],
-    marginTop: space[14],
+    gap: spacing.xs,
+    marginTop: spacing.md,
   },
   actionBtn: {
     fontSize: 12.5,
-    paddingVertical: space[10],
-    paddingHorizontal: space[16],
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 99,
     overflow: 'hidden',
     textAlign: 'center',
   },
   emptyCard: {
     alignItems: 'center',
-    paddingVertical: space[28],
-    marginTop: space[16],
+    paddingVertical: spacing.lg,
+    marginTop: spacing.md,
   },
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
   },
   groupWrap: {
-    marginTop: space[20],
+    marginTop: spacing.lg,
   },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: space[4],
-    paddingBottom: space[10],
+    paddingHorizontal: spacing.xxs,
+    paddingBottom: spacing.sm,
   },
   groupLabel: {
     fontSize: 13,
