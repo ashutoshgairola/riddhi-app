@@ -49,6 +49,19 @@ describe('toGoalView', () => {
     expect(v.current).toBe(25000); // current mirrors saved for display
     expect(v.target).toBe(100000);
   });
+
+  it('falls back to currentAmount and computed remaining when saved/remaining are absent', () => {
+    const legacy = { ...apiGoal, currentAmount: 40000, saved: undefined, remaining: undefined } as ApiGoal;
+    const v = toGoalView(legacy);
+    expect(v.saved).toBe(40000);
+    expect(v.current).toBe(40000);
+    expect(v.remaining).toBe(60000); // target 100000 - saved 40000
+  });
+
+  it('clamps the computed remaining fallback at 0 when overfunded', () => {
+    const overfunded = { ...apiGoal, currentAmount: 120000, saved: undefined, remaining: undefined } as ApiGoal;
+    expect(toGoalView(overfunded).remaining).toBe(0);
+  });
 });
 
 describe('toNotificationView', () => {

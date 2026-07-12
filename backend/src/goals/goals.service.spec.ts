@@ -166,4 +166,64 @@ describe('GoalsService.contribute', () => {
       svc.contribute('g1', 'u1', { amount: 5000, sourceAccountId: 'goal-acct' }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('creates the Transfer category when none exists and uses it', async () => {
+    const goalsRepository = {
+      findOneByUser: jest.fn().mockResolvedValue({ ...linkedGoal }),
+    };
+    const transactionsService = { create: jest.fn().mockResolvedValue({ id: 'tx1' }) };
+    const categoriesService = {
+      findAll: jest.fn().mockResolvedValue([]),
+      create: jest.fn().mockResolvedValue({ id: 'new-cat', name: 'Transfer' }),
+    };
+    const events = { emit: jest.fn() };
+    const svc = new GoalsService(
+      goalsRepository as any,
+      events as any,
+      transactionsService as any,
+      categoriesService as any,
+    );
+
+    await svc.contribute('g1', 'u1', { amount: 5000, sourceAccountId: 'src-acct' });
+
+    expect(categoriesService.create).toHaveBeenCalledWith('u1', { name: 'Transfer' });
+    expect(transactionsService.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ categoryId: 'new-cat' }),
+    );
+  });
+
+  it('emits GOAL_UPDATED when the transfer moves progress', async () => {
+    const before = { ...linkedGoal, account: { id: 'goal-acct', balance: 0 } };
+    const after = { ...linkedGoal, account: { id: 'goal-acct', balance: 30000 } };
+    const goalsRepository = {
+      findOneByUser: jest
+        .fn()
+        .mockResolvedValueOnce(before) // initial load
+        .mockResolvedValueOnce(after), // reload after the transfer
+    };
+    const transactionsService = { create: jest.fn().mockResolvedValue({ id: 'tx1' }) };
+    const categoriesService = {
+      findAll: jest.fn().mockResolvedValue([{ id: 'cat-transfer', name: 'Transfer' }]),
+      create: jest.fn(),
+    };
+    const events = { emit: jest.fn() };
+    const svc = new GoalsService(
+      goalsRepository as any,
+      events as any,
+      transactionsService as any,
+      categoriesService as any,
+    );
+
+    const result = await svc.contribute('g1', 'u1', {
+      amount: 30000,
+      sourceAccountId: 'src-acct',
+    });
+
+    expect(result.progressPct).toBe(30);
+    expect(events.emit).toHaveBeenCalledWith(
+      GOAL_UPDATED,
+      expect.objectContaining({ goalId: 'g1', previousPct: 0, newPct: 30 }),
+    );
+  });
 });
