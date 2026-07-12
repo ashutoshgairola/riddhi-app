@@ -28,12 +28,13 @@ import { GlassView } from '../components/Glass';
 import { AppIcon, AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { ease, radius, space, weight } from '../theme/tokens';
+import { ease, radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import type { SyncDetected } from './Sync';
 
 const TRANSITION_MS = 360;
 const IDLE_MAX_HEIGHT = 320;
-const IDLE_MARGIN_BOTTOM = 12;
+const IDLE_MARGIN_BOTTOM = spacing.sm;
 const SLIDE_DISTANCE = 40;
 
 const fmtR = (n: number) => '₹' + Math.abs(n).toLocaleString('en-IN');
@@ -140,9 +141,9 @@ const styles = StyleSheet.create({
   resultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   resultText: {
     flex: 1,
@@ -154,12 +155,12 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[8],
-    marginTop: space[4],
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
   },
   catChip: {
-    paddingVertical: space[2],
-    paddingHorizontal: space[8],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
   },
   catChipText: {
@@ -177,18 +178,18 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 10.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   rawWrap: {
-    paddingHorizontal: space[16],
-    paddingBottom: space[14],
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   rawRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[8],
-    paddingVertical: space[10],
-    paddingHorizontal: space[12],
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderRadius: 11,
     borderWidth: 1,
   },
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   },
   ignoreBtn: {
     flex: 1,
-    paddingVertical: space[12],
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
@@ -221,11 +222,11 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     flex: 2,
-    paddingVertical: space[12],
+    paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[8],
+    gap: spacing.xs,
   },
   addLabel: {
     fontSize: 13.5,
