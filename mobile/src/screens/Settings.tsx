@@ -73,7 +73,8 @@ import { shareTxCsv } from "../lib/exportCsv";
 import { usePrefs } from "../prefs/PrefsProvider";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { useTheme } from "../theme/ThemeProvider";
-import { space, weight } from "../theme/tokens";
+import { weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { BackendUrlCard } from "./BackendUrlCard";
 import { MPageShell } from "./_MPageShell";
 
@@ -766,14 +767,14 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Profile card (MobileScreens.jsx:587–595)
   profileCard: {
-    marginBottom: space[18],
+    marginBottom: spacing.md,
   },
   // Content layout must target GlassCard's inner overlay (contentStyle) —
   // on `style` it lands on the outer wrapper and the card stacks vertically.
   profileCardContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[14],
+    gap: spacing.md,
   },
   avatar: {
     width: 60,
@@ -795,14 +796,14 @@ const styles = StyleSheet.create({
   },
   profileEmail: {
     fontSize: 12,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   proBadge: {
     alignSelf: "flex-start",
-    paddingVertical: space[4],
-    paddingHorizontal: space[8],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
-    marginTop: space[6],
+    marginTop: spacing.xxs,
   },
   proBadgeText: {
     fontSize: 10.5,
@@ -810,7 +811,7 @@ const styles = StyleSheet.create({
 
   // Section
   section: {
-    marginBottom: space[18],
+    marginBottom: spacing.md,
   },
 
   // Row
@@ -835,7 +836,7 @@ const styles = StyleSheet.create({
   },
   sub: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 
   // Sign out (.m-btn .m-btn-ghost, mobile.css:601–619)
@@ -843,11 +844,11 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: space[14],
-    paddingHorizontal: space[20],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: 16,
     borderWidth: 1,
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   signOutText: {
     fontSize: 15,
