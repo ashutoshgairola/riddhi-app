@@ -29,26 +29,54 @@
  *  - More-sheet options: Edit/Duplicate/Delete (danger, toasts then pops)
  *    — MobileScreens.jsx:797–799.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '../api';
-import { AppIcon } from '../components/contentIcons';
+import { AppIcon, AppIconBox } from '../components/contentIcons';
 import { GlassCard } from '../components/Glass';
 import { Btn, IconButton, ListCard, ListRow, SearchButton, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { SourceTag } from '../components/SourceTag';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
 import type { SwipeTx } from './SwipeRow';
 
 export function TxDetail({ entry }: { entry: ScreenEntry }) {
-  const tx = entry.data as SwipeTx;
+  const stub = entry.data as { id: string } & Partial<SwipeTx>;
+  const isFull = typeof stub?.desc === 'string';
+  const [tx, setTx] = useState<SwipeTx | null>(isFull ? (stub as SwipeTx) : null);
+
+  useEffect(() => {
+    if (tx) return;
+    let cancelled = false;
+    api.transactions
+      .get(stub.id)
+      .then((full) => {
+        if (!cancelled) setTx(full);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [tx, stub.id]);
+
   const { t } = useTheme();
   const { pop, nav } = useNav();
   const { toast, sheet, form } = useFeedback();
+
+  if (!tx) {
+    return (
+      <MPageShell title="Transaction" onBack={pop}>
+        <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+          <ActivityIndicator color={t.text3} />
+        </View>
+      </MPageShell>
+    );
+  }
 
   const editTx = async () => {
     const cats = await api.categories.list();
@@ -156,9 +184,7 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
       }
     >
       <View style={styles.heroWrap}>
-        <View style={[styles.iconBox, { backgroundColor: tx.cCol + '22' }]}>
-          <Text style={styles.iconGlyph}>{tx.icon}</Text>
-        </View>
+        <AppIconBox value={tx.icon} color={tx.cCol} size={72} iconSize={34} />
         <Text style={[styles.desc, { color: t.text2 }]}>{tx.desc}</Text>
         <Text style={[styles.amount, { color: tx.type === 'inc' ? t.em : t.red, fontFamily: weight(700) }]}>
           {tx.amount > 0 ? '+' : ''}₹{Math.abs(tx.amount).toLocaleString('en-IN')}
@@ -226,30 +252,20 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   heroWrap: {
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingBottom: 24,
-  },
-  iconBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  iconGlyph: {
-    fontSize: 34,
+    paddingVertical: space[18],
+    paddingBottom: space[24],
+    gap: space[14],
   },
   desc: {
     fontSize: 13,
-    marginBottom: 6,
+    marginBottom: space[6],
   },
   amount: {
     fontSize: 38,
     letterSpacing: -1.14, // -0.03em of 38px
   },
   listWrap: {
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   rowKey: {
     flex: 1,
@@ -264,20 +280,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   noteCard: {
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   noteLabel: {
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0.88, // 0.08em of 11px
-    marginBottom: 6,
+    marginBottom: space[6],
   },
   noteBody: {
     fontSize: 13,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: space[10],
   },
   actionCol: {
     flex: 1,
@@ -286,7 +302,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: space[6],
   },
   deleteLabel: {
     fontSize: 15,
