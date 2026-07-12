@@ -64,7 +64,7 @@ describe('NotificationsListener', () => {
       'u1',
       expect.objectContaining({
         type: NotificationType.GOAL_PROGRESS,
-        data: { screen: 'goals' },
+        data: { screen: 'goal-detail', id: 'g1' },
       }),
     );
   });

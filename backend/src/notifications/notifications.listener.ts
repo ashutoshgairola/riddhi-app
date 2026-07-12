@@ -92,7 +92,7 @@ export class NotificationsListener {
           milestone >= 100
             ? 'You hit your target. The ledger approves.'
             : `${milestone}% of the way there.`,
-        data: { screen: 'goals' },
+        data: { screen: 'goal-detail', id: e.goalId },
       });
     } catch (err) {
       this.logger.warn(
