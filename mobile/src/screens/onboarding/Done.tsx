@@ -8,7 +8,8 @@ import { AppIcon } from '../../components/contentIcons';
 import { Btn } from '../../components/ui';
 import { PageBackground } from '../../components/PageBackground';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, space, weight } from '../../theme/tokens';
+import { radius, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { SpringIn } from '../auth/authUi';
 
 export interface DoneSummaryItem {
@@ -34,12 +35,12 @@ export function OBDone({
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: space[28] }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg }}
       >
         {/* Source's 72px sat below the frame mock's status bar. */}
         <View style={{ paddingTop: insets.top + 72, alignItems: 'center' }}>
           <SpringIn>
-            <View style={{ width: 104, height: 104, marginBottom: space[28] }}>
+            <View style={{ width: 104, height: 104, marginBottom: spacing.lg }}>
               <View pointerEvents="none" style={styles.doneGlow}>
                 <Svg width={152} height={152}>
                   <Defs>
@@ -77,7 +78,7 @@ export function OBDone({
           </SpringIn>
         </View>
 
-        <SpringIn delay={120} style={{ marginTop: space[28], gap: space[10] }}>
+        <SpringIn delay={120} style={{ marginTop: spacing.lg, gap: spacing.xs }}>
           {summary.map((s) => (
             <View key={s.l} style={[styles.sumRow, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
               <View style={[styles.sumIcon, { backgroundColor: t.emDim }]}>
@@ -87,14 +88,14 @@ export function OBDone({
                 <Text style={{ fontSize: 11, color: t.text3, fontFamily: weight(600), letterSpacing: 0.66 }}>
                   {s.l.toUpperCase()}
                 </Text>
-                <Text style={{ fontSize: 14, color: t.text1, fontFamily: weight(700), marginTop: space[2] }}>{s.v}</Text>
+                <Text style={{ fontSize: 14, color: t.text1, fontFamily: weight(700), marginTop: spacing.xxs }}>{s.v}</Text>
               </View>
             </View>
           ))}
         </SpringIn>
 
         {/* Bottom inset clears the home indicator (same pattern as obUi's footer). */}
-        <View style={{ marginTop: 'auto', paddingTop: space[28], paddingBottom: insets.bottom + space[20] }}>
+        <View style={{ marginTop: 'auto', paddingTop: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
           <Btn onPress={onEnter} disabled={entering} style={{ height: 54 }}>
             <Text style={{ fontSize: 16, color: '#1a1228', fontFamily: weight(600) }}>
               {entering ? 'Setting up…' : 'Enter Riddhi'}
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   },
   doneSubWrap: {
     fontSize: 14.5,
-    marginTop: space[10],
+    marginTop: spacing.xs,
     lineHeight: 21.75,
     maxWidth: 280,
     textAlign: 'center',
@@ -131,9 +132,9 @@ const styles = StyleSheet.create({
   sumRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[14],
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
