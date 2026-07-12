@@ -54,7 +54,8 @@ import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
@@ -721,33 +722,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[14],
-    paddingHorizontal: space[18],
-    paddingBottom: space[32],
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
   },
 
   // Sub-tabs (MobileScreens.jsx:115–123)
   tabsWrap: {
     flexShrink: 0,
-    paddingTop: space[4],
-    paddingBottom: space[10],
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xs,
     borderBottomWidth: 1,
   },
 
   // Period selector
   periodWrap: {
-    marginBottom: space[18],
+    marginBottom: spacing.md,
   },
   retryWrap: {
-    marginBottom: space[18],
+    marginBottom: spacing.md,
   },
 
   // KPI strip (MobileScreens.jsx:137–156)
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: space[10],
-    marginBottom: space[14],
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   kpiCard: {
     width: '48%',
@@ -759,16 +760,16 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     fontSize: 20,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   kpiDelta: {
     fontSize: 10.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 
   // Generic section card
   sectionCard: {
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   sectionCardLast: {},
 
@@ -776,7 +777,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   cardEyebrow: {
     fontSize: 10.5,
@@ -784,20 +785,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.84, // 0.08em of 10.5px
   },
   cardEyebrowMb: {
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   cardSubtitle: {
     fontSize: 14,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   legendRow: {
     flexDirection: 'row',
-    gap: space[10],
+    gap: spacing.xs,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[6],
+    gap: spacing.xxs,
   },
   legendDot: {
     width: 8,
@@ -811,13 +812,13 @@ const styles = StyleSheet.create({
   // Donut legend
   donutLegend: {
     flexDirection: 'column',
-    gap: space[10],
-    marginTop: space[18],
+    gap: spacing.xs,
+    marginTop: spacing.md,
   },
   donutLegendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
+    gap: spacing.xs,
   },
   legendDot10: {
     width: 10,
@@ -840,18 +841,18 @@ const styles = StyleSheet.create({
   // Net worth trend
   netWorthValue: {
     fontSize: 22,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   deltaBadge: {
     fontSize: 11,
-    paddingVertical: space[4],
-    paddingHorizontal: space[10],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
     borderRadius: 99,
   },
   deltaBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
+    gap: spacing.xxs,
   },
   deltaBadgeText: {
     fontSize: 11,
@@ -860,20 +861,20 @@ const styles = StyleSheet.create({
     marginHorizontal: -8,
   },
   sparklineBleedTop: {
-    marginTop: space[12],
+    marginTop: spacing.sm,
     marginHorizontal: -8,
   },
 
   // Income / Expense / Wealth totals
   totalValue: {
     fontSize: 30,
-    marginTop: space[6],
+    marginTop: spacing.xxs,
   },
   deltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
-    marginTop: space[4],
+    gap: spacing.xxs,
+    marginTop: spacing.xxs,
   },
   totalDelta: {
     fontSize: 12,
@@ -887,7 +888,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sourceBarWrap: {
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   sourceRight: {
     alignItems: 'flex-end',
@@ -897,7 +898,7 @@ const styles = StyleSheet.create({
   },
   sourcePct: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 
   // Event Budgets list rows
@@ -905,7 +906,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
+    gap: spacing.xs,
     minWidth: 0,
   },
   eventRowText: {
@@ -916,30 +917,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   eventRowBarWrap: {
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   eventRowRight: {
     alignItems: 'flex-end',
-    marginLeft: space[10],
+    marginLeft: spacing.sm,
   },
   eventRowAmt: {
     fontSize: 13,
   },
   eventRowStatus: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
 
   // Top categories / goal progress / asset allocation rows
   topCatRow: {
-    marginBottom: space[12],
+    marginBottom: spacing.sm,
   },
   topCatHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: space[6],
+    marginBottom: spacing.xxs,
   },
   topCatLabel: {
     fontSize: 13,
@@ -954,10 +955,10 @@ const styles = StyleSheet.create({
   // Savings rate
   savingsRateValue: {
     fontSize: 32,
-    marginTop: space[6],
+    marginTop: spacing.xxs,
   },
   savingsRateSub: {
     fontSize: 12,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
 });
