@@ -42,7 +42,8 @@ import { AppIcon, AppIconBox } from '../components/contentIcons';
 import { BottomSheet } from '../components/BottomSheet';
 import { Btn } from '../components/ui';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { subscriptionsApi, type SubFlagView, type SubView } from '../api/subscriptions';
 import { formatInr, payTag } from './subscriptions';
@@ -72,9 +73,9 @@ const payTagStyles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
-    paddingVertical: space[2],
-    paddingHorizontal: space[8],
+    gap: spacing.xxs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
     borderWidth: 1,
     alignSelf: 'flex-start',
@@ -260,8 +261,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[14],
-    paddingBottom: space[18],
+    gap: spacing.md,
+    paddingBottom: spacing.md,
   },
   headerTextBlock: {
     flex: 1,
@@ -273,15 +274,15 @@ const styles = StyleSheet.create({
   headerMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[8],
-    marginTop: space[4],
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
   },
   sinceText: {
     fontSize: 12,
   },
   pausedBadge: {
-    paddingVertical: space[4],
-    paddingHorizontal: space[10],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
     borderRadius: 99,
   },
   pausedBadgeText: {
@@ -291,13 +292,13 @@ const styles = StyleSheet.create({
 
   costGrid: {
     flexDirection: 'row',
-    gap: space[10],
-    marginBottom: space[14],
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   costCard: {
     flex: 1,
-    padding: space[14],
-    paddingHorizontal: space[16],
+    padding: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: 16,
     borderWidth: 1,
   },
@@ -309,20 +310,20 @@ const styles = StyleSheet.create({
   },
   costValue: {
     fontSize: 20,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
 
   detailCard: {
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: space[14],
-    paddingHorizontal: space[16],
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: space[14],
+    paddingVertical: spacing.md,
   },
   detailRowBorder: {
     borderTopWidth: 1,
@@ -337,12 +338,12 @@ const styles = StyleSheet.create({
   flagBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
-    paddingVertical: space[12],
-    paddingHorizontal: space[14],
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: space[10],
+    marginBottom: spacing.sm,
   },
   flagText: {
     flex: 1,
@@ -352,13 +353,13 @@ const styles = StyleSheet.create({
 
   actionsRow: {
     flexDirection: 'row',
-    gap: space[10],
-    marginTop: space[6],
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   actionBtn: {
     flex: 1,
   },
   cancelBtn: {
-    marginTop: space[10],
+    marginTop: spacing.sm,
   },
 });
