@@ -9,7 +9,8 @@ import { useFeedback } from '../../feedback/FeedbackProvider';
 import { ApiError } from '../../api/client';
 import { authApi, USE_BACKEND } from '../../api';
 import { useTheme } from '../../theme/ThemeProvider';
-import { space, weight } from '../../theme/tokens';
+import { weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import {
   AuthDivider,
   AuthInput,
@@ -88,7 +89,7 @@ export function Login({
 
   return (
     <AuthShell onBack={onBack}>
-      <SpringIn style={{ marginTop: space[8], marginBottom: space[24] }}>
+      <SpringIn style={{ marginTop: spacing.xs, marginBottom: spacing.lg }}>
         <Wordmark size={30} />
         <Text style={[styles.title, { color: t.text1, fontFamily: weight(800) }]}>Welcome back</Text>
         <Text style={[styles.sub, { color: t.text2, fontFamily: weight(500) }]}>Log in to pick up where you left off.</Text>
@@ -108,7 +109,7 @@ export function Login({
         <Field label="Password">
           <PasswordField value={pwd} onChange={setPwd} />
         </Field>
-        <Pressable onPress={() => void forgotPassword()} style={{ alignSelf: 'flex-end', marginTop: -2, marginBottom: space[18] }}>
+        <Pressable onPress={() => void forgotPassword()} style={{ alignSelf: 'flex-end', marginTop: -2, marginBottom: spacing.md }}>
           <Text style={{ fontSize: 13, color: t.em, fontFamily: weight(600) }}>Forgot password?</Text>
         </Pressable>
 
@@ -131,7 +132,7 @@ export function Login({
         <SocialRow onGoogle={promptGoogle} onApple={() => toast('Apple sign-in coming soon', '🍎')} />
       </SpringIn>
 
-      <View style={{ alignItems: 'center', marginTop: space[28], flexDirection: 'row', justifyContent: 'center' }}>
+      <View style={{ alignItems: 'center', marginTop: spacing.lg, flexDirection: 'row', justifyContent: 'center' }}>
         <Text style={{ fontSize: 14, color: t.text2, fontFamily: weight(500) }}>New to Riddhi? </Text>
         <Pressable onPress={onSignup}>
           <Text style={{ fontSize: 14, color: t.em, fontFamily: weight(700) }}>Create an account</Text>
@@ -145,19 +146,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     letterSpacing: -0.78, // -0.03em of 26px
-    marginTop: space[20],
+    marginTop: spacing.lg,
   },
   sub: {
     fontSize: 14,
-    marginTop: space[6],
+    marginTop: spacing.xs,
   },
   faceIdBtn: {
     height: 50,
-    marginTop: space[10],
+    marginTop: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[10],
+    gap: spacing.xs,
     borderRadius: 16,
     borderWidth: 1,
   },
