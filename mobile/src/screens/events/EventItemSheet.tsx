@@ -23,7 +23,8 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { AppIcon } from '../../components/contentIcons';
 import { Btn } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, space, weight } from '../../theme/tokens';
+import { radius, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { EV_CAT_LIST } from './templates';
 import { eachDayYMD, formatDayShort } from './eventDates';
 import type { EventExpenseView, NewEventExpenseInput } from '../../api/types';
@@ -257,7 +258,7 @@ export function EventItemSheet({
 
         {/* day selector — multi-day events only */}
         {multiDay && rangeStart && rangeEnd ? (
-          <View style={{ marginTop: space[14] }}>
+          <View style={{ marginTop: spacing.md }}>
             <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>DAY</Text>
             <ScrollView
               horizontal
@@ -302,25 +303,25 @@ export function EventItemSheet({
 
 const styles = StyleSheet.create({
   body: {
-    paddingBottom: space[6],
+    paddingBottom: spacing.xs,
   },
   label: {
     fontSize: 10.5,
     letterSpacing: 0.84,
-    marginBottom: space[8],
+    marginBottom: spacing.xs,
   },
   chipsRow: {
     flexDirection: 'row',
-    gap: space[8],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[8],
-    paddingVertical: space[10],
-    paddingHorizontal: space[14],
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.md,
     borderRadius: 99,
     borderWidth: 1,
     flexShrink: 0,
@@ -331,17 +332,17 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: space[14],
+    paddingHorizontal: spacing.md,
     fontSize: 15,
   },
   labelInput: {
-    marginTop: space[14],
+    marginTop: spacing.md,
     height: 46,
   },
   amountsRow: {
     flexDirection: 'row',
-    gap: space[10],
-    marginTop: space[12],
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
   amountField: {
     flex: 1,
@@ -358,14 +359,14 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     height: 46,
-    paddingLeft: space[28],
+    paddingLeft: spacing.lg,
   },
   paidRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    marginTop: space[14],
-    padding: space[14],
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -386,13 +387,13 @@ const styles = StyleSheet.create({
   },
   paidSubtitle: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   saveBtn: {
-    marginTop: space[16],
+    marginTop: spacing.md,
   },
   removeBtn: {
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   removeLabel: {
     fontSize: 15,
