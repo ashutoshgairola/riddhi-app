@@ -62,6 +62,33 @@ describe('NotificationsScheduler', () => {
     );
   });
 
+  it('deep-links a goal-focused munshi note to that goal-detail', async () => {
+    const { scheduler, notifications } = setup({
+      goals: [{ id: 'g1', name: 'Emergency fund', progressPct: 55, status: 'active' }],
+      aiText: '{"title":"Aadha safar tay","body":"50% done","focus":"goal","focusGoal":"Emergency fund"}',
+    });
+    await scheduler.generateMunshiForUser('u1');
+    expect(notifications.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({
+        type: NotificationType.MUNSHI_SUGGESTION,
+        data: { screen: 'goal-detail', id: 'g1' },
+      }),
+    );
+  });
+
+  it('falls back to chat for a munshi note with no focus', async () => {
+    const { scheduler, notifications } = setup({
+      budgets: [{ name: 'April', totalAllocated: 10000, totalSpent: 8000, categories: [] }],
+      aiText: '{"title":"Slow down","body":"80% gone"}',
+    });
+    await scheduler.generateMunshiForUser('u1');
+    expect(notifications.create).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ data: { screen: 'chat' } }),
+    );
+  });
+
   it('skips when the snapshot is not noteworthy (no AI call, no notification)', async () => {
     const { scheduler, notifications } = setup({
       budgets: [{ name: 'April', totalAllocated: 10000, totalSpent: 500, categories: [] }],

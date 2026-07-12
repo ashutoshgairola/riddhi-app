@@ -16,6 +16,7 @@ import {
   buildMunshiPrompt,
   isNoteworthy,
   MUNSHI_SYSTEM_PROMPT,
+  munshiDeepLink,
   parseMunshiSuggestion,
 } from './munshi-suggestion.prompt';
 import type { MunshiSnapshot } from './munshi-suggestion.prompt';
@@ -92,7 +93,7 @@ export class NotificationsScheduler {
       type: NotificationType.MUNSHI_SUGGESTION,
       title: parsed.title,
       body: parsed.body,
-      data: { screen: 'chat' },
+      data: munshiDeepLink(parsed, snapshot.goals),
     });
   }
 
@@ -141,7 +142,7 @@ export class NotificationsScheduler {
         : null,
       goals: goals
         .filter((g: any) => g.status === GoalStatus.ACTIVE)
-        .map((g: any) => ({ name: g.name, progressPct: g.progressPct })),
+        .map((g: any) => ({ id: g.id, name: g.name, progressPct: g.progressPct })),
     };
   }
 
