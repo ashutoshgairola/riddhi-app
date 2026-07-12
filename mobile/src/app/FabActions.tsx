@@ -44,7 +44,7 @@ import { useEffect } from "react";
 import { LiquidGlass } from "../components/LiquidGlass";
 import { AppIcon } from "../components/contentIcons";
 import { useTheme } from "../theme/ThemeProvider";
-import { weight } from "../theme/tokens";
+import { space, weight } from "../theme/tokens";
 import { useNav } from "./navContext";
 
 interface FabAction {
@@ -311,10 +311,10 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-    paddingRight: 22,
-    paddingLeft: 12,
+    gap: space[12],
+    paddingVertical: space[10],
+    paddingRight: space[24],
+    paddingLeft: space[12],
     borderRadius: 999,
     borderWidth: 1,
     overflow: "hidden",

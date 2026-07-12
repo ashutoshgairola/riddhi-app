@@ -8,7 +8,7 @@ import { Btn } from '../../components/ui';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { ApiError } from '../../api/client';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 import {
   AuthDivider,
   AuthInput,
@@ -74,7 +74,7 @@ export function Signup({ onBack, onLogin }: { onBack: () => void; onLogin: () =>
 
   return (
     <AuthShell onBack={onBack}>
-      <SpringIn style={{ marginTop: 8, marginBottom: 22 }}>
+      <SpringIn style={{ marginTop: space[8], marginBottom: space[24] }}>
         <Wordmark size={30} />
         <Text style={[styles.title, { color: t.text1, fontFamily: weight(800) }]}>Create your account</Text>
         <Text style={[styles.sub, { color: t.text2, fontFamily: weight(500) }]}>Two minutes to set up. Free forever to start.</Text>
@@ -95,7 +95,7 @@ export function Signup({ onBack, onLogin }: { onBack: () => void; onLogin: () =>
           />
         </Field>
         <Field label="Mobile number">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[10] }}>
             <View style={[styles.ccBox, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
               <Text style={{ fontSize: 15, color: t.text2, fontFamily: weight(600) }}>🇮🇳 +91</Text>
             </View>
@@ -112,8 +112,8 @@ export function Signup({ onBack, onLogin }: { onBack: () => void; onLogin: () =>
         <Field label="Password">
           <PasswordField value={pwd} onChange={setPwd} placeholder="Create a password" />
           {pwd ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 9 }}>
-              <View style={{ flex: 1, flexDirection: 'row', gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[10], marginTop: space[10] }}>
+              <View style={{ flex: 1, flexDirection: 'row', gap: space[4] }}>
                 {[0, 1, 2, 3].map((i) => (
                   <View
                     key={i}
@@ -157,7 +157,7 @@ export function Signup({ onBack, onLogin }: { onBack: () => void; onLogin: () =>
         <SocialRow onGoogle={promptGoogle} onApple={() => toast('Apple sign-in coming soon', '🍎')} />
       </SpringIn>
 
-      <View style={{ alignItems: 'center', marginTop: 26, flexDirection: 'row', justifyContent: 'center' }}>
+      <View style={{ alignItems: 'center', marginTop: space[28], flexDirection: 'row', justifyContent: 'center' }}>
         <Text style={{ fontSize: 14, color: t.text2, fontFamily: weight(500) }}>Already have an account? </Text>
         <Pressable onPress={onLogin}>
           <Text style={{ fontSize: 14, color: t.em, fontFamily: weight(700) }}>Log in</Text>
@@ -171,15 +171,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     letterSpacing: -0.78,
-    marginTop: 20,
+    marginTop: space[20],
   },
   sub: {
     fontSize: 14,
-    marginTop: 6,
+    marginTop: space[6],
   },
   ccBox: {
     height: 50,
-    paddingHorizontal: 15,
+    paddingHorizontal: space[16],
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
@@ -188,16 +188,16 @@ const styles = StyleSheet.create({
   termsRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 11,
-    marginTop: 6,
-    marginHorizontal: 2,
-    marginBottom: 20,
+    gap: space[12],
+    marginTop: space[6],
+    marginHorizontal: space[2],
+    marginBottom: space[20],
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 7,
-    marginTop: 1,
+    marginTop: space[2],
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

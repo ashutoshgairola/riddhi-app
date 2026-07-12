@@ -6,11 +6,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Polyline, Rect } from 'react-native-svg';
 
 import { useBiometricLabel } from '../../auth/biometricLabel';
+import { PIN_MAX_LENGTH } from '../../auth/tokenStore';
 import { BankLogo } from '../../components/BankLogo';
 import { AppIcon } from '../../components/contentIcons';
 import { Chip, Toggle } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, weight } from '../../theme/tokens';
+import { radius, space, weight } from '../../theme/tokens';
 import { AuthInput, PressableScale } from '../auth/authUi';
 import { OBKeypad, amountKey } from './obUi';
 
@@ -36,7 +37,7 @@ export function OBGoals({ value, onChange }: { value: string[]; onChange: (v: st
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: space[10] }}>
       {GOAL_OPTS.map((o) => {
         const on = value.includes(o.id);
         return (
@@ -52,7 +53,7 @@ export function OBGoals({ value, onChange }: { value: string[]; onChange: (v: st
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontSize: 14.5, fontFamily: weight(700), color: on ? t.em : t.text1 }}>{o.l}</Text>
-                <Text style={{ fontSize: 11.5, color: t.text3, marginTop: 2, fontFamily: weight(500) }}>{o.d}</Text>
+                <Text style={{ fontSize: 11.5, color: t.text3, marginTop: space[2], fontFamily: weight(500) }}>{o.d}</Text>
               </View>
               <View
                 style={[
@@ -77,8 +78,8 @@ export function OBIncome({ value, onChange }: { value: string; onChange: (v: str
   const { t } = useTheme();
   return (
     <View>
-      <View style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
+      <View style={{ alignItems: 'center', paddingTop: space[6], paddingBottom: space[20] }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space[6] }}>
           <Text style={{ fontSize: 28, color: t.text3, fontFamily: weight(600) }}>₹</Text>
           <Text
             style={{
@@ -92,12 +93,12 @@ export function OBIncome({ value, onChange }: { value: string; onChange: (v: str
             {value === '' ? '0' : Number(value).toLocaleString('en-IN')}
           </Text>
         </View>
-        <Text style={{ fontSize: 12.5, color: t.text3, marginTop: 8, fontFamily: weight(500) }}>
+        <Text style={{ fontSize: 12.5, color: t.text3, marginTop: space[8], fontFamily: weight(500) }}>
           per month · you can change this later
         </Text>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 22 }}>
+      <View style={{ flexDirection: 'row', gap: space[8], justifyContent: 'center', flexWrap: 'wrap', marginBottom: space[24] }}>
         {INCOME_PRESETS.map((p) => (
           <Chip key={p} onPress={() => onChange(String(p))}>
             {`₹${p >= 100000 ? `${p / 100000}L` : `${p / 1000}K`}`}
@@ -163,7 +164,7 @@ export function OBAccounts({ value, onChange }: { value: string[]; onChange: (v:
         })}
       </View>
       <View style={[styles.securityNote, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
-        <View style={{ marginTop: 1 }}>
+        <View style={{ marginTop: space[2] }}>
           <LockIcon color={t.em} />
         </View>
         <Text style={{ flex: 1, fontSize: 11.5, color: t.text3, lineHeight: 17.25, fontFamily: weight(500) }}>
@@ -196,7 +197,7 @@ export function OBSync({ value, onChange }: { value: boolean; onChange: (v: bool
   const { t } = useTheme();
   return (
     <View>
-      <View style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 22 }}>
+      <View style={{ alignItems: 'center', paddingTop: space[6], paddingBottom: space[24] }}>
         <View style={[styles.syncBadge, { backgroundColor: value ? t.emDim : t.bg3 }]}>
           <SyncIcon color={value ? t.em : t.text3} />
         </View>
@@ -206,7 +207,7 @@ export function OBSync({ value, onChange }: { value: boolean; onChange: (v: bool
         <View style={[styles.syncToggleRow, { backgroundColor: t.glassBg, borderColor: value ? t.emGlow : t.glassBrd }]}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, color: t.text1, fontFamily: weight(700) }}>Read bank SMS</Text>
-            <Text style={{ fontSize: 12, color: t.text3, marginTop: 3, fontFamily: weight(500) }}>
+            <Text style={{ fontSize: 12, color: t.text3, marginTop: space[4], fontFamily: weight(500) }}>
               Auto-log transactions as they arrive
             </Text>
           </View>
@@ -214,15 +215,15 @@ export function OBSync({ value, onChange }: { value: boolean; onChange: (v: bool
         </View>
       </PressableScale>
 
-      <View style={{ gap: 12, marginTop: 22 }}>
+      <View style={{ gap: space[12], marginTop: space[24] }}>
         {SYNC_FEATS.map((x) => (
-          <View key={x.l} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <View key={x.l} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space[12] }}>
             <View style={[styles.syncFeatIcon, { backgroundColor: t.glassBg, borderColor: t.glassBrd }]}>
               <AppIcon value={x.i} size={18} color={t.em} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13.5, color: t.text1, fontFamily: weight(700) }}>{x.l}</Text>
-              <Text style={{ fontSize: 11.5, color: t.text3, marginTop: 2, lineHeight: 16.1, fontFamily: weight(500) }}>{x.d}</Text>
+              <Text style={{ fontSize: 11.5, color: t.text3, marginTop: space[2], lineHeight: 16.1, fontFamily: weight(500) }}>{x.d}</Text>
             </View>
           </View>
         ))}
@@ -253,8 +254,8 @@ export function OBGoal({
   const { t } = useTheme();
   return (
     <View>
-      <AuthInput value={name} onChangeText={onName} placeholder="Name your goal" style={{ marginBottom: 12 }} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+      <AuthInput value={name} onChangeText={onName} placeholder="Name your goal" style={{ marginBottom: space[12] }} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[8], paddingVertical: space[2] }}>
         {GOAL_PRESETS.map((p) => {
           const on = name === p.l;
           return (
@@ -279,9 +280,9 @@ export function OBGoal({
         })}
       </ScrollView>
 
-      <View style={{ alignItems: 'center', paddingTop: 20, paddingBottom: 16 }}>
+      <View style={{ alignItems: 'center', paddingTop: space[20], paddingBottom: space[16] }}>
         <Text style={[styles.targetLabel, { color: t.text3, fontFamily: weight(700) }]}>TARGET AMOUNT</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space[6] }}>
           <Text style={{ fontSize: 26, color: t.text3, fontFamily: weight(600) }}>₹</Text>
           <Text
             style={{
@@ -328,13 +329,16 @@ export function OBSecure({
   const press = (k: string) => {
     if (k === 'del') return onPin(pin.slice(0, -1));
     if (k === '.') return;
-    if (pin.length >= 4) return;
+    if (pin.length >= PIN_MAX_LENGTH) return;
     onPin(pin + k);
   };
   return (
     <View>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, paddingTop: 8, paddingBottom: 26 }}>
-        {[0, 1, 2, 3].map((i) => (
+      {/* Shows the max (6) dot slots — a 4-6 digit PIN can finish early via
+          the "Finish setup" button once the min length is reached (Wizard's
+          `canNext`). */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space[16], paddingTop: space[8], paddingBottom: space[28] }}>
+        {Array.from({ length: PIN_MAX_LENGTH }, (_, i) => i).map((i) => (
           <View
             key={i}
             style={{
@@ -359,7 +363,7 @@ export function OBSecure({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14.5, color: t.text1, fontFamily: weight(700) }}>{`Enable ${bioLabel}`}</Text>
-            <Text style={{ fontSize: 11.5, color: t.text3, marginTop: 2, fontFamily: weight(500) }}>
+            <Text style={{ fontSize: 11.5, color: t.text3, marginTop: space[2], fontFamily: weight(500) }}>
               Unlock without typing your PIN
             </Text>
           </View>
@@ -374,9 +378,9 @@ const styles = StyleSheet.create({
   optRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
+    gap: space[14],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -398,7 +402,7 @@ const styles = StyleSheet.create({
   bankGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: space[10],
   },
   bankCell: {
     flexBasis: '47%',
@@ -407,9 +411,9 @@ const styles = StyleSheet.create({
   bankRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    paddingHorizontal: 12,
+    gap: space[8],
+    paddingVertical: space[14],
+    paddingHorizontal: space[12],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -424,18 +428,18 @@ const styles = StyleSheet.create({
   securityNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    marginTop: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    gap: space[10],
+    marginTop: space[18],
+    paddingVertical: space[12],
+    paddingHorizontal: space[14],
     borderRadius: radius.md,
     borderWidth: 1,
   },
   syncBadge: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  syncToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.lg, borderWidth: 1 },
+  syncToggleRow: { flexDirection: 'row', alignItems: 'center', gap: space[14], padding: space[16], borderRadius: radius.lg, borderWidth: 1 },
   syncFeatIcon: { width: 34, height: 34, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  goalPreset: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 99, borderWidth: 1 },
-  targetLabel: { fontSize: 11.5, letterSpacing: 0.92, marginBottom: 8 },
-  bioRow: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16, marginTop: 20, borderRadius: radius.lg, borderWidth: 1 },
+  goalPreset: { flexDirection: 'row', alignItems: 'center', gap: space[8], paddingVertical: space[10], paddingHorizontal: space[14], borderRadius: 99, borderWidth: 1 },
+  targetLabel: { fontSize: 11.5, letterSpacing: 0.92, marginBottom: space[8] },
+  bioRow: { flexDirection: 'row', alignItems: 'center', gap: space[14], paddingVertical: space[16], paddingHorizontal: space[16], marginTop: space[20], borderRadius: radius.lg, borderWidth: 1 },
   bioIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

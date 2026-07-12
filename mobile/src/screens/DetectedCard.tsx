@@ -28,7 +28,7 @@ import { GlassView } from '../components/Glass';
 import { AppIcon, AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { ease, radius, weight } from '../theme/tokens';
+import { ease, radius, space, weight } from '../theme/tokens';
 import type { SyncDetected } from './Sync';
 
 const TRANSITION_MS = 360;
@@ -140,9 +140,9 @@ const styles = StyleSheet.create({
   resultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
+    gap: space[12],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
   },
   resultText: {
     flex: 1,
@@ -154,12 +154,12 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 3,
+    gap: space[8],
+    marginTop: space[4],
   },
   catChip: {
-    paddingVertical: 2,
-    paddingHorizontal: 8,
+    paddingVertical: space[2],
+    paddingHorizontal: space[8],
     borderRadius: 99,
   },
   catChipText: {
@@ -177,18 +177,18 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 10.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
   rawWrap: {
-    paddingHorizontal: 15,
-    paddingBottom: 13,
+    paddingHorizontal: space[16],
+    paddingBottom: space[14],
   },
   rawRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingVertical: 9,
-    paddingHorizontal: 11,
+    gap: space[8],
+    paddingVertical: space[10],
+    paddingHorizontal: space[12],
     borderRadius: 11,
     borderWidth: 1,
   },
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   ignoreBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: space[12],
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
@@ -221,11 +221,11 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     flex: 2,
-    paddingVertical: 12,
+    paddingVertical: space[12],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: space[8],
   },
   addLabel: {
     fontSize: 13.5,

@@ -38,7 +38,7 @@
  *    on) — MobileScreens.jsx:541–543.
  */
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -49,6 +49,9 @@ import { useBiometricLabel } from "../auth/biometricLabel";
 import {
   getBiometricEnabled,
   hasPin,
+  isValidPinLength,
+  PIN_MAX_LENGTH,
+  PIN_MIN_LENGTH,
   savePin,
   setBiometricEnabled,
   verifyPin,
@@ -70,7 +73,7 @@ import { shareTxCsv } from "../lib/exportCsv";
 import { usePrefs } from "../prefs/PrefsProvider";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { useTheme } from "../theme/ThemeProvider";
-import { weight } from "../theme/tokens";
+import { space, weight } from "../theme/tokens";
 import { BackendUrlCard } from "./BackendUrlCard";
 import { MPageShell } from "./_MPageShell";
 
@@ -106,7 +109,7 @@ const appVersion: string = (
 // MobileScreens.jsx:572–581 (local `Row` helper) — icon box + title/sub +
 // right slot (defaulting to the `MI.arrow` chevron).
 interface RowProps {
-  icon: string;
+  icon: string | number;
   color: string;
   title: string;
   sub?: string;
@@ -121,7 +124,11 @@ function Row({ icon, color, title, sub, right, onPress, last }: RowProps) {
   return (
     <ListRow onPress={onPress} last={last}>
       <View style={[styles.iconBox, { backgroundColor: color + "22" }]}>
-        <AppIcon value={icon} size={20} color={color} />
+        {typeof icon === "number" ? (
+          <Image source={icon} style={styles.iconImage} />
+        ) : (
+          <AppIcon value={icon} size={20} color={color} />
+        )}
       </View>
       <View style={styles.textBlock}>
         <Text
@@ -231,13 +238,25 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
     form({
       title: "Set a backup PIN",
       fields: [
-        { key: "pin", label: "New PIN (4–6 digits)" },
-        { key: "confirm", label: "Confirm new PIN" },
+        {
+          key: "pin",
+          label: "New PIN (4–6 digits)",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
+        {
+          key: "confirm",
+          label: "Confirm new PIN",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
       ],
       submitLabel: "Set PIN & enable",
       onSubmit: async (v) => {
-        if (!/^\d{4,6}$/.test(v["pin"] ?? ""))
-          throw new Error("PIN must be 4–6 digits");
+        if (!isValidPinLength(v["pin"] ?? ""))
+          throw new Error(`PIN must be ${PIN_MIN_LENGTH}–${PIN_MAX_LENGTH} digits`);
         if (v["pin"] !== v["confirm"]) throw new Error("PINs don't match");
         await savePin(v["pin"]!);
         setPinSet(true);
@@ -278,20 +297,39 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
 
   const changePin = async () => {
     const exists = await hasPin();
+    const currentField = {
+      key: "current",
+      label: "Current PIN",
+      secureTextEntry: true,
+      keyboardType: "number-pad",
+      maxLength: PIN_MAX_LENGTH,
+    } as const;
     form({
       title: exists ? "Change PIN" : "Set PIN",
       fields: [
-        ...(exists ? [{ key: "current", label: "Current PIN" } as const] : []),
-        { key: "pin", label: "New PIN (4–6 digits)" },
-        { key: "confirm", label: "Confirm new PIN" },
+        ...(exists ? [currentField] : []),
+        {
+          key: "pin",
+          label: "New PIN (4–6 digits)",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
+        {
+          key: "confirm",
+          label: "Confirm new PIN",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
       ],
       submitLabel: exists ? "Change PIN" : "Set PIN",
       onSubmit: async (v) => {
         if (exists && !(await verifyPin(v["current"] ?? ""))) {
           throw new Error("Current PIN is incorrect");
         }
-        if (!/^\d{4,6}$/.test(v["pin"] ?? ""))
-          throw new Error("PIN must be 4–6 digits");
+        if (!isValidPinLength(v["pin"] ?? ""))
+          throw new Error(`PIN must be ${PIN_MIN_LENGTH}–${PIN_MAX_LENGTH} digits`);
         if (v["pin"] !== v["confirm"]) throw new Error("PINs don't match");
         await savePin(v["pin"]!);
         setPinSet(true);
@@ -438,7 +476,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             icon="👁"
             color={t.blue}
             title="Hide balances"
-            sub="Mask amounts on home"
+            sub="Mask amounts across the app"
             right={
               <Toggle
                 on={prefs.hideBalances}
@@ -557,7 +595,7 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
             }
           />
           <Row
-            icon="ledger"
+            icon={require("../../assets/munshi.png")}
             color={t.em}
             title="Munshi ji suggestions"
             sub="Daily AI nudge when noteworthy"
@@ -728,14 +766,14 @@ export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Profile card (MobileScreens.jsx:587–595)
   profileCard: {
-    marginBottom: 18,
+    marginBottom: space[18],
   },
   // Content layout must target GlassCard's inner overlay (contentStyle) —
   // on `style` it lands on the outer wrapper and the card stacks vertically.
   profileCardContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: space[14],
   },
   avatar: {
     width: 60,
@@ -757,14 +795,14 @@ const styles = StyleSheet.create({
   },
   profileEmail: {
     fontSize: 12,
-    marginTop: 3,
+    marginTop: space[4],
   },
   proBadge: {
     alignSelf: "flex-start",
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: space[4],
+    paddingHorizontal: space[8],
     borderRadius: 99,
-    marginTop: 6,
+    marginTop: space[6],
   },
   proBadgeText: {
     fontSize: 10.5,
@@ -772,7 +810,7 @@ const styles = StyleSheet.create({
 
   // Section
   section: {
-    marginBottom: 18,
+    marginBottom: space[18],
   },
 
   // Row
@@ -783,6 +821,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  iconImage: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
   textBlock: {
     flex: 1,
     minWidth: 0,
@@ -792,7 +835,7 @@ const styles = StyleSheet.create({
   },
   sub: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // Sign out (.m-btn .m-btn-ghost, mobile.css:601–619)
@@ -800,11 +843,11 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: space[14],
+    paddingHorizontal: space[20],
     borderRadius: 16,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: space[8],
   },
   signOutText: {
     fontSize: 15,

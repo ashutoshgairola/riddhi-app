@@ -14,7 +14,11 @@ import { CreditCard } from '../credit-card/credit-card.entity';
 import { resolvePaymentSource } from './payment-source-resolver';
 import { isLikelyDuplicateOfExisting } from '../statements/reverse-dedup';
 import { ExistingTxn } from '../statements/statement-dedup';
-import { DetectedStatus, NotificationType, TransactionType } from '../common/enums';
+import {
+  DetectedStatus,
+  NotificationType,
+  TransactionType,
+} from '../common/enums';
 import { NOTIFICATION_CATALOG, CatalogEntry } from './catalog.constant';
 
 @Injectable()
@@ -45,7 +49,10 @@ export class NotificationSyncService {
    * (userId, dedupKey). Uses an ON CONFLICT DO NOTHING insert so a re-upload
    * of the same notification is a silent no-op.
    */
-  async ingest(userId: string, items: IngestItemDto[]): Promise<{ inserted: number }> {
+  async ingest(
+    userId: string,
+    items: IngestItemDto[],
+  ): Promise<{ inserted: number }> {
     if (items.length === 0) return { inserted: 0 };
     const rows = items.map((i) =>
       this.captures.create({
@@ -100,7 +107,9 @@ export class NotificationSyncService {
       type: a.type,
       last4: last4ByAccount.get(a.id) ?? null,
     }));
-    const keyToPostedAt = new Map(captures.map((c) => [c.dedupKey, c.postedAt]));
+    const keyToPostedAt = new Map(
+      captures.map((c) => [c.dedupKey, c.postedAt]),
+    );
 
     let detected = 0;
     for (const g of groups) {
@@ -145,7 +154,8 @@ export class NotificationSyncService {
         const candidate = {
           isoDate: when.toISOString().slice(0, 10),
           amount: g.amount as number,
-          direction: (g.type === 'income' ? 'credit' : 'debit') as 'credit' | 'debit',
+          direction: (g.type === 'income' ? 'credit' : 'debit') as
+            'credit' | 'debit',
           descriptor: g.merchant ?? '',
           category: null,
         };
@@ -157,7 +167,10 @@ export class NotificationSyncService {
           userId,
           merchant: g.merchant,
           amount: g.amount,
-          type: g.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
+          type:
+            g.type === 'income'
+              ? TransactionType.INCOME
+              : TransactionType.EXPENSE,
           suggestedCategory: g.category,
           accountId,
           paymentMethod,
@@ -180,7 +193,7 @@ export class NotificationSyncService {
       await this.notifications.create(userId, {
         type: NotificationType.MUNSHI_SUGGESTION,
         title: 'New transactions to review',
-        body: `Munshi found ${detected} transaction${detected === 1 ? '' : 's'} from your notifications.`,
+        body: `Munshi ji found ${detected} transaction${detected === 1 ? '' : 's'} from your notifications.`,
         data: { screen: 'sync' },
       });
     }
@@ -194,7 +207,10 @@ export class NotificationSyncService {
     });
   }
 
-  private async loadPending(userId: string, id: string): Promise<DetectedTransaction> {
+  private async loadPending(
+    userId: string,
+    id: string,
+  ): Promise<DetectedTransaction> {
     const det = await this.detected.findOne({ where: { id, userId } });
     if (!det || det.status !== DetectedStatus.PENDING) {
       throw new NotFoundException('Detected transaction not found');

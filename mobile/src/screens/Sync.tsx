@@ -51,7 +51,7 @@ import { MI } from '../components/icons';
 import { AppIconBox } from '../components/contentIcons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
@@ -415,7 +415,11 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         {
           label: syncing ? 'Syncing…' : 'Sync now',
           icon: '🔄',
-          onPress: () => void runSync(true),
+          // Sync both pipelines: read new bank SMS *and* upload/re-fetch
+          // notification-detected transactions. Each guards its own platform
+          // support and surfaces its own error toast, so running them together
+          // is safe on SMS-only or notification-only devices.
+          onPress: () => void Promise.all([runSync(true), refreshDetections()]),
         },
         {
           label: autoSync ? 'Pause auto-sync' : 'Resume auto-sync',
@@ -474,7 +478,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       {/* Import a statement (Task 10) — no accountId; the backend resolves
           by last4, and the launcher falls back to an account-picker sheet
           when it can't. */}
-      <SpringIn>
+      <SpringIn style={styles.block}>
         <ListCard>
           <ListRow last onPress={() => launchStatementImport()}>
             <AppIconBox value="doc" color={t.em} />
@@ -492,8 +496,8 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       </SpringIn>
 
       {/* status card (MobileSync.jsx:126–150) */}
-      <SpringIn>
-        <GlassCard style={styles.statusCard}>
+      <SpringIn style={styles.block}>
+        <GlassCard>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -536,9 +540,9 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       {/* enable notification capture CTA — shown only when the platform
           supports it and access hasn't been granted yet */}
       {notifSupported && !listenerEnabled ? (
-        <SpringIn>
+        <SpringIn style={styles.block}>
           <Pressable onPress={() => openListenerSettings()}>
-            <GlassCard style={styles.statusCard}>
+            <GlassCard>
               <View style={styles.statusRow}>
                 <View style={[styles.statusIconBox, { backgroundColor: t.emDim }]}>
                   <MI.bell size={20} color={t.em} />
@@ -558,7 +562,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       ) : null}
 
       {notifSupported && listenerEnabled ? (
-        <SpringIn>
+        <SpringIn style={styles.block}>
           <ListCard>
             <ListRow last onPress={() => push({ kind: 'monitored-apps' })}>
               <View style={[styles.statusIconBox, { backgroundColor: t.emDim }]}>
@@ -596,7 +600,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
 
       {pending.length + detected.length > 0 ? (
         // animationDelay: .05s (MobileSync.jsx:159)
-        <SpringIn delay={50}>
+        <SpringIn delay={50} style={styles.block}>
           {pending.map((tx) => (
             <View key={tx.id}>
               <DetectedCard tx={tx} onConfirm={confirm} onDismiss={dismiss} />
@@ -617,7 +621,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
           ))}
         </SpringIn>
       ) : (
-        <SpringIn>
+        <SpringIn style={styles.block}>
           <GlassCard contentStyle={styles.emptyCardContent}>
             <View style={[styles.emptyIconBox, { backgroundColor: t.emDim }]}>
               <MI.check size={24} color={t.em} strokeWidth={2.4} />
@@ -640,7 +644,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             <Text style={[styles.sectionMeta, { color: t.text3 }]}>This session</Text>
           </View>
           {/* animationDelay: .1s (MobileSync.jsx:181) */}
-          <SpringIn delay={100}>
+          <SpringIn delay={100} style={styles.block}>
             <ListCard>
               {added.map((tx, i) => (
                 <ListRow key={i} last={i === added.length - 1}>
@@ -688,13 +692,17 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
 }
 
 const styles = StyleSheet.create({
-  statusCard: {
-    marginBottom: 24,
+  // Consistent top-level block rhythm: every stacked block pushes the next
+  // one down by one gap. Using a single push-down convention (rather than a
+  // mix of marginBottom on cards + marginTop on section heads) is what fixes
+  // the old 24+24=48 double-gap — RN margins add, they don't collapse.
+  block: {
+    marginBottom: space[20],
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
   },
   statusIconBox: {
     position: 'relative',
@@ -723,31 +731,33 @@ const styles = StyleSheet.create({
   },
   statusSubtitle: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
   banksRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
-    paddingTop: 14,
+    gap: space[8],
+    marginTop: space[14],
+    paddingTop: space[14],
     borderTopWidth: 1,
   },
   bankCol: {
     flex: 1,
     alignItems: 'center',
-    gap: 6,
+    gap: space[6],
   },
   bankLabel: {
     fontSize: 10,
   },
+  // No marginTop: the gap above a section head comes from the previous
+  // block's `block` marginBottom (single push-down convention). paddingBottom
+  // keeps the head hugging its own content below.
   sectionHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
-    paddingHorizontal: 4,
-    paddingBottom: 12,
-    marginTop: 24,
+    paddingTop: space[4],
+    paddingHorizontal: space[4],
+    paddingBottom: space[12],
   },
   sectionTitle: {
     fontSize: 15,
@@ -763,8 +773,8 @@ const styles = StyleSheet.create({
   // card's inner overlay (on `style` the centering never applies and the
   // paddings stack outside GlassCard's own 18px).
   emptyCardContent: {
-    paddingVertical: 28,
-    paddingHorizontal: 20,
+    paddingVertical: space[28],
+    paddingHorizontal: space[20],
     alignItems: 'center',
   },
   emptyIconBox: {
@@ -773,14 +783,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: space[12],
   },
   emptyTitle: {
     fontSize: 14.5,
   },
   emptyBody: {
     fontSize: 12.5,
-    marginTop: 4,
+    marginTop: space[4],
     lineHeight: 18.75,
     textAlign: 'center',
   },
@@ -794,8 +804,8 @@ const styles = StyleSheet.create({
   recentMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
+    gap: space[6],
+    marginTop: space[2],
   },
   recentCat: {
     fontSize: 11.5,
@@ -815,19 +825,19 @@ const styles = StyleSheet.create({
   // new section.
   duplicateHint: {
     fontSize: 11,
-    marginTop: -8,
-    marginBottom: 8,
-    paddingHorizontal: 15,
+    marginTop: -8, // structural: pulls up into DetectedCard's idle 12px gap
+    marginBottom: space[8],
+    paddingHorizontal: space[16],
   },
+  // No marginTop: gets its top gap from the previous block's `block` margin.
   infoRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: space[10],
     alignItems: 'flex-start',
-    marginTop: 20,
-    paddingHorizontal: 4,
+    paddingHorizontal: space[4],
   },
   infoIconWrap: {
-    marginTop: 1,
+    marginTop: space[2],
     flexShrink: 0,
   },
   infoText: {

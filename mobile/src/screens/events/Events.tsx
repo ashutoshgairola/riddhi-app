@@ -50,7 +50,7 @@ import { AppIcon, AppIconBox } from '../../components/contentIcons';
 import { PageBackground } from '../../components/PageBackground';
 import { SpringIn } from '../../components/SpringIn';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, weight } from '../../theme/tokens';
+import { radius, space, weight } from '../../theme/tokens';
 import { useNav, type ScreenEntry } from '../../app/navContext';
 import { api } from '../../api';
 import { useApiData } from '../../api/useApi';
@@ -244,14 +244,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 4,
-    paddingHorizontal: 18,
-    paddingBottom: 24,
+    paddingTop: space[4],
+    paddingHorizontal: space[18],
+    paddingBottom: space[24],
   },
   subtitle: {
     fontSize: 13,
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: space[8],
+    marginBottom: space[16],
   },
 
   // Empty state
@@ -259,35 +259,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   emptyCardBody: {
-    paddingVertical: 36,
-    paddingHorizontal: 20,
+    paddingVertical: space[40],
+    paddingHorizontal: space[20],
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 15,
-    marginTop: 10,
+    marginTop: space[10],
   },
   emptySubtitle: {
     fontSize: 12.5,
-    marginTop: 5,
+    marginTop: space[6],
     lineHeight: 18,
     textAlign: 'center',
   },
   emptyBtn: {
-    marginTop: 16,
+    marginTop: space[16],
   },
 
   // Event list/cards
   eventList: {
     flexDirection: 'column',
-    gap: 14,
+    gap: space[14],
   },
   eventCard: {
     position: 'relative',
     overflow: 'hidden',
   },
   eventCardBody: {
-    padding: 18,
+    padding: space[18],
   },
   accentBar: {
     position: 'absolute',
@@ -299,8 +299,8 @@ const styles = StyleSheet.create({
   eventHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
-    marginBottom: 14,
+    gap: space[14],
+    marginBottom: space[14],
   },
   eventTextBlock: {
     flex: 1,
@@ -311,13 +311,13 @@ const styles = StyleSheet.create({
   },
   eventMetaRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 3,
+    gap: space[10],
+    marginTop: space[4],
   },
   eventMetaChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: space[4],
   },
   eventMetaText: {
     fontSize: 11.5,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginTop: 10,
+    marginTop: space[10],
   },
   eventPaid: {
     fontSize: 15,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   eventOverRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: space[4],
   },
   eventLeftOrOver: {
     fontSize: 11.5,

@@ -10,7 +10,7 @@
  * components), so it is safe to import from anywhere (including
  * non-component utility code).
  */
-import { Easing, type EasingFunctionFactory } from 'react-native-reanimated';
+import { Easing, type EasingFunctionFactory } from "react-native-reanimated";
 
 /** Numeric font weights we have static @expo-google-fonts families for. */
 export type FontWeight = 400 | 500 | 600 | 700 | 800;
@@ -96,6 +96,9 @@ export interface Tokens {
   sheetBg: string;
   /** `.m-sheet` border-top color. */
   sheetBorder: string;
+  /** Specular rim color for the sheet surface — dimmer than the global
+   * `specularColor` since the sheet's large curved edge exaggerates the rim. */
+  sheetSpecular: string;
   /** `.m-sheet` box-shadow. */
   sheetShadow: string;
   /** `.m-fab-action` background. */
@@ -122,10 +125,50 @@ export const radius = {
   xl3: 38,
 } as const;
 
+// ── Spacing scale (`space`) ─────────────────────────────────────────
+// Single source of truth for vertical/horizontal rhythm — margins,
+// paddings and gaps. The app was authored on a 2px grid (the workhorse
+// values 6/10/14/18/22/26 all sit on 2px-off-4px midpoints), so the scale
+// is a 2px ladder rather than a strict 4pt grid: this keeps the ported
+// design's rhythm intact while removing magic numbers.
+//
+// Keys are the pixel value, so `space[14]` reads as "14px" at the call
+// site AND the `as const` object is the allow-list — TypeScript rejects an
+// off-scale `space[13]`, which is what enforces the grid going forward.
+//
+// Off-scale legacy values were snapped by "round odd up to the next even"
+// (3→4, 5→6, 7→8, 9→10, 11→12, 13→14, 15→16) plus 22→24 and 26→28.
+// Structural negative offsets (e.g. HScroll's -18 bleed that cancels the
+// 18px body padding) and non-spacing props (borderRadius — see `radius`
+// above — sizes, positions, font sizes, line heights) are NOT part of
+// this scale and stay as literals.
+export const space = {
+  0: 0,
+  2: 2,
+  4: 4,
+  6: 6,
+  8: 8,
+  10: 10,
+  12: 12,
+  14: 14,
+  16: 16,
+  18: 18,
+  20: 20,
+  24: 24,
+  28: 28,
+  32: 32,
+  40: 40,
+  48: 48,
+} as const;
+
+export type Space = (typeof space)[keyof typeof space];
+
 // ── Easing (`--ease` / `--spring`, mobile.css:52–53) ────────────────
 // Raw cubic-bezier control points, exactly as authored in the CSS.
 export const easeBezier: [number, number, number, number] = [0.32, 0.72, 0, 1];
-export const springBezier: [number, number, number, number] = [0.34, 1.56, 0.64, 1];
+export const springBezier: [number, number, number, number] = [
+  0.34, 1.56, 0.64, 1,
+];
 
 // Convenience Easing curves for react-native-reanimated `withTiming`.
 export const ease: EasingFunctionFactory = Easing.bezier(
@@ -145,15 +188,15 @@ export const spring: EasingFunctionFactory = Easing.bezier(
 // Both point at the same family in the CSS ('Plus Jakarta Sans').
 // In RN the loaded @expo-google-fonts family names ARE the fontFamily
 // strings (registered via useFonts in src/app/Root.tsx).
-export const fontRegular = 'PlusJakartaSans_400Regular';
-export const fontMedium = 'PlusJakartaSans_500Medium';
-export const fontSemiBold = 'PlusJakartaSans_600SemiBold';
-export const fontBold = 'PlusJakartaSans_700Bold';
-export const fontExtraBold = 'PlusJakartaSans_800ExtraBold';
+export const fontRegular = "PlusJakartaSans_400Regular";
+export const fontMedium = "PlusJakartaSans_500Medium";
+export const fontSemiBold = "PlusJakartaSans_600SemiBold";
+export const fontBold = "PlusJakartaSans_700Bold";
+export const fontExtraBold = "PlusJakartaSans_800ExtraBold";
 
 export const fonts = {
-  ui: 'PlusJakartaSans',
-  num: 'PlusJakartaSans',
+  ui: "PlusJakartaSans",
+  num: "PlusJakartaSans",
 } as const;
 
 /** Returns the @expo-google-fonts family name for a given numeric weight. */
@@ -177,160 +220,181 @@ export function weight(w: FontWeight): string {
 // .m-fab-action / .m-toast / .m-sheet-backdrop, lines 153–171,
 // 198–203, 255–269, 343–364, 376–400, 442–451, 687–700) ────────────
 export const dark: Tokens = {
-  bg: '#0b0812',
-  bg1: '#17131f',
-  bg2: '#1f1a2c',
-  bg3: '#2a2339',
-  bg4: '#342c45',
-  glass: 'rgba(255,255,255,0.04)',
-  glassHov: 'rgba(255,255,255,0.08)',
-  border: 'rgba(255,255,255,0.06)',
-  borderStr: 'rgba(255,255,255,0.12)',
-  text1: '#f3f0fb',
-  text2: '#9a90b5',
-  text3: '#635a7a',
-  em: '#b6a4f3',
-  emDim: 'rgba(182,164,243,0.14)',
-  emGlow: 'rgba(182,164,243,0.25)',
-  red: '#ff6b85',
-  redDim: 'rgba(255,107,133,0.14)',
-  amber: '#ffc24b',
-  amberDim: 'rgba(255,194,75,0.14)',
-  blue: '#6ea8ff',
-  blueDim: 'rgba(110,168,255,0.14)',
-  violet: '#a78bfa',
-  violetDim: 'rgba(167,139,250,0.14)',
-  cyan: '#5ee0d8',
-  cyanDim: 'rgba(94,224,216,0.14)',
+  bg: "#0b0812",
+  bg1: "#17131f",
+  bg2: "#1f1a2c",
+  bg3: "#2a2339",
+  bg4: "#342c45",
+  glass: "rgba(255,255,255,0.04)",
+  glassHov: "rgba(255,255,255,0.08)",
+  border: "rgba(255,255,255,0.06)",
+  borderStr: "rgba(255,255,255,0.12)",
+  text1: "#f3f0fb",
+  text2: "#9a90b5",
+  text3: "#635a7a",
+  em: "#b6a4f3",
+  emDim: "rgba(182,164,243,0.14)",
+  emGlow: "rgba(182,164,243,0.25)",
+  red: "#ff6b85",
+  redDim: "rgba(255,107,133,0.14)",
+  amber: "#ffc24b",
+  amberDim: "rgba(255,194,75,0.14)",
+  blue: "#6ea8ff",
+  blueDim: "rgba(110,168,255,0.14)",
+  violet: "#a78bfa",
+  violetDim: "rgba(167,139,250,0.14)",
+  cyan: "#5ee0d8",
+  cyanDim: "rgba(94,224,216,0.14)",
 
-  glassBg: 'rgba(255,255,255,0.055)',
-  glassBg2: 'rgba(255,255,255,0.09)',
-  glassBrd: 'rgba(255,255,255,0.10)',
-  glassBrd2: 'rgba(255,255,255,0.18)',
-  glassHi: 'inset 0 1px 0 rgba(255,255,255,0.10)',
+  glassBg: "rgba(255,255,255,0.055)",
+  glassBg2: "rgba(255,255,255,0.04)",
+  glassBrd: "rgba(255,255,255,0.10)",
+  glassBrd2: "rgba(255,255,255,0.18)",
+  glassHi: "inset 0 1px 0 rgba(255,255,255,0.10)",
 
   refraction: 0.09,
-  specularColor: 'rgba(255,255,255,0.30)',
+  specularColor: "rgba(255,255,255,0.30)",
   specularWidth: 0.09,
   chromatic: 0.008,
 
   // .m-page background: linear-gradient(180deg, #1d1733 0%, #14101f 46%, #0b0912 100%)
-  pageGradient: ['#181328', '#100c18', '#08060d'],
+  pageGradient: ["#181328", "#100c18", "#08060d"],
   // .m-page::before radial-gradient overlay colors (top-left, top-right, bottom-center).
   // The alpha here is the peak glow opacity; PageBackground lifts it into the
   // SVG stop's stopOpacity (react-native-svg ignores alpha baked into stopColor).
-  pageGlow: ['rgba(150,120,240,0.28)', 'rgba(120,90,220,0.17)', 'rgba(110,80,200,0.13)'],
+  pageGlow: [
+    "rgba(150,120,240,0.28)",
+    "rgba(120,90,220,0.17)",
+    "rgba(110,80,200,0.13)",
+  ],
   // .m-card / .m-list-card box-shadow: var(--glass-hi) (no extra ambient shadow in dark)
-  cardShadow: 'inset 0 1px 0 rgba(255,255,255,0.10)',
+  cardShadow: "inset 0 1px 0 rgba(255,255,255,0.10)",
   // .m-tabbar background
-  tabbarBg: 'rgba(24,19,34,0.55)',
+  tabbarBg: "rgba(24,19,34,0.55)",
   // .m-tabbar border: 1px solid var(--glass-brd)
-  tabbarBorder: 'rgba(255,255,255,0.10)',
+  tabbarBorder: "rgba(255,255,255,0.10)",
   // .m-tabbar box-shadow top inset sheen: inset 0 1.5px 0 rgba(255,255,255,0.16)
-  tabbarShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.16)',
+  tabbarShadow: "inset 0 1.5px 0 rgba(255,255,255,0.16)",
   // .m-topbar.scrolled background
-  topbarScrolledBg: 'rgba(23,19,31,0.8)',
+  topbarScrolledBg: "rgba(23,19,31,0.8)",
   // .m-topbar.scrolled border-bottom-color: var(--glass-brd)
-  topbarScrolledBorder: 'rgba(255,255,255,0.10)',
-  // .m-sheet background
-  sheetBg: 'rgba(28,22,40,0.82)',
-  // .m-sheet border-top: 1px solid var(--glass-brd-2)
-  sheetBorder: 'rgba(255,255,255,0.18)',
+  topbarScrolledBorder: "rgba(255,255,255,0.10)",
+  // .m-sheet background — kept near-opaque so screen content (e.g. an
+  // over-budget event's red bar) doesn't bleed through the glass surface.
+  sheetBg: "rgba(28,22,40,0.94)",
+  // .m-sheet border-top: softened from glass-brd-2 (0.18) — the full-width top
+  // hairline read too bright against the near-opaque dark sheet surface.
+  sheetBorder: "rgba(255,255,255,0.10)",
+  // Sheet specular rim — well below the global 0.30 so the bright light running
+  // down the sheet's tall curved sides stays subtle.
+  sheetSpecular: "rgba(255,255,255,0.10)",
   // .m-sheet box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 -12px 48px rgba(0,0,0,0.5)
-  sheetShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 -12px 48px rgba(0,0,0,0.5)',
+  sheetShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.12), 0 -12px 48px rgba(0,0,0,0.5)",
   // .m-fab-action background
-  fabActionBg: 'rgba(30,24,42,0.6)',
+  fabActionBg: "rgba(30,24,42,0.6)",
   // .m-fab-action border: 1px solid var(--glass-brd-2)
-  fabActionBorder: 'rgba(255,255,255,0.18)',
+  fabActionBorder: "rgba(255,255,255,0.18)",
   // .m-toast background
-  toastBg: 'rgba(36,28,52,0.72)',
+  toastBg: "rgba(36,28,52,0.72)",
   // .m-toast border: 1px solid var(--glass-brd-2)
-  toastBorder: 'rgba(255,255,255,0.18)',
+  toastBorder: "rgba(255,255,255,0.18)",
   // .m-toast box-shadow: var(--glass-hi), 0 10px 30px rgba(0,0,0,0.45)
-  toastShadow: 'inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 30px rgba(0,0,0,0.45)',
+  toastShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 30px rgba(0,0,0,0.45)",
   // .m-sheet-backdrop background (dark default): rgba(0,0,0,0.55)
-  sheetBackdropBg: 'rgba(0,0,0,0.55)',
+  sheetBackdropBg: "rgba(0,0,0,0.55)",
 };
 
 // ── Light theme (mobile.css [data-theme="light"], lines 57–124) ────
 export const light: Tokens = {
-  bg: '#ece7f8',
-  bg1: '#ffffff',
-  bg2: '#f3f0fb',
-  bg3: '#e8e3f5',
-  bg4: '#ddd6f0',
+  bg: "#ece7f8",
+  bg1: "#ffffff",
+  bg2: "#f3f0fb",
+  bg3: "#e8e3f5",
+  bg4: "#ddd6f0",
   // --glass / --glass-hov have no light override in mobile.css; keep dark values.
   glass: dark.glass,
   glassHov: dark.glassHov,
-  border: 'rgba(26,18,38,0.08)',
-  borderStr: 'rgba(26,18,38,0.14)',
-  text1: '#1a1226',
-  text2: '#6b6385',
-  text3: '#9c95b3',
-  em: '#7c5cf0',
-  emDim: 'rgba(124,92,240,0.12)',
-  emGlow: 'rgba(124,92,240,0.20)',
-  red: '#e0365a',
-  redDim: 'rgba(224,54,90,0.10)',
-  amber: '#cd8a2a',
-  amberDim: 'rgba(205,138,42,0.12)',
-  blue: '#4f6dd0',
-  blueDim: 'rgba(79,109,208,0.12)',
-  violet: '#7c5cf0',
-  violetDim: 'rgba(124,92,240,0.12)',
-  cyan: '#3aa9a2',
-  cyanDim: 'rgba(58,169,162,0.12)',
+  border: "rgba(26,18,38,0.08)",
+  borderStr: "rgba(26,18,38,0.14)",
+  text1: "#1a1226",
+  text2: "#6b6385",
+  text3: "#9c95b3",
+  em: "#7c5cf0",
+  emDim: "rgba(124,92,240,0.12)",
+  emGlow: "rgba(124,92,240,0.20)",
+  red: "#e0365a",
+  redDim: "rgba(224,54,90,0.10)",
+  amber: "#cd8a2a",
+  amberDim: "rgba(205,138,42,0.12)",
+  blue: "#4f6dd0",
+  blueDim: "rgba(79,109,208,0.12)",
+  violet: "#7c5cf0",
+  violetDim: "rgba(124,92,240,0.12)",
+  cyan: "#3aa9a2",
+  cyanDim: "rgba(58,169,162,0.12)",
 
-  glassBg: 'rgba(255,255,255,0.55)',
-  glassBg2: 'rgba(255,255,255,0.82)',
-  glassBrd: 'rgba(255,255,255,0.75)',
-  glassBrd2: 'rgba(255,255,255,0.95)',
-  glassHi: 'inset 0 1px 0 rgba(255,255,255,0.9)',
+  glassBg: "rgba(255,255,255,0.55)",
+  glassBg2: "rgba(255,255,255,0.82)",
+  glassBrd: "rgba(255,255,255,0.75)",
+  glassBrd2: "rgba(255,255,255,0.95)",
+  glassHi: "inset 0 1px 0 rgba(255,255,255,0.9)",
 
   refraction: 0.08,
-  specularColor: 'rgba(255,255,255,0.9)',
+  specularColor: "rgba(255,255,255,0.9)",
   specularWidth: 0.09,
   chromatic: 0.008,
 
   // [data-theme="light"] .m-page background:
   // linear-gradient(180deg, #e7e0fb 0%, #f1edfb 48%, #e9e4f6 100%)
-  pageGradient: ['#e7e0fb', '#f1edfb', '#e9e4f6'],
+  pageGradient: ["#e7e0fb", "#f1edfb", "#e9e4f6"],
   // [data-theme="light"] .m-page::before radial-gradient overlay colors.
   // Alpha = peak glow opacity (PageBackground lifts it into stopOpacity, since
   // react-native-svg ignores alpha in stopColor). Bumped ~25% in step with the
   // dark theme; the light ground itself is left as designed (darkening a
   // near-white background would only muddy it).
-  pageGlow: ['rgba(126,96,220,0.23)', 'rgba(140,110,230,0.15)', 'rgba(150,120,240,0.13)'],
+  pageGlow: [
+    "rgba(126,96,220,0.23)",
+    "rgba(140,110,230,0.15)",
+    "rgba(150,120,240,0.13)",
+  ],
   // [data-theme="light"] .m-card, .m-list-card box-shadow:
   // 0 6px 22px rgba(80,60,160,0.08), var(--glass-hi)
-  cardShadow: '0 6px 22px rgba(80,60,160,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',
+  cardShadow:
+    "0 6px 22px rgba(80,60,160,0.08), inset 0 1px 0 rgba(255,255,255,0.9)",
   // [data-theme="light"] .m-tabbar background
-  tabbarBg: 'rgba(255,255,255,0.62)',
+  tabbarBg: "rgba(255,255,255,0.62)",
   // [data-theme="light"] .m-tabbar border-color
-  tabbarBorder: 'rgba(255,255,255,0.9)',
+  tabbarBorder: "rgba(255,255,255,0.9)",
   // [data-theme="light"] .m-tabbar box-shadow top inset sheen: inset 0 1.5px 0 rgba(255,255,255,0.95)
-  tabbarShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95)',
+  tabbarShadow: "inset 0 1.5px 0 rgba(255,255,255,0.95)",
   // [data-theme="light"] .m-topbar.scrolled background
-  topbarScrolledBg: 'rgba(255,255,255,0.85)',
+  topbarScrolledBg: "rgba(255,255,255,0.85)",
   // [data-theme="light"] .m-topbar.scrolled border-bottom-color
-  topbarScrolledBorder: 'rgba(26,18,38,0.06)',
-  // [data-theme="light"] .m-sheet background
-  sheetBg: 'rgba(248,245,255,0.86)',
+  topbarScrolledBorder: "rgba(26,18,38,0.06)",
+  // [data-theme="light"] .m-sheet background — near-opaque (see dark note).
+  sheetBg: "rgba(248,245,255,0.95)",
   // [data-theme="light"] .m-sheet border-top-color
-  sheetBorder: 'rgba(255,255,255,0.95)',
+  sheetBorder: "rgba(255,255,255,0.95)",
+  // Sheet specular rim — dimmer than the global light-theme 0.9 so the sheet's
+  // tall curved sides don't over-glow.
+  sheetSpecular: "rgba(255,255,255,0.45)",
   // [data-theme="light"] .m-sheet box-shadow:
   // inset 0 1px 0 rgba(255,255,255,0.95), 0 -12px 48px rgba(80,60,160,0.18)
-  sheetShadow: 'inset 0 1px 0 rgba(255,255,255,0.95), 0 -12px 48px rgba(80,60,160,0.18)',
+  sheetShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.95), 0 -12px 48px rgba(80,60,160,0.18)",
   // [data-theme="light"] .m-fab-action background
-  fabActionBg: 'rgba(255,255,255,0.72)',
+  fabActionBg: "rgba(255,255,255,0.72)",
   // [data-theme="light"] .m-fab-action border-color
-  fabActionBorder: 'rgba(255,255,255,0.95)',
+  fabActionBorder: "rgba(255,255,255,0.95)",
   // [data-theme="light"] .m-toast background
-  toastBg: 'rgba(255,255,255,0.85)',
+  toastBg: "rgba(255,255,255,0.85)",
   // [data-theme="light"] .m-toast border-color
-  toastBorder: 'rgba(255,255,255,0.95)',
+  toastBorder: "rgba(255,255,255,0.95)",
   // [data-theme="light"] .m-toast box-shadow: var(--glass-hi), 0 10px 30px rgba(80,60,160,0.2)
-  toastShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 30px rgba(80,60,160,0.2)',
+  toastShadow:
+    "inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 30px rgba(80,60,160,0.2)",
   // [data-theme="light"] .m-sheet-backdrop background
-  sheetBackdropBg: 'rgba(40,30,70,0.35)',
+  sheetBackdropBg: "rgba(40,30,70,0.35)",
 };

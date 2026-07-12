@@ -9,7 +9,7 @@ import { Btn } from "../../components/ui";
 import { PageBackground } from "../../components/PageBackground";
 import { useFeedback } from "../../feedback/FeedbackProvider";
 import { useTheme } from "../../theme/ThemeProvider";
-import { radius, weight } from "../../theme/tokens";
+import { radius, space, weight } from "../../theme/tokens";
 import { AppIcon } from "../../components/contentIcons";
 import { FaceIdGlyph, PressableScale, SpringIn, Wordmark } from "./authUi";
 
@@ -58,11 +58,11 @@ export function Welcome({
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 26 }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: space[28] }}
       >
         {/* Hero (MobileAuth.jsx:102-113): 280px radial glow behind wordmark.
             The source's 64px sat below the frame mock's status bar. */}
-        <View style={{ paddingTop: insets.top + 64, paddingBottom: 24 }}>
+        <View style={{ paddingTop: insets.top + 64, paddingBottom: space[24] }}>
           <View pointerEvents="none" style={styles.heroGlow}>
             <Svg width={280} height={280}>
               <Defs>
@@ -103,7 +103,7 @@ export function Welcome({
         </View>
 
         {/* Feature list (MobileAuth.jsx:116-129) */}
-        <View style={{ gap: 10, marginTop: 6 }}>
+        <View style={{ gap: space[10], marginTop: space[6] }}>
           {FEATS.map((f, i) => (
             <SpringIn key={f.l} delay={60 + i * 60}>
               <View
@@ -131,7 +131,7 @@ export function Welcome({
                     style={{
                       fontSize: 11.5,
                       color: t.text3,
-                      marginTop: 2,
+                      marginTop: space[2],
                       fontFamily: weight(500),
                     }}
                   >
@@ -148,8 +148,8 @@ export function Welcome({
         <View
           style={{
             marginTop: "auto",
-            paddingTop: 28,
-            paddingBottom: insets.bottom + 8,
+            paddingTop: space[28],
+            paddingBottom: insets.bottom + space[8],
           }}
         >
           <Btn onPress={onSignup} style={{ height: 54 }}>
@@ -216,21 +216,21 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 20,
     letterSpacing: -0.4, // -0.02em of 20px
-    marginTop: 22,
+    marginTop: space[24],
     lineHeight: 25,
   },
   heroSub: {
     fontSize: 14.5,
-    marginTop: 8,
+    marginTop: space[8],
     lineHeight: 21.75,
     maxWidth: 280,
   },
   featCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
+    gap: space[14],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   ghostBtn: {
     height: 52,
-    marginTop: 10,
+    marginTop: space[10],
     borderRadius: radius.md,
     borderWidth: 1,
     alignItems: "center",
@@ -251,12 +251,12 @@ const styles = StyleSheet.create({
   },
   faceIdBtn: {
     flexDirection: "row",
-    gap: 9,
+    gap: space[10],
   },
   terms: {
     fontSize: 11,
     textAlign: "center",
-    marginTop: 16,
+    marginTop: space[16],
     lineHeight: 16.5,
   },
 });

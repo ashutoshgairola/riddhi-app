@@ -10,7 +10,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useAuth } from '../../auth/AuthProvider';
 import { useBiometricLabel } from '../../auth/biometricLabel';
 import { useFeedback } from '../../feedback/FeedbackProvider';
-import { savePin, setBiometricEnabled } from '../../auth/tokenStore';
+import { PIN_MIN_LENGTH, savePin, setBiometricEnabled } from '../../auth/tokenStore';
 import { OBDone } from './Done';
 import { OBFooter, OBStep } from './obUi';
 import { BANKS, OBAccounts, OBGoal, OBGoals, OBIncome, OBSecure, OBSync } from './steps';
@@ -149,8 +149,8 @@ export function OnboardingWizard() {
       );
     case 5:
       return (
-        <OBStep {...common} kicker="Protect" title="Secure your money" sub={`Set a 4-digit PIN to lock the app. Add ${bioLabel} for one-tap access.`}
-          footer={<OBFooter canNext={pin.length === 4} label="Finish setup" onNext={next} />}>
+        <OBStep {...common} kicker="Protect" title="Secure your money" sub={`Set a ${PIN_MIN_LENGTH}-6 digit PIN to lock the app. Add ${bioLabel} for one-tap access.`}
+          footer={<OBFooter canNext={pin.length >= PIN_MIN_LENGTH} label="Finish setup" onNext={next} />}>
           <OBSecure pin={pin} onPin={setPin} biometric={biometric} onBiometric={(v) => void onBiometric(v)} />
         </OBStep>
       );

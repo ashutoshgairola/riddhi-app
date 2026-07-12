@@ -33,11 +33,12 @@ import { MI } from '../components/icons';
 import { MSeg } from '../components/MSeg';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
+import { pluralize } from '../lib/pluralize';
 import { MPageShell } from './_MPageShell';
 
 // ── Data (MobileScreens.jsx:478–488) ─────────────────────────────────
@@ -150,7 +151,7 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
                     {c.name}
                   </Text>
                   <Text style={[styles.meta, { color: t.text3 }]}>
-                    {c.txs} txn{c.txs !== 1 ? 's' : ''}{c.subs.length > 0 ? ` · ${c.subs.length} sub-cat` : ''}
+                    {pluralize(c.txs, 'txn')}{c.subs.length > 0 ? ` · ${c.subs.length} sub-cat` : ''}
                   </Text>
                 </View>
                 <Text style={[styles.total, { color: c.color, fontFamily: weight(700) }]}>
@@ -176,21 +177,21 @@ export function TxCategories({ entry: _entry }: { entry: ScreenEntry }) {
 
 const styles = StyleSheet.create({
   segWrap: {
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   list: {
     flexDirection: 'column',
-    gap: 10,
+    gap: space[10],
   },
   // Padding override (14 vs GlassCard's 18) — contentStyle so it replaces
   // the overlay's padding instead of stacking on the outer wrapper.
   cardContent: {
-    padding: 14,
+    padding: space[14],
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
   },
   textBlock: {
     flex: 1,
@@ -201,7 +202,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
   total: {
     fontFamily: weight(700),
@@ -210,9 +211,9 @@ const styles = StyleSheet.create({
   subsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 10,
+    gap: space[6],
+    marginTop: space[10],
+    paddingTop: space[10],
     borderTopWidth: 1,
   },
 });

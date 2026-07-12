@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { AppState } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 
-import { api, authApi, setAuthToken } from '../api';
+import { api, authApi, setAuthToken, setSessionHandlers } from '../api';
 import type { ApiUser, AuthResponse, OnboardingPayload } from '../api';
 import {
   clearPin,
@@ -58,6 +58,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(res.accessToken);
     setUser(res.user);
     setStatus(res.user.isFirstLogin ? 'onboarding' : 'signedIn');
+  }, []);
+
+  // Inject the api client's 401 handlers once. `onRefresh` swaps a stale
+  // access token for a fresh pair; `onSessionExpired` ends the session when
+  // refresh is impossible — clearing tokens but KEEPING the on-device PIN /
+  // biometric (a session-expiry is not a full logout). The closures use only
+  // stable state setters + module functions, so registering once is safe.
+  useEffect(() => {
+    setSessionHandlers({
+      onRefresh: async () => {
+        try {
+          const { refreshToken } = await loadTokens();
+          if (!refreshToken) return null;
+          const tokens = await authApi.refresh(refreshToken);
+          await saveTokens(tokens.accessToken, tokens.refreshToken);
+          setAuthToken(tokens.accessToken);
+          return tokens.accessToken;
+        } catch {
+          return null;
+        }
+      },
+      onSessionExpired: () => {
+        void clearTokens();
+        setAuthToken(null);
+        setUser(null);
+        setStatus('signedOut');
+      },
+    });
   }, []);
 
   // Restore session on launch: refresh token -> new pair -> /users/me.

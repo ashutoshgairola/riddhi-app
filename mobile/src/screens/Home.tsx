@@ -67,11 +67,15 @@ import { WeekChart } from "../components/charts";
 import { useCountUp } from "../hooks/useCountUp";
 import { pluralize } from "../lib/pluralize";
 import { useTheme } from "../theme/ThemeProvider";
-import { radius, weight } from "../theme/tokens";
+import { radius, space, weight } from "../theme/tokens";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { useApiData } from "../api/useApi";
-import type { CardBillView, NotificationView, WeekDataPoint } from "../api/types";
+import type {
+  CardBillView,
+  NotificationView,
+  WeekDataPoint,
+} from "../api/types";
 import type { TxSource } from "../api/paymentSource";
 import { upcomingSubRows, type UpcomingSubRow } from "../api/subscriptions";
 import { AiInsightsStrip } from "./home/AiInsightsStrip";
@@ -258,7 +262,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
         onRefresh={refetchAll}
         onScroll={handleScroll}
         topInset={topbarHeight}
-        contentStyle={[styles.scrollContent, { paddingTop: topbarHeight + 8 }]}
+        contentStyle={[styles.scrollContent, { paddingTop: topbarHeight + space[8] }]}
       >
         {/* ── Signature hero card (MobileHome.jsx:98–125) ── */}
         <SpringIn style={[styles.hero, { borderColor: t.glassBrd2 }]}>
@@ -439,7 +443,12 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
           This week
         </Label>
         <SpringIn delay={60}>
-          <LiquidGlass style={styles.weekCard} padding={0} radius={radius.xl}>
+          <LiquidGlass
+            style={styles.weekCard}
+            padding={0}
+            radius={radius.lg}
+            tint={t.glassBg2}
+          >
             <View style={styles.weekCardInner}>
               <View style={styles.weekHeaderRow}>
                 <Text
@@ -736,8 +745,13 @@ function UpcomingSubsSection({
                   },
                 ]}
               >
-                <AppIconBox value={r.emoji} color={r.color} size={42} iconSize={19} />
-                <View style={[styles.dueRowMain, { marginLeft: 12 }]}>
+                <AppIconBox
+                  value={r.emoji}
+                  color={r.color}
+                  size={42}
+                  iconSize={19}
+                />
+                <View style={[styles.dueRowMain, { marginLeft: space[12] }]}>
                   <Text
                     style={[
                       styles.dueTitle,
@@ -844,9 +858,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingTop: space[14],
+    paddingHorizontal: space[18],
+    paddingBottom: space[12],
   },
   topbarHairline: {
     position: "absolute",
@@ -858,7 +872,7 @@ const styles = StyleSheet.create({
   topbarRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: space[12],
   },
   avatarPressTarget: {
     flexShrink: 0,
@@ -885,14 +899,14 @@ const styles = StyleSheet.create({
   greetingName: {
     fontSize: 16,
     letterSpacing: -0.16,
-    marginTop: 1,
+    marginTop: space[2],
   },
 
   // Scroll content — paddingTop is set inline (topbar height + 8, the
   // web's 8px body padding) since the bar overlays the scroller.
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 28,
+    paddingHorizontal: space[18],
+    paddingBottom: space[28],
   },
 
   // Hero card
@@ -900,9 +914,9 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     borderRadius: 30,
-    paddingTop: 22,
-    paddingHorizontal: 22,
-    paddingBottom: 20,
+    paddingTop: space[24],
+    paddingHorizontal: space[24],
+    paddingBottom: space[20],
     borderWidth: 1,
   },
   heroGlowSvg: {
@@ -933,8 +947,8 @@ const styles = StyleSheet.create({
   },
   daysChip: {
     fontSize: 11,
-    paddingVertical: 4,
-    paddingHorizontal: 11,
+    paddingVertical: space[4],
+    paddingHorizontal: space[12],
     borderRadius: 99,
     borderWidth: 1,
   },
@@ -944,8 +958,8 @@ const styles = StyleSheet.create({
   amountRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 3,
-    marginTop: 10,
+    gap: space[4],
+    marginTop: space[10],
   },
   amountRupee: {
     fontSize: 26,
@@ -960,7 +974,7 @@ const styles = StyleSheet.create({
     lineHeight: 54,
   },
   progressTrack: {
-    marginTop: 20,
+    marginTop: space[20],
     height: 8,
     backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 99,
@@ -974,7 +988,7 @@ const styles = StyleSheet.create({
   progressLabelsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: space[10],
   },
   progressLeft: {
     fontSize: 12.5,
@@ -985,12 +999,12 @@ const styles = StyleSheet.create({
 
   // Read-path error banner
   retryWrap: {
-    marginTop: 14,
+    marginTop: space[14],
   },
 
   // SMS sync banner
   syncBanner: {
-    marginTop: 14,
+    marginTop: space[14],
   },
   syncBannerTouchable: {
     width: "100%",
@@ -998,9 +1012,9 @@ const styles = StyleSheet.create({
   syncBannerContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: space[14],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
   },
   syncIconWrap: {
     width: 40,
@@ -1019,7 +1033,7 @@ const styles = StyleSheet.create({
   },
   syncSubtitle: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
   syncReview: {
     fontSize: 12.5,
@@ -1031,9 +1045,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     justifyContent: "space-between",
-    marginTop: 28,
-    marginHorizontal: 4,
-    marginBottom: 14,
+    marginTop: space[28],
+    marginHorizontal: space[4],
+    marginBottom: space[14],
   },
   labelText: {
     fontSize: 16,
@@ -1046,16 +1060,16 @@ const styles = StyleSheet.create({
   // Week card
   weekCard: {},
   weekCardInner: {
-    paddingTop: 18,
-    paddingHorizontal: 14,
-    paddingBottom: 12,
+    paddingTop: space[18],
+    paddingHorizontal: space[14],
+    paddingBottom: space[12],
   },
   weekHeaderRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 8,
-    paddingHorizontal: 4,
-    paddingBottom: 4,
+    gap: space[8],
+    paddingHorizontal: space[4],
+    paddingBottom: space[4],
   },
   weekHeaderLabel: {
     fontSize: 13,
@@ -1068,7 +1082,7 @@ const styles = StyleSheet.create({
 
   // Recent
   recentList: {
-    gap: 8,
+    gap: space[8],
   },
   recentRowTouchable: {
     width: "100%",
@@ -1076,9 +1090,9 @@ const styles = StyleSheet.create({
   recentRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    gap: space[14],
+    paddingVertical: space[12],
+    paddingHorizontal: space[14],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -1092,8 +1106,8 @@ const styles = StyleSheet.create({
   recentMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 2,
+    gap: space[6],
+    marginTop: space[2],
   },
   recentMeta: {
     fontSize: 11.5,
@@ -1110,11 +1124,11 @@ const styles = StyleSheet.create({
   dueRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: space[12],
+    paddingHorizontal: space[14],
   },
   dueRowMain: { flex: 1 },
   dueTitle: { fontSize: 15 },
-  dueSub: { fontSize: 12.5, marginTop: 2 },
+  dueSub: { fontSize: 12.5, marginTop: space[2] },
   dueAmount: { fontSize: 15 },
 });

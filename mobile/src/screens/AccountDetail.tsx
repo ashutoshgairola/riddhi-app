@@ -22,10 +22,10 @@
  *    (note: unlike the account-list card, the detail balance is NOT L/K
  *    abbreviated — MobileScreens.jsx:434), `{a.bank} · {a.sub}` —
  *    MobileScreens.jsx:426–438.
- *  - Quick actions (Transfer/Statement/Settings + colors) —
- *    MobileScreens.jsx:442.
+ *  - Quick actions (Transfer/Import; source's Statement/Settings removed per
+ *    product ask) — MobileScreens.jsx:442.
  *  - Recent transactions 4 hardcoded rows — MobileScreens.jsx:452–457.
- *  - More-button sheet options (Edit/Download/Remove, danger) —
+ *  - More-button sheet options (Edit/Remove, danger) —
  *    MobileScreens.jsx:420–424.
  */
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,26 +37,23 @@ import { GlassCard } from '../components/Glass';
 import { IconButton, ListCard, ListRow, SearchButton, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
-import { shareTxCsv } from '../lib/exportCsv';
 import { MPageShell } from './_MPageShell';
 import type { Account } from './Accounts';
 
 // Quick actions (MobileScreens.jsx:442). `import` is a Task 10 addition —
-// no source parity, it slots in alongside the other three the same way the
-// grid already flexes to fit.
-type QuickActionKey = 'transfer' | 'statement' | 'settings' | 'import';
+// no source parity, it slots in alongside the others the same way the grid
+// already flexes to fit. Statement and Settings were removed per product ask.
+type QuickActionKey = 'transfer' | 'import';
 const QUICK_ACTIONS: { l: string; i: string; c: string; k: QuickActionKey }[] = [
   { l: 'Transfer', i: 'transfer', c: '#8197c4', k: 'transfer' },
-  { l: 'Statement', i: 'doc', c: '#c9a86a', k: 'statement' },
   { l: 'Import', i: '📥', c: '#7bb88f', k: 'import' },
-  { l: 'Settings', i: 'settings2', c: '#9d8bd6', k: 'settings' },
 ];
 
 // Recent transaction row shape (MobileScreens.jsx:452–457)
@@ -133,33 +130,22 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
     });
   };
 
-  const downloadStatement = () => {
-    // Scope the statement to THIS account, not the whole ledger.
-    shareTxCsv({ accountId: String(a.id), label: a.name })
-      .then(() => toast('Statement exported', '📄'))
-      .catch(() => toast("Couldn't export statement", '📡'));
-  };
-
   const openMoreSheet = () => {
     sheet({
       title: a.name,
       options: [
         { label: 'Edit account', icon: '✏️', onPress: editAccount },
-        { label: 'Download statement', icon: '📄', onPress: downloadStatement },
         { label: 'Remove account', icon: '🗑', danger: true, onPress: removeAccount },
       ],
     });
   };
 
   // Quick-action row: Transfer opens the add-transaction sheet (transfer
-  // type), Statement exports a CSV, Import launches the statement-import
-  // picker (Task 10) scoped to this account, Settings opens the account's
-  // more menu.
+  // type), Import launches the statement-import picker (Task 10) scoped to
+  // this account.
   const runQuickAction = (k: QuickActionKey) => {
     if (k === 'transfer') openAdd({ type: 'transfer', accountId: String(a.id) });
-    else if (k === 'statement') downloadStatement();
     else if (k === 'import') launchStatementImport(String(a.id));
-    else openMoreSheet();
   };
 
   return (
@@ -211,7 +197,10 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
             accessibilityLabel={q.l}
           >
             {({ pressed }) => (
-              <GlassCard style={[styles.quickActionCard, { opacity: pressed ? 0.6 : 1 }]}>
+              <GlassCard
+                style={[styles.quickActionCard, { opacity: pressed ? 0.6 : 1 }]}
+                contentStyle={styles.quickActionContent}
+              >
                 <View style={[styles.quickActionIconBox, { backgroundColor: q.c + '22' }]}>
                   <AppIcon value={q.i} size={16} color={q.c} />
                 </View>
@@ -260,11 +249,11 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Balance card (MobileScreens.jsx:426–438)
   balanceCard: {
-    padding: 22,
+    padding: space[24],
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   balanceGlowBlob: {
     position: 'absolute',
@@ -279,7 +268,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: space[12],
   },
   balanceTextBlock: {
     flex: 1,
@@ -298,42 +287,48 @@ const styles = StyleSheet.create({
     fontFamily: weight(700),
     fontSize: 34,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: space[4],
     letterSpacing: -1.02, // -0.03em of 34px
     color: '#fff',
   },
   balanceSub: {
     fontSize: 12,
     opacity: 0.8,
-    marginTop: 6,
+    marginTop: space[6],
     color: '#fff',
   },
 
   // Quick actions (MobileScreens.jsx:441–448)
   quickActionsGrid: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 18,
+    gap: space[8],
+    marginBottom: space[18],
   },
   quickActionPressable: {
     flex: 1,
   },
   quickActionCard: {
     flex: 1,
+  },
+  // Horizontal chip: icon + label in a centered row (content-layout props go
+  // on contentStyle so they hit the overlay, not the glass wrapper).
+  quickActionContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    justifyContent: 'center',
+    gap: space[10],
+    paddingVertical: space[16],
+    paddingHorizontal: space[14],
   },
   quickActionIconBox: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickActionLabel: {
-    fontSize: 11,
+    fontSize: 13,
   },
 
   // Recent transactions (MobileScreens.jsx:452–469)
@@ -352,7 +347,7 @@ const styles = StyleSheet.create({
   },
   txDate: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space[2],
   },
   txAmount: {
     fontSize: 14,

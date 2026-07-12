@@ -101,7 +101,16 @@ function makeService(client: Anthropic | null) {
     actionRepo as never,
   );
 
-  return { service, threadRepo, messageRepo, actionRepo, goals, accounts, creditCard };
+  return {
+    service,
+    threadRepo,
+    messageRepo,
+    actionRepo,
+    goals,
+    accounts,
+    creditCard,
+    budgets,
+  };
 }
 
 function collect() {
@@ -254,6 +263,46 @@ describe('AiChatService agent loop', () => {
     )[1].text;
     expect(systemText).toContain('No card dues.');
   });
+
+  it('stops before the next model call once the client disconnects mid-turn, leaving already-committed tool work intact', async () => {
+    // Two-iteration script: a tool call, then a narration turn that would run
+    // only if the loop kept going after the client dropped.
+    const { client, streamCalls } = scriptedClient([
+      {
+        stop_reason: 'tool_use',
+        content: [
+          { type: 'tool_use', id: 'tu1', name: 'list_goals', input: {} },
+        ],
+      },
+      {
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'You have 1 goal.' }],
+      },
+    ]);
+    const { service, messageRepo } = makeService(client);
+    const { emit } = collect();
+    const controller = new AbortController();
+
+    // Simulate an SSE drop landing right after the tool's result is
+    // persisted (the DB write already committed) but before the next
+    // model round-trip would fire.
+    const baseSave = messageRepo.save.getMockImplementation()!;
+    messageRepo.save.mockImplementation((x: AnyRecord) => {
+      if (x.role === 'tool') controller.abort();
+      return baseSave(x);
+    });
+
+    await service.runTurn('u1', null, 'show my goals', emit, {
+      signal: controller.signal,
+    });
+
+    // The committed tool result was persisted...
+    expect(
+      messageRepo.save.mock.calls.some((c) => c[0].role === 'tool'),
+    ).toBe(true);
+    // ...but the loop never made the second model call against a dead socket.
+    expect(streamCalls).toHaveLength(1);
+  });
 });
 
 describe('AiChatService turn idempotency (retry)', () => {
@@ -386,6 +435,85 @@ describe('AiChatService turn idempotency (retry)', () => {
     const types = events.map((e) => e.type);
     expect(types).toContain('text_delta');
     expect(types[types.length - 1]).toBe('message_end');
+  });
+
+  it('rebuilds the prompt from live DB state on resume, so quoted totals reflect the true committed spend — not a phantom second log', async () => {
+    const userRow = {
+      id: 'urow3',
+      threadId: 't1',
+      role: 'user',
+      clientMsgId: 'c-acc',
+      blocks: [{ type: 'text', text: 'log a ₹1,000 pizza' }],
+      createdAt: new Date(1),
+    };
+    const assistantToolUse = {
+      id: 'arow3',
+      threadId: 't1',
+      role: 'assistant',
+      blocks: [
+        {
+          type: 'tool_use',
+          id: 'tu1',
+          name: 'create_transaction',
+          input: { amount: 1000 },
+        },
+      ],
+      createdAt: new Date(2),
+    };
+    const toolRow = {
+      id: 'trow2',
+      threadId: 't1',
+      role: 'tool',
+      blocks: [
+        { type: 'tool_result', tool_use_id: 'tu1', content: '{"id":"tx1"}' },
+      ],
+      createdAt: new Date(3),
+    };
+
+    const { client, streamCalls } = scriptedClient([
+      {
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'Logged. Food is ₹1,450.' }],
+      },
+    ]);
+    const { service, threadRepo, messageRepo, budgets } = makeService(client);
+    threadRepo.findOne.mockResolvedValue({ id: 't1', userId: 'u1' } as never);
+    messageRepo.findOne.mockResolvedValue(userRow as never);
+    messageRepo.find.mockResolvedValue([
+      userRow,
+      assistantToolUse,
+      toolRow,
+    ] as never);
+    // Live DB state AFTER the pizza tool already committed exactly once —
+    // this is the true total the retried turn must quote.
+    budgets.findAll.mockResolvedValue([
+      {
+        name: 'Monthly',
+        totalAllocated: 20000,
+        totalSpent: 1450,
+        remaining: 18550,
+        categories: [{ name: 'Food', spent: 1450, allocated: 5000 }],
+      },
+    ] as never);
+
+    const { emit } = collect();
+    await service.runTurn('u1', 't1', 'log a ₹1,000 pizza', emit, {
+      clientMsgId: 'c-acc',
+    });
+
+    // Exactly one model call (resumed narration) — no re-execution of the
+    // already-committed tool.
+    expect(streamCalls).toHaveLength(1);
+    expect(
+      messageRepo.save.mock.calls.some((c) => c[0].role === 'tool'),
+    ).toBe(false);
+
+    // The dynamic system prompt fed to the model must reflect the TRUE
+    // committed total (₹1,450 spent), not a stale pre-commit figure and not
+    // a doubled ₹2,450 phantom second pizza.
+    const systemText = (streamCalls[0].system as { text: string }[])[1].text;
+    expect(systemText).toContain('spent ₹1,450');
+    expect(systemText).not.toContain('₹2,450');
   });
 });
 

@@ -11,14 +11,14 @@ import { Btn, IconButton } from '../../components/ui';
 import { MI } from '../../components/icons';
 import { PageBackground } from '../../components/PageBackground';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 import { PressableScale, SpringIn } from '../auth/authUi';
 
 // ── Progress bar (MobileOnboard.jsx:6-19) ───────────────────────────
 export function OBProgress({ step, total }: { step: number; total: number }) {
   const { t } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}>
+    <View style={{ flexDirection: 'row', gap: space[6], paddingVertical: space[2] }}>
       {Array.from({ length: total }).map((_, i) => (
         <View key={i} style={[styles.progressTrack, { backgroundColor: t.bg3 }]}>
           <View
@@ -61,7 +61,7 @@ export function OBStep({
   return (
     <View style={{ flex: 1 }}>
       <PageBackground />
-      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>
+      <View style={[styles.topbar, { paddingTop: insets.top + space[14] }]}>
         <IconButton onPress={onBack}>
           <MI.back size={20} color={t.text1} />
         </IconButton>
@@ -76,7 +76,7 @@ export function OBStep({
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 26, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingTop: space[10], paddingHorizontal: space[28], paddingBottom: space[24] }}
       >
         <SpringIn>
           {kicker ? (
@@ -85,7 +85,7 @@ export function OBStep({
           <Text style={[styles.title, { color: t.text1, fontFamily: weight(800) }]}>{title}</Text>
           {sub ? <Text style={[styles.sub, { color: t.text2, fontFamily: weight(500) }]}>{sub}</Text> : null}
         </SpringIn>
-        <SpringIn delay={50} style={{ marginTop: 22 }}>
+        <SpringIn delay={50} style={{ marginTop: space[24] }}>
           {children}
         </SpringIn>
       </ScrollView>
@@ -96,7 +96,7 @@ export function OBStep({
           {
             borderTopColor: t.border,
             backgroundColor: t.tabbarBg,
-            paddingBottom: insets.bottom + 20,
+            paddingBottom: insets.bottom + space[20],
           },
         ]}
       >
@@ -125,7 +125,7 @@ export function OBFooter({
         <Text style={{ fontSize: 16, color: '#1a1228', fontFamily: weight(600) }}>{label}</Text>
       </Btn>
       {onSkip ? (
-        <Pressable onPress={onSkip} style={{ paddingVertical: 8, marginTop: 10, alignItems: 'center' }}>
+        <Pressable onPress={onSkip} style={{ paddingVertical: space[8], marginTop: space[10], alignItems: 'center' }}>
           <Text style={{ fontSize: 13.5, color: t.text3, fontFamily: weight(600) }}>Skip for now</Text>
         </Pressable>
       ) : null}
@@ -184,15 +184,15 @@ const styles = StyleSheet.create({
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    gap: space[12],
+    paddingTop: space[14],
+    paddingHorizontal: space[18],
+    paddingBottom: space[12],
   },
   kicker: {
     fontSize: 11.5,
     letterSpacing: 1.15, // 0.1em of 11.5px
-    marginBottom: 10,
+    marginBottom: space[10],
   },
   title: {
     fontSize: 25,
@@ -201,18 +201,18 @@ const styles = StyleSheet.create({
   },
   sub: {
     fontSize: 14,
-    marginTop: 8,
+    marginTop: space[8],
     lineHeight: 21,
   },
   footer: {
-    paddingTop: 12,
-    paddingHorizontal: 26,
+    paddingTop: space[12],
+    paddingHorizontal: space[28],
     borderTopWidth: 1,
   },
   keypad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space[8],
   },
   keyWrap: {
     flexBasis: '31%',

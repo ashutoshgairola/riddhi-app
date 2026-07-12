@@ -42,7 +42,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useTheme } from '../../theme/ThemeProvider';
-import { ease, weight } from '../../theme/tokens';
+import { ease, space, weight } from '../../theme/tokens';
 import { formatDayShort } from './eventDates';
 import { evFmt } from './ExpenseRow';
 import type { EventDayGroup, EventExpenseView } from '../../api/types';
@@ -265,26 +265,26 @@ function DraggableRow({
 const styles = StyleSheet.create({
   expenseList: {
     flexDirection: 'column',
-    gap: 9,
+    gap: space[10],
   },
   section: {
     borderWidth: 1,
     borderColor: 'transparent',
     borderRadius: 14,
-    padding: 4,
+    padding: space[4],
     marginHorizontal: -4,
   },
   dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
-    marginBottom: 8,
-    paddingHorizontal: 2,
+    marginTop: space[6],
+    marginBottom: space[8],
+    paddingHorizontal: space[2],
   },
   dayHeaderTitle: { fontSize: 12.5, textTransform: 'uppercase', letterSpacing: 0.6 },
   dayHeaderSub: { fontSize: 11.5 },
-  dayRows: { gap: 9 },
+  dayRows: { gap: space[10] },
   dayEmpty: {
     minHeight: 44,
     borderWidth: 1,

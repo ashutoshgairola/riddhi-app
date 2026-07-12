@@ -60,9 +60,15 @@ async function ensureAndroidChannel(Notifications: NotificationsModule): Promise
  * need a dev/production build for remote push.
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice) {
+    console.warn('[push] skipped: not a physical device (Device.isDevice=false)');
+    return null;
+  }
   const Notifications = loadNotifications();
-  if (!Notifications) return null;
+  if (!Notifications) {
+    console.warn('[push] skipped: notifications module unavailable (Expo Go?)');
+    return null;
+  }
   await ensureAndroidChannel(Notifications);
 
   const existing = await Notifications.getPermissionsAsync();
@@ -71,19 +77,27 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     const req = await Notifications.requestPermissionsAsync();
     status = req.status;
   }
-  if (status !== 'granted') return null;
+  if (status !== 'granted') {
+    console.warn(`[push] skipped: permission not granted (status=${status})`);
+    return null;
+  }
 
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ??
     (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+  console.log(`[push] fetching Expo token (projectId=${projectId ?? 'MISSING'})`);
   try {
     const token = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
     );
+    console.log(`[push] got Expo token: ${token.data}`);
     return token.data;
-  } catch {
+  } catch (err) {
     // Token fetch can fail (unsupported runtime, offline, misconfigured
     // projectId). Degrade to no push rather than crashing app startup.
+    console.warn(
+      `[push] getExpoPushTokenAsync threw: ${err instanceof Error ? err.message : String(err)}`,
+    );
     return null;
   }
 }
@@ -102,8 +116,12 @@ export async function registerDeviceWithBackend(): Promise<string | null> {
       token,
       Platform.OS === 'ios' ? 'ios' : 'android',
     );
-  } catch {
+    console.log('[push] registered device token with backend');
+  } catch (err) {
     // Backend may be unreachable; the token is still valid for a later retry.
+    console.warn(
+      `[push] backend registerDevice failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   return token;
 }

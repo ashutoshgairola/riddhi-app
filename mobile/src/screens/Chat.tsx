@@ -54,7 +54,7 @@ import { MI } from "../components/icons";
 import { AppIcon } from "../components/contentIcons";
 import { PageBackground } from "../components/PageBackground";
 import { useTheme } from "../theme/ThemeProvider";
-import { weight } from "../theme/tokens";
+import { space, weight } from "../theme/tokens";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { streamChat, ChatStreamInterrupted } from "../api/chatStream";
@@ -431,7 +431,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
       <PageBackground />
 
       {/* topbar */}
-      <View style={[styles.topbar, { paddingTop: insets.top + 14 }]}>
+      <View style={[styles.topbar, { paddingTop: insets.top + space[14] }]}>
         <IconButton onPress={pop}>
           <MI.back size={20} color={t.text1} />
         </IconButton>
@@ -501,8 +501,8 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
                 { color: t.text3, fontFamily: weight(400) },
               ]}
             >
-              Log spends, move budgets, track goals, or ask anything — Munshi ji
-              keeps the hisaab.
+              Log spends, move budgets, track goals, or ask anything — Munshi
+              jiji keeps the hisaab.
             </Text>
 
             <View style={styles.emptyActions}>
@@ -594,7 +594,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
           {
             borderTopColor: t.border,
             backgroundColor: t.bg,
-            paddingBottom: Math.max(insets.bottom, 0) + 12,
+            paddingBottom: Math.max(insets.bottom, 0) + space[12],
           },
         ]}
       >
@@ -646,18 +646,18 @@ const styles = StyleSheet.create({
   },
   topbar: {
     position: "relative",
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    paddingTop: space[14],
+    paddingHorizontal: space[18],
+    paddingBottom: space[12],
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: space[10],
   },
   topbarMid: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: space[10],
   },
   sparkleBox: {
     width: 34,
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   onlineRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: space[4],
     marginTop: -1,
   },
   online: {
@@ -690,13 +690,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: space[18],
+    paddingTop: space[12],
+    paddingBottom: space[8],
     flexGrow: 1,
   },
   emptyWrap: {
-    paddingTop: 24,
+    paddingTop: space[24],
   },
   emptySparkle: {
     width: 54,
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: space[16],
     overflow: "hidden",
   },
   emptyLogo: {
@@ -719,35 +719,35 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 13.5,
-    marginTop: 8,
+    marginTop: space[8],
     lineHeight: 20,
   },
   emptyActions: {
     flexDirection: "column",
-    gap: 8,
-    marginTop: 22,
+    gap: space[8],
+    marginTop: space[24],
   },
   scanBtn: {
-    paddingVertical: 13,
-    paddingHorizontal: 15,
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: space[10],
   },
   scanBtnText: {
     fontSize: 13.5,
     flexShrink: 1,
   },
   suggestionBtn: {
-    paddingVertical: 13,
-    paddingHorizontal: 15,
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: space[10],
   },
   suggestionText: {
     fontSize: 13.5,
@@ -755,14 +755,14 @@ const styles = StyleSheet.create({
   },
   msgRow: {
     flexDirection: "column",
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   bubble: {
     maxWidth: "82%",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: space[10],
+    paddingHorizontal: space[14],
     borderRadius: 18,
-    marginTop: 6,
+    marginTop: space[6],
   },
   bubbleUser: {
     borderBottomRightRadius: 5,
@@ -781,13 +781,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   errorWrap: {
-    marginTop: 6,
-    gap: 8,
+    marginTop: space[6],
+    gap: space[8],
   },
   errorBubble: {
     maxWidth: "82%",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: space[10],
+    paddingHorizontal: space[14],
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
@@ -800,9 +800,9 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
+    gap: space[6],
+    paddingVertical: space[8],
+    paddingHorizontal: space[14],
     borderRadius: 13,
     borderWidth: 1,
   },
@@ -811,16 +811,16 @@ const styles = StyleSheet.create({
   },
   typingRow: {
     flexDirection: "row",
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   typingBubble: {
-    paddingVertical: 13,
-    paddingHorizontal: 16,
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 5,
+    gap: space[6],
   },
   dot: {
     width: 7,
@@ -829,12 +829,12 @@ const styles = StyleSheet.create({
   },
   composer: {
     flexShrink: 0,
-    paddingTop: 10,
-    paddingHorizontal: 16,
+    paddingTop: space[10],
+    paddingHorizontal: space[16],
     borderTopWidth: 1,
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 9,
+    gap: space[10],
   },
   attachBtn: {
     width: 42,
@@ -848,8 +848,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     maxHeight: 96,
-    paddingVertical: 11,
-    paddingHorizontal: 15,
+    paddingVertical: space[12],
+    paddingHorizontal: space[16],
     borderRadius: 20,
     borderWidth: 1,
     fontSize: 14,

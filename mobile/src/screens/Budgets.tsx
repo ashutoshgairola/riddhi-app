@@ -58,9 +58,10 @@ import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { useCountUp } from '../hooks/useCountUp';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
@@ -110,6 +111,8 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { openAdd, push } = useNav();
   const { toast, sheet, form } = useFeedback();
+  const { prefs } = usePrefs();
+  const hide = prefs.hideBalances;
   const [scrolled, setScrolled] = useState(false);
 
   const [viewMonth, setViewMonth] = useState(CURRENT_MONTH);
@@ -298,14 +301,16 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
               </Text>
               <View style={styles.ringInfoAmountRow}>
                 <Text style={[styles.ringInfoAmount, { color: t.text1, fontFamily: weight(700) }]}>
-                  ₹{(totalSpent / 1000).toFixed(0)}K{' '}
+                  {hide ? MASKED_AMOUNT : `₹${(totalSpent / 1000).toFixed(0)}K`}{' '}
                 </Text>
                 <Text style={[styles.ringInfoAmountAlloc, { color: t.text3 }]}>
-                  / ₹{(totalAlloc / 1000).toFixed(0)}K
+                  {hide ? `/ ${MASKED_AMOUNT}` : `/ ₹${(totalAlloc / 1000).toFixed(0)}K`}
                 </Text>
               </View>
               <Text style={[styles.ringInfoRemaining, { color: t.text2 }]}>
-                ₹{(totalAlloc - totalSpent).toLocaleString('en-IN')} remaining
+                {hide
+                  ? `${MASKED_AMOUNT} remaining`
+                  : `₹${(totalAlloc - totalSpent).toLocaleString('en-IN')} remaining`}
               </Text>
             </View>
           </GlassCard>
@@ -351,10 +356,9 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
                         {b.name}
                       </Text>
                       <Text style={[styles.categoryAmount, { color: t.text3 }]}>
-                        ₹{b.spent.toLocaleString('en-IN')}{' '}
-                        <Text style={{ color: t.text3 }}>
-                          of ₹{b.allocated.toLocaleString('en-IN')}
-                        </Text>
+                        {hide
+                          ? MASKED_AMOUNT
+                          : `₹${b.spent.toLocaleString('en-IN')} of ₹${b.allocated.toLocaleString('en-IN')}`}
                       </Text>
                     </View>
                     <Text
@@ -371,7 +375,9 @@ export function Budgets({ entry: _entry }: { entry: ScreenEntry }) {
                     <View style={styles.overBudgetWarningRow}>
                       <AppIcon value="warn" size={16} color={t.red} />
                       <Text style={[styles.overBudgetWarning, { color: t.red, fontFamily: weight(600) }]}>
-                        Over budget by ₹{(b.spent - b.allocated).toLocaleString('en-IN')}
+                        {hide
+                          ? `Over budget by ${MASKED_AMOUNT}`
+                          : `Over budget by ₹${(b.spent - b.allocated).toLocaleString('en-IN')}`}
                       </Text>
                     </View>
                   ) : null}
@@ -394,14 +400,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 4,
-    paddingHorizontal: 18,
-    paddingBottom: 24,
+    paddingTop: space[4],
+    paddingHorizontal: space[18],
+    paddingBottom: space[24],
   },
 
   // Overall ring card
   ringCard: {
-    marginTop: 8,
+    marginTop: space[8],
   },
   // Row layout must go through contentStyle to reach the card's content
   // (on `style` it applies to GlassCard's outer wrapper — ring and text
@@ -409,7 +415,7 @@ const styles = StyleSheet.create({
   ringCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: space[16],
   },
   ringWrap: {
     width: RING_SIZE,
@@ -432,7 +438,7 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     textTransform: 'uppercase',
     letterSpacing: 0.57, // 0.06em of 9.5px
-    marginTop: 1,
+    marginTop: space[2],
   },
   ringInfo: {
     flex: 1,
@@ -445,7 +451,7 @@ const styles = StyleSheet.create({
   ringInfoAmountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginTop: 4,
+    marginTop: space[4],
   },
   ringInfoAmount: {
     fontSize: 22,
@@ -455,27 +461,27 @@ const styles = StyleSheet.create({
   },
   ringInfoRemaining: {
     fontSize: 12,
-    marginTop: 6,
+    marginTop: space[6],
   },
 
   // Categories
   sectionWrap: {
-    marginTop: 22,
+    marginTop: space[24],
   },
   categoryList: {
     flexDirection: 'column',
-    gap: 10,
+    gap: space[10],
   },
   // Padding override (16 vs GlassCard's 18 default) — must be contentStyle;
   // on `style` it pads the outer wrapper *around* the already-padded overlay.
   categoryCardContent: {
-    padding: 16,
+    padding: space[16],
   },
   categoryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
+    gap: space[12],
+    marginBottom: space[10],
   },
   categoryTextBlock: {
     flex: 1,
@@ -486,20 +492,20 @@ const styles = StyleSheet.create({
   },
   categoryAmount: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
   categoryPctBadge: {
     fontSize: 14,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: space[4],
+    paddingHorizontal: space[10],
     borderRadius: 99,
     overflow: 'hidden',
   },
   overBudgetWarningRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
+    gap: space[4],
+    marginTop: space[8],
   },
   overBudgetWarning: {
     fontSize: 11,
@@ -509,9 +515,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingHorizontal: space[18],
+    paddingTop: space[4],
+    paddingBottom: space[4],
   },
   monthSwitcherLabel: {
     fontSize: 15,
@@ -522,16 +528,16 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 28,
+    gap: space[12],
+    paddingVertical: space[28],
   },
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
   },
   emptyBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: space[10],
+    paddingHorizontal: space[20],
     borderRadius: 99,
   },
   emptyBtnText: {

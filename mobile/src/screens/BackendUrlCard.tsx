@@ -11,7 +11,7 @@ import { GlassCard } from '../components/Glass';
 import { SectionHead } from '../components/ui';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 
 interface BackendUrlCardProps {
   /**
@@ -85,20 +85,20 @@ export function BackendUrlCard({ onChanged }: BackendUrlCardProps = {}) {
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 18 },
-  label: { fontSize: 12, marginBottom: 8 },
+  section: { marginBottom: space[18] },
+  label: { fontSize: 12, marginBottom: space[8] },
   input: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: space[12],
+    paddingVertical: space[10],
     fontSize: 14,
   },
-  row: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  row: { flexDirection: 'row', gap: space[10], marginTop: space[12] },
   btn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: space[10],
     borderRadius: 12,
     borderWidth: 1,
   },

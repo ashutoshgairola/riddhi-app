@@ -57,5 +57,18 @@ export function SpringIn({ delay = 0, style, children }: SpringInProps) {
     ],
   }));
 
-  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
+  // `needsOffscreenAlphaCompositing`: while the entrance tweens `opacity`
+  // 0->1, Android applies that alpha per child layer rather than flattening
+  // the subtree first. Any content that stacks opaque layers (e.g. a SwipeRow
+  // foreground over its opaque red/blue action zones) then shows the lower
+  // layer bleeding through the "see-through" upper one — reading as ghosted
+  // text and vertical action-colour bands until opacity settles at 1. Forcing
+  // offscreen compositing flattens the subtree, then applies alpha to the
+  // composite. Android skips the offscreen buffer once alpha == 1, so this is
+  // free after the animation ends.
+  return (
+    <Animated.View style={[style, animatedStyle]} needsOffscreenAlphaCompositing>
+      {children}
+    </Animated.View>
+  );
 }

@@ -63,7 +63,7 @@ import { MI } from '../../components/icons';
 import { AppIcon } from '../../components/contentIcons';
 import { SpringIn } from '../../components/SpringIn';
 import { useTheme } from '../../theme/ThemeProvider';
-import { ease, weight } from '../../theme/tokens';
+import { ease, space, weight } from '../../theme/tokens';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../../app/navContext';
 import { api } from '../../api';
@@ -446,12 +446,12 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Hero
   heroCard: {
-    marginTop: 8,
+    marginTop: space[8],
   },
   heroCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: space[18],
   },
   ringWrap: {
     width: RING_SIZE,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   },
   ringPct: {
     fontSize: 13,
-    marginTop: 4,
+    marginTop: space[4],
   },
   heroTextBlock: {
     flex: 1,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   heroValue: {
     fontSize: 24,
-    marginTop: 4,
+    marginTop: space[4],
     letterSpacing: -0.48,
   },
   heroValueOf: {
@@ -490,14 +490,14 @@ const styles = StyleSheet.create({
   },
   heroChipsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    gap: space[8],
+    marginTop: space[8],
     flexWrap: 'wrap',
   },
   heroChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: space[4],
   },
   heroChip: {
     fontSize: 11.5,
@@ -505,13 +505,13 @@ const styles = StyleSheet.create({
 
   // Stats row
   statsCard: {
-    marginTop: 12,
+    marginTop: space[12],
   },
   statsCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingVertical: space[16],
+    paddingHorizontal: space[8],
   },
   statCell: {
     flex: 1,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginTop: 3,
+    marginTop: space[4],
   },
   statDivider: {
     width: 1,
@@ -533,14 +533,14 @@ const styles = StyleSheet.create({
 
   // Over banner
   overBanner: {
-    marginTop: 12,
-    padding: 14,
-    paddingHorizontal: 14,
+    marginTop: space[12],
+    padding: space[14],
+    paddingHorizontal: space[14],
     borderRadius: 13,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space[10],
   },
   overBannerText: {
     flex: 1,
@@ -549,28 +549,28 @@ const styles = StyleSheet.create({
 
   // Empty state
   emptyCard: {
-    paddingVertical: 28,
+    paddingVertical: space[28],
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 14,
-    marginTop: 8,
+    marginTop: space[8],
   },
   emptySubtitle: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: space[4],
     textAlign: 'center',
   },
 
   // Expense list (single-day flat list; multi-day rows live in ExpenseDragList).
   expenseList: {
     flexDirection: 'column',
-    gap: 9,
+    gap: space[10],
   },
 
   // Add button + footer
   addBtn: {
-    marginTop: 14,
+    marginTop: space[14],
     borderStyle: 'dashed',
     borderWidth: 1,
   },
@@ -578,12 +578,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: space[8],
   },
   footerNote: {
     fontSize: 11,
     textAlign: 'center',
-    marginTop: 14,
+    marginTop: space[14],
     lineHeight: 16.5,
   },
 });

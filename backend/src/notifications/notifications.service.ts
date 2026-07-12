@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationsRepository } from './notifications.repository';
@@ -25,6 +25,8 @@ export interface CreateNotificationInput {
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
     private readonly pushDispatcher: PushDispatcher,
@@ -85,6 +87,10 @@ export class NotificationsService {
         body: input.body,
         data: input.data as unknown as Record<string, unknown>,
       });
+    } else {
+      this.logger.warn(
+        `Push skipped for ${userId}: notificationsEnabled preference is off ("${input.title}")`,
+      );
     }
 
     return row;

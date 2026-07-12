@@ -43,7 +43,7 @@ import { api } from '../api';
 import { BottomSheet } from '../components/BottomSheet';
 import { Btn } from '../components/ui';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, weight } from '../theme/tokens';
+import { radius, space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav } from './navContext';
 import { PdfPasswordError, prepareUpload, type PreparedUpload } from '../screens/statementPdf';
@@ -256,8 +256,8 @@ function PasswordSheet({ open, error, submitting, onClose, onSubmit }: PasswordS
 
 const styles = StyleSheet.create({
   body: {
-    paddingBottom: 8,
-    gap: 12,
+    paddingBottom: space[8],
+    gap: space[12],
   },
   hint: {
     fontSize: 12.5,
@@ -266,8 +266,8 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: space[14],
+    paddingVertical: space[12],
     fontSize: 15,
   },
   error: {
@@ -275,6 +275,6 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   submit: {
-    marginTop: 4,
+    marginTop: space[4],
   },
 });

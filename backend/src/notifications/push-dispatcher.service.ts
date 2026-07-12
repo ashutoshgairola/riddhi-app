@@ -27,7 +27,15 @@ export class PushDispatcher {
   ): Promise<void> {
     try {
       const tokens = await this.tokenRepo.find({ where: { userId } });
-      if (tokens.length === 0) return;
+      if (tokens.length === 0) {
+        this.logger.warn(
+          `Push skipped for ${userId}: no device tokens registered ("${n.title}")`,
+        );
+        return;
+      }
+      this.logger.log(
+        `Dispatching "${n.title}" to ${tokens.length} device token(s) for ${userId}`,
+      );
 
       const messages = buildExpoMessages(
         tokens.map((t) => t.expoPushToken),
@@ -58,11 +66,13 @@ export class PushDispatcher {
     const tickets = json.data ?? [];
     await Promise.all(
       tickets.map((ticket, i) => {
-        if (
-          ticket.status === 'error' &&
-          ticket.details?.error === 'DeviceNotRegistered'
-        ) {
-          return this.tokenRepo.delete({ expoPushToken: batch[i].to });
+        if (ticket.status === 'error') {
+          this.logger.warn(
+            `Expo push error for ${batch[i].to}: ${ticket.details?.error ?? 'unknown'}`,
+          );
+          if (ticket.details?.error === 'DeviceNotRegistered') {
+            return this.tokenRepo.delete({ expoPushToken: batch[i].to });
+          }
         }
         return Promise.resolve();
       }),

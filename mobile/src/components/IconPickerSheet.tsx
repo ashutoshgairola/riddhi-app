@@ -11,9 +11,10 @@
  * picker directly) — call `pick(cfg)` to open, render `sheet` once near the
  * root of that screen.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { BottomSheet } from './BottomSheet';
 import { AppIcon } from './contentIcons';
@@ -21,6 +22,13 @@ import { ICON_LIST, resolveIconName, type ContentIconName } from './contentIcons
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, weight } from '../theme/tokens';
 import { spacing } from '../theme/spacing';
+
+/**
+ * Kept in sync with `BottomSheet`'s slide duration (`SLIDE_DURATION_MS`, 350ms)
+ * — the wrapping Modal must stay mounted at least this long after `open` flips
+ * to false so the sheet's exit animation is visible before it unmounts.
+ */
+const SLIDE_OUT_MS = 350;
 
 export interface IconPickerSheetProps {
   open: boolean;
@@ -48,8 +56,30 @@ export function IconPickerSheet({
     ([k, l]) => !query || l.toLowerCase().includes(query) || k.toLowerCase().includes(query),
   );
 
+  // The picker is frequently opened from *inside* a FormSheet (the `icon` field
+  // kind), and `BottomSheet` is an in-tree overlay — nested inside the form's
+  // own sheet body it would render inline and clipped instead of over the whole
+  // screen. A transparent native `Modal` hoists it to the top window layer, the
+  // same escape hatch `CalendarPicker` uses for the date field. `mounted` keeps
+  // the Modal alive through the sheet's slide-out before unmounting.
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const id = setTimeout(() => setMounted(false), SLIDE_OUT_MS);
+    return () => clearTimeout(id);
+  }, [open]);
+
+  if (!mounted) return null;
+
   return (
-    <BottomSheet open={open} onClose={onClose} title={title}>
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+      {/* A native Modal renders outside the app-root GestureHandlerRootView, so
+       * the sheet's drag-to-dismiss handle needs its own root here. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheet open={open} onClose={onClose} title={title}>
       <TextInput
         value={q}
         onChangeText={setQ}
@@ -112,6 +142,8 @@ export function IconPickerSheet({
         </View>
       </ScrollView>
     </BottomSheet>
+      </GestureHandlerRootView>
+    </Modal>
   );
 }
 

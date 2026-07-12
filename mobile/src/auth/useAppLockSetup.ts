@@ -21,6 +21,9 @@ import {
   getBiometricEnabled,
   getLockSetupDismissed,
   hasPin,
+  isValidPinLength,
+  PIN_MAX_LENGTH,
+  PIN_MIN_LENGTH,
   savePin,
   setLockSetupDismissed,
 } from './tokenStore';
@@ -41,12 +44,25 @@ export function useAppLockSetup(): void {
       form({
         title: 'Set PIN',
         fields: [
-          { key: 'pin', label: 'New PIN (4–6 digits)' },
-          { key: 'confirm', label: 'Confirm new PIN' },
+          {
+            key: 'pin',
+            label: 'New PIN (4–6 digits)',
+            secureTextEntry: true,
+            keyboardType: 'number-pad',
+            maxLength: PIN_MAX_LENGTH,
+          },
+          {
+            key: 'confirm',
+            label: 'Confirm new PIN',
+            secureTextEntry: true,
+            keyboardType: 'number-pad',
+            maxLength: PIN_MAX_LENGTH,
+          },
         ],
         submitLabel: 'Set PIN',
         onSubmit: async (v) => {
-          if (!/^\d{4,6}$/.test(v['pin'] ?? '')) throw new Error('PIN must be 4–6 digits');
+          if (!isValidPinLength(v['pin'] ?? ''))
+            throw new Error(`PIN must be ${PIN_MIN_LENGTH}–${PIN_MAX_LENGTH} digits`);
           if (v['pin'] !== v['confirm']) throw new Error("PINs don't match");
           await savePin(v['pin']!);
           toast('App lock is on for this device', '🔒');

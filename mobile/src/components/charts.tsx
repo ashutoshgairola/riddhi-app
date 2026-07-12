@@ -40,6 +40,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { useTheme } from '../theme/ThemeProvider';
 import { ease, weight } from '../theme/tokens';
 import { spacing } from '../theme/spacing';
@@ -447,6 +448,7 @@ function DonutSlice({
 
 export function MDonut({ data, total, size = 140 }: MDonutProps) {
   const { t } = useTheme();
+  const { prefs } = usePrefs();
   const r = size / 2 - 12;
   const c = 2 * Math.PI * r;
 
@@ -483,7 +485,7 @@ export function MDonut({ data, total, size = 140 }: MDonutProps) {
           Total
         </Animated.Text>
         <Animated.Text style={[styles.donutTotalValue, { color: t.text1, fontFamily: weight(700) }]}>
-          ₹{(total / 1000).toFixed(0)}K
+          {prefs.hideBalances ? MASKED_AMOUNT : `₹${(total / 1000).toFixed(0)}K`}
         </Animated.Text>
       </View>
     </View>

@@ -15,7 +15,8 @@
  * other date field in the app persists dates (e.g. Goals.tsx's `targetDate`).
  */
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, { Polyline } from 'react-native-svg';
 
 import { BottomSheet } from '../../components/BottomSheet';
@@ -26,7 +27,7 @@ import { useIconPicker } from '../../components/IconPickerSheet';
 import { Btn } from '../../components/ui';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, weight } from '../../theme/tokens';
+import { radius, space, weight } from '../../theme/tokens';
 import { EV_TEMPLATES, seedFromTemplate } from './templates';
 import { parseYMD, toYMD, formatRange } from './eventDates';
 import type { NewEventInput } from '../../api/types';
@@ -40,6 +41,21 @@ function displayDate(s: string): string | null {
 
 const DEFAULT_TEMPLATE_KEY = 'birthday';
 const DEFAULT_EMOJI = '✨';
+
+/**
+ * Swatch palette for the custom-event colour picker. Leads with the custom
+ * template's own colour (`#b6a4f3`) so the initial selection matches a swatch,
+ * then a spread mirroring the other templates + the app's category swatches —
+ * same idea as `FormSheet`'s `CATEGORY_COLORS` (categories pick icon + colour).
+ */
+const EVENT_COLORS = [
+  '#b6a4f3', '#c97d8c', '#c9a86a', '#6fb3ad',
+  '#9d8bd6', '#e0a878', '#6fc0b0', '#7f9fc9',
+];
+
+/** Kept in sync with `BottomSheet`'s slide duration so the wrapping Modal
+ * survives the exit animation before unmounting (see `IconPickerSheet`). */
+const SLIDE_OUT_MS = 350;
 
 export function CreateEventSheet({
   open,
@@ -59,6 +75,7 @@ export function CreateEventSheet({
   const [date, setDate] = useState('');
   const [budget, setBudget] = useState('');
   const [emoji, setEmoji] = useState(DEFAULT_EMOJI);
+  const [color, setColor] = useState(EVENT_COLORS[0]);
 
   const [dateOpen, setDateOpen] = useState(false);
   const [dateAnchor, setDateAnchor] = useState<Anchor | null>(null);
@@ -72,6 +89,8 @@ export function CreateEventSheet({
 
   const template = EV_TEMPLATES.find((tp) => tp.key === tpl) ?? EV_TEMPLATES[0];
   const isCustom = tpl === 'custom';
+  // Custom events use the picked colour; templates keep their own accent.
+  const accent = isCustom ? color : template.color;
 
   // Reset on open — MobileEvents.jsx:129–131.
   useEffect(() => {
@@ -81,6 +100,7 @@ export function CreateEventSheet({
     setDate('');
     setBudget('');
     setEmoji(DEFAULT_EMOJI);
+    setColor(EVENT_COLORS[0]);
     setMultiDay(false);
     setEndDate('');
   }, [open]);
@@ -91,9 +111,22 @@ export function CreateEventSheet({
     const found = EV_TEMPLATES.find((tp) => tp.key === tpl);
     if (found) {
       setBudget(String(found.budget));
+      setColor(found.color);
       if (found.key === 'custom') setEmoji(DEFAULT_EMOJI);
     }
   }, [tpl]);
+
+  // Keep the wrapping Modal alive through the sheet's slide-out (see the Modal
+  // note on the return below).
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const id = setTimeout(() => setMounted(false), SLIDE_OUT_MS);
+    return () => clearTimeout(id);
+  }, [open]);
 
   const openDatePicker = () => {
     Keyboard.dismiss();
@@ -136,6 +169,7 @@ export function CreateEventSheet({
         endDate: multiDay ? endDate || undefined : undefined,
         budget: Number(budget) || template.budget,
         emoji: isCustom ? emoji : template.emoji,
+        color: accent,
       });
       onClose();
     } catch {
@@ -146,8 +180,19 @@ export function CreateEventSheet({
   const dateLabel = displayDate(date);
   const currentDate = parseYMD(date) ?? new Date();
 
+  if (!mounted) return null;
+
   return (
-    <BottomSheet open={open} onClose={onClose} title="New event">
+    // The sheet is opened from *inside* the Events screen, which lives in a
+    // clipped (`overflow: hidden`) stage that sits above the tab bar — an
+    // in-tree `BottomSheet` there renders clipped and leaves the tab bar
+    // exposed. A transparent native Modal hoists it to the top window layer so
+    // it covers the whole screen (tab bar included), the same escape hatch
+    // `IconPickerSheet`/`CalendarPicker` use. `GestureHandlerRootView` restores
+    // the drag-to-dismiss handle, which a native Modal renders outside of.
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheet open={open} onClose={onClose} title="New event">
       <View style={styles.body}>
         <Text style={[styles.label, { color: t.text3, fontFamily: weight(600) }]}>
           START FROM A TEMPLATE
@@ -192,19 +237,40 @@ export function CreateEventSheet({
             </Text>
             <Pressable
               onPress={() =>
-                pick({ value: emoji, color: template.color, title: 'Choose icon', onPick: setEmoji })
+                pick({ value: emoji, color: accent, title: 'Choose icon', onPick: setEmoji })
               }
               style={[styles.iconPickRow, { backgroundColor: t.bg2, borderColor: t.border }]}
             >
-              <AppIconBox value={emoji} color={template.color} size={40} iconSize={20} />
+              <AppIconBox value={emoji} color={accent} size={40} iconSize={20} />
               <Text style={[styles.iconPickLabel, { color: t.text1, fontFamily: weight(600) }]}>
                 Change icon
               </Text>
             </Pressable>
+
+            <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: space[14] }]}>
+              PICK A COLOUR
+            </Text>
+            <View style={styles.swatchRow}>
+              {EVENT_COLORS.map((hex) => {
+                const on = color.toLowerCase() === hex.toLowerCase();
+                return (
+                  <Pressable
+                    key={hex}
+                    onPress={() => setColor(hex)}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: hex, borderWidth: on ? 3 : 1, borderColor: on ? t.text1 : t.border },
+                    ]}
+                  >
+                    {on ? <AppIcon value="check" size={16} color="#ffffff" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         ) : null}
 
-        <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: 18 }]}>
+        <Text style={[styles.label, { color: t.text3, fontFamily: weight(600), marginTop: space[18] }]}>
           EVENT NAME
         </Text>
         <TextInput
@@ -283,7 +349,7 @@ export function CreateEventSheet({
                   >
                     {date && endDate ? formatRange(date, endDate) : 'Select dates'}
                   </Text>
-                  <AppIcon value="calendar2" size={16} color={template.color} />
+                  <AppIcon value="calendar2" size={16} color={accent} />
                 </Pressable>
               </>
             ) : (
@@ -307,7 +373,7 @@ export function CreateEventSheet({
                   >
                     {dateLabel ?? 'Select date'}
                   </Text>
-                  <AppIcon value="calendar2" size={16} color={template.color} />
+                  <AppIcon value="calendar2" size={16} color={accent} />
                 </Pressable>
               </>
             )}
@@ -364,32 +430,34 @@ export function CreateEventSheet({
         onClose={() => setRangeOpen(false)}
       />
 
-      {sheet}
-    </BottomSheet>
+          {sheet}
+        </BottomSheet>
+      </GestureHandlerRootView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   body: {
-    paddingBottom: 6,
+    paddingBottom: space[6],
   },
   label: {
     fontSize: 10.5,
     letterSpacing: 0.84,
-    marginBottom: 8,
+    marginBottom: space[8],
   },
   templateGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 9,
+    gap: space[10],
   },
   templateCard: {
     width: '48.3%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 13,
+    gap: space[10],
+    paddingVertical: space[12],
+    paddingHorizontal: space[14],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -402,26 +470,38 @@ const styles = StyleSheet.create({
   },
   templateSub: {
     fontSize: 10.5,
-    marginTop: 1,
+    marginTop: space[2],
   },
   emojiSection: {
-    marginTop: 14,
+    marginTop: space[14],
   },
   iconPickRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 10,
+    gap: space[12],
+    padding: space[10],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
   iconPickLabel: {
     fontSize: 14,
   },
+  swatchRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[12],
+  },
+  swatch: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: space[14],
     fontSize: 15,
   },
   nameInput: {
@@ -430,9 +510,9 @@ const styles = StyleSheet.create({
   multiDayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 14,
-    padding: 14,
+    gap: space[12],
+    marginTop: space[14],
+    padding: space[14],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -453,12 +533,12 @@ const styles = StyleSheet.create({
   },
   multiDaySubtitle: {
     fontSize: 11.5,
-    marginTop: 1,
+    marginTop: space[2],
   },
   fieldsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
+    gap: space[10],
+    marginTop: space[12],
   },
   fieldFlex: {
     flex: 1,
@@ -485,9 +565,9 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     height: 46,
-    paddingLeft: 28,
+    paddingLeft: space[28],
   },
   createBtn: {
-    marginTop: 18,
+    marginTop: space[18],
   },
 });

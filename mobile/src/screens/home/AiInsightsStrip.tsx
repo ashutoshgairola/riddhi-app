@@ -11,7 +11,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { HScroll } from "../../components/ui";
 import { LiquidGlass } from "../../components/LiquidGlass";
 import { useTheme } from "../../theme/ThemeProvider";
-import { radius, weight } from "../../theme/tokens";
+import { radius, space, weight } from "../../theme/tokens";
 import { useNav } from "../../app/navContext";
 import { apiClient } from "../../api/client";
 import { usePrefs } from "../../prefs/PrefsProvider";
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   headRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: space[8],
   },
   icon: {
     fontSize: 15,
@@ -114,13 +114,13 @@ const styles = StyleSheet.create({
   body: {
     fontSize: 12,
     lineHeight: 17,
-    marginTop: 6,
+    marginTop: space[6],
   },
   ctaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    marginTop: 9,
+    gap: space[6],
+    marginTop: space[10],
   },
   ctaLogo: {
     width: 14,

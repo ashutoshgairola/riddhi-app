@@ -41,7 +41,7 @@ import { GlassCard } from '../components/Glass';
 import { Btn, Chip, ListCard, ListRow, SectionHead, Toggle } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
@@ -337,7 +337,7 @@ export function StatementReview({ entry }: { entry: ScreenEntry }) {
       <View
         style={[
           styles.importBar,
-          { backgroundColor: t.bg1, borderTopColor: t.border, paddingBottom: insets.bottom + 12 },
+          { backgroundColor: t.bg1, borderTopColor: t.border, paddingBottom: insets.bottom + space[12] },
         ]}
       >
         <Btn onPress={() => void onImport()} disabled={importing || includedCount === 0}>
@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 14,
+    gap: space[10],
+    marginBottom: space[14],
   },
   bannerText: {
     flex: 1,
@@ -374,16 +374,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   summaryCard: {
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   summaryTitle: {
     fontSize: 14.5,
-    marginBottom: 12,
+    marginBottom: space[12],
   },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    gap: space[14],
   },
   statBox: {
     minWidth: '28%',
@@ -395,35 +395,35 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 15,
-    marginTop: 3,
+    marginTop: space[4],
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 14,
+    marginTop: space[14],
+    paddingTop: space[14],
     borderTopWidth: 1,
   },
   toggleLabel: {
     fontSize: 13.5,
     flex: 1,
-    marginRight: 12,
+    marginRight: space[12],
   },
   section: {
-    marginBottom: 18,
+    marginBottom: space[18],
   },
   sectionHint: {
     fontSize: 11.5,
     marginTop: -6,
-    marginBottom: 10,
-    paddingHorizontal: 4,
+    marginBottom: space[10],
+    paddingHorizontal: space[4],
     lineHeight: 16,
   },
   rowLeft: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: space[4],
   },
   rowDate: {
     fontSize: 11,
@@ -434,8 +434,8 @@ const styles = StyleSheet.create({
   rowMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
+    gap: space[8],
+    marginTop: space[2],
   },
   rowHint: {
     fontSize: 11,
@@ -443,15 +443,15 @@ const styles = StyleSheet.create({
   },
   rowRight: {
     alignItems: 'flex-end',
-    gap: 8,
-    marginLeft: 10,
+    gap: space[8],
+    marginLeft: space[10],
   },
   rowAmount: {
     fontSize: 14,
   },
   emptyCard: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: space[24],
   },
   emptyText: {
     fontSize: 13,
@@ -461,8 +461,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 18,
-    paddingTop: 12,
+    paddingHorizontal: space[18],
+    paddingTop: space[12],
     borderTopWidth: 1,
   },
 });

@@ -15,7 +15,7 @@
 import { fetch as expoFetch } from 'expo/fetch';
 
 import type { ChatStreamEvent } from '../ai/chatEvents';
-import { getAuthToken } from './client';
+import { getAuthToken, notifySessionExpired, refreshAccessToken } from './client';
 import { getBaseUrl } from './baseUrl';
 
 export class ChatStreamInterrupted extends Error {
@@ -42,22 +42,31 @@ export interface StreamChatOptions {
 const IDLE_TIMEOUT_MS = 25_000;
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
-  const token = getAuthToken();
-  const res = await expoFetch(`${getBaseUrl()}/ai-chat/stream`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      'ngrok-skip-browser-warning': 'true',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      threadId: opts.threadId,
-      message: opts.message,
-      clientMsgId: opts.clientMsgId,
-    }),
-    signal: opts.signal,
-  });
+  const open = (token: string | null) =>
+    expoFetch(`${getBaseUrl()}/ai-chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        threadId: opts.threadId,
+        message: opts.message,
+        clientMsgId: opts.clientMsgId,
+      }),
+      signal: opts.signal,
+    });
+
+  let res = await open(getAuthToken());
+  // Mirror the REST client: a 401 triggers one transparent token refresh +
+  // replay; if that still 401s the session is over.
+  if (res.status === 401) {
+    const token = await refreshAccessToken();
+    if (token) res = await open(token);
+    if (res.status === 401) notifySessionExpired();
+  }
 
   if (!res.ok || !res.body) {
     throw new Error(`HTTP ${res.status} starting chat stream`);

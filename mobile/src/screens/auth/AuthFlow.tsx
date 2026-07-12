@@ -8,7 +8,7 @@ import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-nati
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ease } from '../../theme/tokens';
+import { ease, space } from '../../theme/tokens';
 import { AppIcon } from '../../components/contentIcons';
 import { BackendUrlCard } from '../BackendUrlCard';
 import { Welcome } from './Welcome';
@@ -126,22 +126,22 @@ const styles = StyleSheet.create({
   devBtn: {
     position: 'absolute',
     right: 14,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingVertical: space[6],
+    paddingHorizontal: space[10],
     borderRadius: 99,
     backgroundColor: 'rgba(0,0,0,0.45)',
     zIndex: 999,
   },
-  devBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  devBtnRow: { flexDirection: 'row', alignItems: 'center', gap: space[6] },
   devBtnText: { color: 'rgba(255,255,255,0.85)', fontSize: 11 },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: space[20],
   },
   sheet: { width: '100%' },
-  devMsg: { color: 'rgba(255,255,255,0.85)', fontSize: 12, textAlign: 'center', marginTop: 4 },
-  closeBtn: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 20 },
+  devMsg: { color: 'rgba(255,255,255,0.85)', fontSize: 12, textAlign: 'center', marginTop: space[4] },
+  closeBtn: { alignSelf: 'center', paddingVertical: space[10], paddingHorizontal: space[20] },
   closeText: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
 });

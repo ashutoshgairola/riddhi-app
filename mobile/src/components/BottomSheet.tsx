@@ -165,7 +165,7 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
          * `sheet`) isn't clipped along with the blur/content — `overflow:
          * hidden` and `shadow*` don't compose on the same RN View. */}
         <View style={[styles.surfaceClip, { borderTopColor: t.sheetBorder }]}>
-          <LiquidGlass radius={radius.xl2} border={false} tint={t.sheetBg} intensity={40} contentStyle={styles.surface}>
+          <LiquidGlass radius={radius.xl2} border={false} specularColor={t.sheetSpecular} tint={t.sheetBg} intensity={40} contentStyle={styles.surface}>
             <GestureDetector gesture={pan}>
               <View style={styles.handleZone}>
                 <View style={[styles.handle, { backgroundColor: t.borderStr }]} />
@@ -174,7 +174,10 @@ export function BottomSheet({ open, onClose, title, children, headerRight }: Bot
 
             {title ? (
               <View style={styles.head}>
-                <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]} numberOfLines={1}>
+                {/* Wrap up to 3 lines: some sheets (e.g. a delete confirmation
+                 * that folds a warning into the title) carry a full sentence
+                 * here, and a hard 1-line clamp truncated it mid-word. */}
+                <Text style={[styles.title, { color: t.text1, fontFamily: weight(700) }]} numberOfLines={3}>
                   {title}
                 </Text>
                 {headerRight ?? (

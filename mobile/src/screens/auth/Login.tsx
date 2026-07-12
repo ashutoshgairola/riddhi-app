@@ -9,7 +9,7 @@ import { useFeedback } from '../../feedback/FeedbackProvider';
 import { ApiError } from '../../api/client';
 import { authApi, USE_BACKEND } from '../../api';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 import {
   AuthDivider,
   AuthInput,
@@ -42,8 +42,10 @@ export function Login({
   const [pwd, setPwd] = useState('');
   const [pending, setPending] = useState(false);
 
+  const canSubmit = email.trim().length > 0 && pwd.trim().length > 0;
+
   const submit = async () => {
-    if (pending) return;
+    if (!canSubmit || pending) return;
     setPending(true);
     try {
       await login(email.trim(), pwd);
@@ -86,7 +88,7 @@ export function Login({
 
   return (
     <AuthShell onBack={onBack}>
-      <SpringIn style={{ marginTop: 8, marginBottom: 24 }}>
+      <SpringIn style={{ marginTop: space[8], marginBottom: space[24] }}>
         <Wordmark size={30} />
         <Text style={[styles.title, { color: t.text1, fontFamily: weight(800) }]}>Welcome back</Text>
         <Text style={[styles.sub, { color: t.text2, fontFamily: weight(500) }]}>Log in to pick up where you left off.</Text>
@@ -106,11 +108,11 @@ export function Login({
         <Field label="Password">
           <PasswordField value={pwd} onChange={setPwd} />
         </Field>
-        <Pressable onPress={() => void forgotPassword()} style={{ alignSelf: 'flex-end', marginTop: -2, marginBottom: 18 }}>
+        <Pressable onPress={() => void forgotPassword()} style={{ alignSelf: 'flex-end', marginTop: -2, marginBottom: space[18] }}>
           <Text style={{ fontSize: 13, color: t.em, fontFamily: weight(600) }}>Forgot password?</Text>
         </Pressable>
 
-        <Btn onPress={submit} disabled={pending} style={{ height: 54 }}>
+        <Btn onPress={submit} disabled={!canSubmit || pending} style={{ height: 54, opacity: canSubmit ? 1 : 0.45 }}>
           <Text style={{ fontSize: 16, color: '#1a1228', fontFamily: weight(600) }}>
             {pending ? 'Logging in…' : 'Log in'}
           </Text>
@@ -129,7 +131,7 @@ export function Login({
         <SocialRow onGoogle={promptGoogle} onApple={() => toast('Apple sign-in coming soon', '🍎')} />
       </SpringIn>
 
-      <View style={{ alignItems: 'center', marginTop: 28, flexDirection: 'row', justifyContent: 'center' }}>
+      <View style={{ alignItems: 'center', marginTop: space[28], flexDirection: 'row', justifyContent: 'center' }}>
         <Text style={{ fontSize: 14, color: t.text2, fontFamily: weight(500) }}>New to Riddhi? </Text>
         <Pressable onPress={onSignup}>
           <Text style={{ fontSize: 14, color: t.em, fontFamily: weight(700) }}>Create an account</Text>
@@ -143,19 +145,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     letterSpacing: -0.78, // -0.03em of 26px
-    marginTop: 20,
+    marginTop: space[20],
   },
   sub: {
     fontSize: 14,
-    marginTop: 6,
+    marginTop: space[6],
   },
   faceIdBtn: {
     height: 50,
-    marginTop: 10,
+    marginTop: space[10],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 9,
+    gap: space[10],
     borderRadius: 16,
     borderWidth: 1,
   },

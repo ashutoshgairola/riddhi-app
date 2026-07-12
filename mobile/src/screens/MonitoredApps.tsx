@@ -11,7 +11,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { ListCard, ListRow, Toggle } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
@@ -119,12 +119,12 @@ export function MonitoredApps({ entry: _entry }: { entry: ScreenEntry }) {
 }
 
 const styles = StyleSheet.create({
-  intro: { fontSize: 13, lineHeight: 19, marginBottom: 16 },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 15, marginBottom: 8 },
+  intro: { fontSize: 13, lineHeight: 19, marginBottom: space[16] },
+  section: { marginBottom: space[20] },
+  sectionTitle: { fontSize: 15, marginBottom: space[8] },
   iconBox: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   icon: { width: 24, height: 24, borderRadius: 5 },
-  rowText: { flex: 1, marginLeft: 12 },
+  rowText: { flex: 1, marginLeft: space[12] },
   appName: { fontSize: 15 },
-  appMeta: { fontSize: 12, marginTop: 2 },
+  appMeta: { fontSize: 12, marginTop: space[2] },
 });

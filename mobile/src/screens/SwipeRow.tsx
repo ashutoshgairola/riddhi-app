@@ -28,7 +28,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 
 import { MI } from '../components/icons';
 import { SourceTag } from '../components/SourceTag';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useNav } from '../app/navContext';
 import type { TxSource } from '../api/paymentSource';
 
@@ -198,9 +198,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: space[12],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
   },
   iconBox: {
     width: 42,
@@ -223,8 +223,8 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
+    gap: space[6],
+    marginTop: space[2],
   },
   catLine: {
     fontSize: 11.5,

@@ -49,7 +49,7 @@ import { GlassCard } from '../components/Glass';
 import { Btn, ListCard, ListRow, SearchButton, SectionHead } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { PayBillSheet } from '../app/PayBillSheet';
 import { CardSetupSheet } from '../app/CardSetupSheet';
@@ -350,11 +350,11 @@ export function CardDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Credit card visual (MobileCards.jsx:262–288)
   cardVisual: {
-    padding: 20,
+    padding: space[20],
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: 14,
+    marginBottom: space[14],
     minHeight: 170,
     justifyContent: 'space-between',
   },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     fontFamily: weight(700),
     fontSize: 32,
     fontWeight: '700',
-    marginTop: 5,
+    marginTop: space[6],
     letterSpacing: -0.96, // -0.03em of 32px
     color: '#fff',
   },
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   cardNetwork: {
     fontSize: 10.5,
     opacity: 0.7,
-    marginTop: 2,
+    marginTop: space[2],
     color: '#fff',
   },
   usageTrack: {
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     borderRadius: 99,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: space[8],
   },
   usageFill: {
     height: '100%',
@@ -433,13 +433,13 @@ const styles = StyleSheet.create({
 
   // Statement due (MobileCards.jsx:290–323)
   statementCard: {
-    padding: 16,
-    marginBottom: 14,
+    padding: space[16],
+    marginBottom: space[14],
   },
   statementRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
   },
   statementLeft: {
     flex: 1,
@@ -454,11 +454,11 @@ const styles = StyleSheet.create({
     fontFamily: weight(700),
     fontSize: 24,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: space[4],
   },
   statementMinDue: {
     fontSize: 12,
-    marginTop: 3,
+    marginTop: space[4],
   },
   statementMinDueValue: {
     fontWeight: '700',
@@ -469,9 +469,9 @@ const styles = StyleSheet.create({
   duePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 11,
+    gap: space[6],
+    paddingVertical: space[6],
+    paddingHorizontal: space[12],
     borderRadius: 99,
   },
   duePillText: {
@@ -480,10 +480,10 @@ const styles = StyleSheet.create({
   },
   dueDateSub: {
     fontSize: 11,
-    marginTop: 6,
+    marginTop: space[6],
   },
   payBillBtn: {
-    marginTop: 14,
+    marginTop: space[14],
     height: 48,
   },
 
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   noDuesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
   },
   noDuesIconBox: {
     width: 44,
@@ -509,28 +509,28 @@ const styles = StyleSheet.create({
   },
   noDuesSub: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // This cycle (MobileCards.jsx:325–352)
   cycleCard: {
-    padding: 16,
-    marginBottom: 14,
+    padding: space[16],
+    marginBottom: space[14],
   },
   stackedBar: {
     flexDirection: 'row',
     height: 10,
     borderRadius: 99,
     overflow: 'hidden',
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   cycleList: {
-    gap: 11,
+    gap: space[12],
   },
   cycleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space[10],
   },
   cycleDot: {
     width: 10,
@@ -550,9 +550,9 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   cycleEmptyCard: {
-    padding: 22,
+    padding: space[24],
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   cycleEmptyText: {
     fontSize: 13,
@@ -560,11 +560,11 @@ const styles = StyleSheet.create({
 
   // Rewards (MobileCards.jsx:354–361)
   rewardsCard: {
-    padding: 14,
-    marginBottom: 14,
+    padding: space[14],
+    marginBottom: space[14],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
   },
   rewardsIconBox: {
     width: 40,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   },
   rewardsSub: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // Card transactions (MobileCards.jsx:363–380)
@@ -603,8 +603,8 @@ const styles = StyleSheet.create({
   txMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
+    gap: space[6],
+    marginTop: space[2],
   },
   txCat: {
     fontSize: 11.5,

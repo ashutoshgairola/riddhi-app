@@ -18,14 +18,15 @@
  *  - `useFeedback().form`/`.toast` for edit-limit and remove flows.
  *  - `useApiData` for loading, with an empty fallback.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '../components/contentIcons';
+import { MI } from '../components/icons';
 import { GlassCard } from '../components/Glass';
 import { ListCard, ProgressBar, SearchButton } from '../components/ui';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
@@ -256,7 +257,28 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
               >
                 {pct}%
               </Text>
-            ) : null}
+            ) : (
+              // All-time mode: edit/delete live as compact icon buttons on the
+              // header row (aligned with the name) rather than a pill row below.
+              <View style={styles.headerActions}>
+                <Pressable
+                  onPress={editCategory}
+                  style={[styles.headerIconBtn, { backgroundColor: t.bg3, borderColor: t.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit category"
+                >
+                  <MI.edit size={17} color={t.text1} />
+                </Pressable>
+                <Pressable
+                  onPress={deleteCategory}
+                  style={[styles.headerIconBtn, { backgroundColor: t.redDim, borderColor: t.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete category"
+                >
+                  <MI.trash size={17} color={t.red} />
+                </Pressable>
+              </View>
+            )}
           </View>
 
           {isBudget ? (
@@ -298,31 +320,6 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
               ) : null}
             </>
           ) : null}
-
-          {!isBudget ? (
-            <View style={styles.actionsRow}>
-              <Text
-                onPress={editCategory}
-                style={[styles.actionBtn, {
-                  color: t.text1,
-                  backgroundColor: t.bg3,
-                  fontFamily: weight(700),
-                }]}
-              >
-                Edit
-              </Text>
-              <Text
-                onPress={deleteCategory}
-                style={[styles.actionBtn, {
-                  color: t.red,
-                  backgroundColor: t.redDim,
-                  fontFamily: weight(700),
-                }]}
-              >
-                Delete
-              </Text>
-            </View>
-          ) : null}
         </GlassCard>
       </SpringIn>
 
@@ -358,13 +355,13 @@ export function CategoryDetail({ entry }: { entry: ScreenEntry }) {
 
 const styles = StyleSheet.create({
   headerCard: {
-    padding: 16,
-    marginTop: 4,
+    padding: space[16],
+    marginTop: space[4],
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
   },
   iconBox: {
     width: 44,
@@ -385,58 +382,70 @@ const styles = StyleSheet.create({
   },
   headerMeta: {
     fontSize: 12,
-    marginTop: 3,
+    marginTop: space[4],
   },
   pctBadge: {
     fontSize: 14,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: space[4],
+    paddingHorizontal: space[10],
     borderRadius: 99,
     overflow: 'hidden',
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: space[8],
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   barWrap: {
-    marginTop: 14,
+    marginTop: space[14],
   },
   overWarnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
+    gap: space[4],
+    marginTop: space[8],
   },
   overWarn: {
     fontSize: 11,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
+    gap: space[8],
+    marginTop: space[14],
   },
   actionBtn: {
     fontSize: 12.5,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
+    paddingVertical: space[10],
+    paddingHorizontal: space[16],
     borderRadius: 99,
     overflow: 'hidden',
     textAlign: 'center',
   },
   emptyCard: {
     alignItems: 'center',
-    paddingVertical: 28,
-    marginTop: 16,
+    paddingVertical: space[28],
+    marginTop: space[16],
   },
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
   },
   groupWrap: {
-    marginTop: 20,
+    marginTop: space[20],
   },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingBottom: 10,
+    paddingHorizontal: space[4],
+    paddingBottom: space[10],
   },
   groupLabel: {
     fontSize: 13,

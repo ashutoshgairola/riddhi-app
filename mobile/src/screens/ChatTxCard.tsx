@@ -19,7 +19,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppIconBox } from '../components/contentIcons';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 export interface ChatTx {
   merchant: string;
   /** Signed: positive = income, negative = expense. */
@@ -100,14 +100,14 @@ export function ChatTxCard({ tx }: ChatTxCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 9,
+    marginTop: space[10],
     borderWidth: 1,
     borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
+    paddingVertical: space[14],
+    paddingHorizontal: space[14],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[12],
     maxWidth: 280,
   },
   iconWrap: {
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space[2],
   },
   right: {
     alignItems: 'flex-end',
@@ -134,8 +134,8 @@ const styles = StyleSheet.create({
   addedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
+    gap: space[4],
+    marginTop: space[2],
   },
   added: {
     fontSize: 10,

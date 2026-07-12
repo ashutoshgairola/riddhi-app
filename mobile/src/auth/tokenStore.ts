@@ -17,6 +17,17 @@ const PIN_LEN_KEY = 'riddhi.pinLength';
 // returning user whose account "remembers" a lock isn't nagged every launch.
 const LOCK_SETUP_DISMISSED_KEY = 'riddhi.lockSetupDismissed';
 
+/** App-lock PIN length policy — the single source of truth shared by
+ * onboarding (OBSecure), Settings → Change PIN, and the lock screen (which
+ * reads the stored length back via `getPinLength`). */
+export const PIN_MIN_LENGTH = 4;
+export const PIN_MAX_LENGTH = 6;
+
+/** True when `pin` is all-digit and within the PIN length policy above. */
+export function isValidPinLength(pin: string): boolean {
+  return new RegExp(`^\\d{${PIN_MIN_LENGTH},${PIN_MAX_LENGTH}}$`).test(pin);
+}
+
 export async function saveTokens(accessToken: string, refreshToken: string): Promise<void> {
   await AsyncStorage.multiSet([
     [ACCESS_KEY, accessToken],
@@ -85,7 +96,7 @@ export async function hasPin(): Promise<boolean> {
 export async function getPinLength(): Promise<number | null> {
   const v = await AsyncStorage.getItem(PIN_LEN_KEY);
   const n = v ? Number(v) : NaN;
-  return Number.isInteger(n) && n >= 4 && n <= 6 ? n : null;
+  return Number.isInteger(n) && n >= PIN_MIN_LENGTH && n <= PIN_MAX_LENGTH ? n : null;
 }
 
 export async function clearPin(): Promise<void> {

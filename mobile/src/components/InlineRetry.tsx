@@ -13,7 +13,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 
 export interface InlineRetryProps {
   onRetry: () => void;
@@ -58,9 +58,9 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    gap: space[8],
+    paddingHorizontal: space[16],
+    paddingVertical: space[12],
     borderRadius: 99,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 10 },

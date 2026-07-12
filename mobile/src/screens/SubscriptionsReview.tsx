@@ -42,7 +42,7 @@ import { GlassCard, GlassView } from '../components/Glass';
 import { Btn, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { ease, radius, weight } from '../theme/tokens';
+import { ease, radius, space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
   list: {
-    marginBottom: 4,
+    marginBottom: space[4],
   },
   cardWrap: {
     overflow: 'hidden',
@@ -359,27 +359,27 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 15,
-    paddingTop: 14,
-    paddingBottom: 12,
+    gap: space[12],
+    paddingHorizontal: space[16],
+    paddingTop: space[14],
+    paddingBottom: space[12],
   },
   nameBlock: {
     flex: 1,
     minWidth: 0,
-    gap: 6,
+    gap: space[6],
   },
   nameInput: {
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: space[12],
+    paddingVertical: space[10],
     fontSize: 14.5,
   },
   hintChip: {
     alignSelf: 'flex-start',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: space[4],
+    paddingHorizontal: space[8],
     borderRadius: 99,
     borderWidth: 1,
   },
@@ -390,9 +390,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
-    paddingHorizontal: 15,
-    paddingBottom: 13,
+    gap: space[10],
+    paddingHorizontal: space[16],
+    paddingBottom: space[14],
   },
   detailText: {
     flex: 1,
@@ -401,9 +401,9 @@ const styles = StyleSheet.create({
   payPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 1.5,
-    paddingHorizontal: 7,
+    gap: space[4],
+    paddingVertical: space[2],
+    paddingHorizontal: space[8],
     borderRadius: 99,
     borderWidth: 1,
     flexShrink: 0,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
   dismissBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: space[12],
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
@@ -433,25 +433,25 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     flex: 2,
-    paddingVertical: 12,
+    paddingVertical: space[12],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: space[8],
   },
   confirmLabel: {
     fontSize: 13.5,
   },
   emptyCard: {
-    padding: 22,
+    padding: space[24],
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
   },
   manualBtn: {
-    marginTop: 6,
+    marginTop: space[6],
   },
 });

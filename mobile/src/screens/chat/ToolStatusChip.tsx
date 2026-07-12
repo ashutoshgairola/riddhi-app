@@ -17,7 +17,7 @@ import Animated, {
 
 import { MI } from '../../components/icons';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 
 export function ToolStatusChip({
   label,
@@ -73,12 +73,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingVertical: 6,
-    paddingHorizontal: 11,
+    gap: space[8],
+    paddingVertical: space[6],
+    paddingHorizontal: space[12],
     borderRadius: 13,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: space[8],
   },
   dot: {
     width: 6,

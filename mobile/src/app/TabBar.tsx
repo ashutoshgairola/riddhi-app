@@ -31,7 +31,7 @@
  * 12px)` (mobile.css:262). RN adds the device inset to a 12px margin
  * literally — the whole capsule lifts off the home indicator.
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,7 +39,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LiquidGlass } from '../components/LiquidGlass';
 import { MI, type IconName } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space } from '../theme/tokens';
 import { useNav, type ScreenKind } from './navContext';
 
 // MTabs (MobileApp.jsx:3–9) — `fab` is a sentinel for the centre slot.
@@ -77,7 +77,9 @@ export function TabBar() {
         // into a dead band; the home indicator only occupies the bottom ~13pt,
         // so tuck the capsule partway into the safe area (same reasoning the flat
         // bar used) to keep it near the bottom while clearing the indicator.
-        { marginBottom: insets.bottom ? Math.max(insets.bottom - 14, 12) : 12 },
+        // Only a shallow tuck (−6, not −14): a deeper one pushed the rounded
+        // bottom corners under the system nav / screen edge and cropped them.
+        { marginBottom: insets.bottom ? Math.max(insets.bottom - 6, 12) : 12 },
       ]}
     >
       {/* Real refractive glass fill (replaces the frosted BlurView). Clipped to
@@ -168,7 +170,13 @@ export function TabBar() {
         const Icon = MI[tab.icon];
 
         return (
-          <Pressable key={tab.id} style={styles.tabPressable} onPress={() => goTab(tab.id)}>
+          <Pressable
+            key={tab.id}
+            accessibilityRole="button"
+            accessibilityLabel={tab.label}
+            style={styles.tabPressable}
+            onPress={() => goTab(tab.id)}
+          >
             {({ pressed }) => (
               // .m-tab:active { transform: scale(0.92) } (mobile.css:291)
               <View style={[styles.tab, { transform: [{ scale: pressed ? 0.92 : 1 }] }]}>
@@ -186,14 +194,6 @@ export function TabBar() {
                     <Icon size={22} color={isActive ? t.text1 : t.text3} strokeWidth={1.8} />
                   </View>
                 </View>
-                <Text
-                  style={[
-                    styles.label,
-                    { color: isActive ? t.text1 : t.text3, fontFamily: weight(600) },
-                  ]}
-                >
-                  {tab.label}
-                </Text>
               </View>
             )}
           </Pressable>
@@ -213,12 +213,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     height: 70,
-    marginHorizontal: 14,
+    marginHorizontal: space[14],
     marginTop: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: space[8],
+    paddingHorizontal: space[10],
     borderRadius: RADIUS,
-    gap: 4,
+    gap: space[4],
     position: 'relative',
     // Lift the whole capsule (incl. the centre FAB) above the FabActions dim
     // backdrop (zIndex 60) so the navbar stays crisp/unblurred and tappable
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: space[4],
     borderRadius: 14,
     position: 'relative',
   },
@@ -315,11 +315,6 @@ const styles = StyleSheet.create({
   iconActive: {
     transform: [{ translateY: -1 }, { scale: 1.06 }],
   },
-  label: {
-    fontSize: 10,
-    lineHeight: 13,
-    zIndex: 1,
-  },
   // .m-fab-tab (mobile.css:308–314)
   fabTab: {
     alignItems: 'center',
@@ -333,7 +328,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    padding: 5,
+    padding: space[6],
     marginTop: -29,
     backgroundColor: 'rgba(24,19,34,0.6)',
     shadowColor: 'rgba(139,108,240,0.45)',

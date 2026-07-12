@@ -39,7 +39,7 @@ import { Btn } from "../components/ui";
 import { MI } from "../components/icons";
 import { useFeedback } from "../feedback/FeedbackProvider";
 import { useTheme } from "../theme/ThemeProvider";
-import { radius, weight } from "../theme/tokens";
+import { radius, space, weight } from "../theme/tokens";
 
 /** No-accounts fallback for `useApiData` (stable module-level reference —
  * see AddTxSheet.tsx for why this matters: a fresh array identity on every
@@ -244,25 +244,25 @@ export function PayBillSheet({ open, onClose, card }: PayBillSheetProps) {
 
 const styles = StyleSheet.create({
   cardMini: {
-    paddingVertical: 6,
-    paddingBottom: 16,
+    paddingVertical: space[6],
+    paddingBottom: space[16],
   },
   cardMiniName: {
     fontSize: 14,
   },
   cardMiniSub: {
     fontSize: 11.5,
-    marginTop: 3,
+    marginTop: space[4],
   },
   optionList: {
-    gap: 8,
+    gap: space[8],
   },
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
+    gap: space[12],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -289,19 +289,19 @@ const styles = StyleSheet.create({
   },
   optionHint: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space[2],
   },
   optionAmount: {
     fontSize: 15,
   },
   customBox: {
-    marginTop: 10,
+    marginTop: space[10],
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: space[8],
     borderWidth: 1,
     borderRadius: radius.lg,
-    paddingHorizontal: 16,
+    paddingHorizontal: space[16],
     height: 50,
   },
   customSymbol: {
@@ -315,33 +315,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: space[18],
+    marginBottom: space[8],
   },
   acctRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
+    gap: space[12],
+    paddingVertical: space[12],
+    paddingHorizontal: space[14],
     borderRadius: radius.md,
     borderWidth: 1,
   },
   noAccounts: {
     fontSize: 12.5,
-    paddingVertical: 4,
+    paddingVertical: space[4],
   },
   warningRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 10,
+    gap: space[4],
+    marginTop: space[10],
   },
   warning: {
     fontSize: 11.5,
   },
   payBtn: {
-    marginTop: 16,
+    marginTop: space[16],
     height: 52,
   },
 });

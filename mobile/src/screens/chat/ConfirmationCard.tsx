@@ -9,7 +9,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Btn } from '../../components/ui';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 import { chatApi } from '../../api/chatApi';
 import type { ConfirmationWidget, Widget } from '../../ai/widgets';
 
@@ -139,33 +139,33 @@ export function ConfirmationCard({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: 9,
+    marginTop: space[10],
     maxWidth: 300,
     alignSelf: 'stretch',
   },
   card: {
     borderWidth: 1,
     borderRadius: 16,
-    padding: 14,
+    padding: space[14],
   },
   title: {
     fontSize: 14,
   },
   summary: {
     fontSize: 12.5,
-    marginTop: 4,
+    marginTop: space[4],
     lineHeight: 18,
   },
   fields: {
-    marginTop: 10,
+    marginTop: space[10],
     borderTopWidth: 1,
-    paddingTop: 8,
-    gap: 5,
+    paddingTop: space[8],
+    gap: space[6],
   },
   fieldRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: space[12],
   },
   fieldLabel: {
     fontSize: 11.5,
@@ -178,17 +178,17 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: space[8],
+    marginTop: space[12],
   },
   actionBtn: {
     flex: 1,
   },
   statusPill: {
     alignSelf: 'flex-start',
-    marginTop: 12,
-    paddingVertical: 5,
-    paddingHorizontal: 12,
+    marginTop: space[12],
+    paddingVertical: space[6],
+    paddingHorizontal: space[12],
     borderRadius: 11,
     borderWidth: 1,
   },
@@ -197,6 +197,6 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: 11.5,
-    marginTop: 8,
+    marginTop: space[8],
   },
 });

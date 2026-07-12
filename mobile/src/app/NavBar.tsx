@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MI, type IconName } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useNav, type ScreenKind } from './navContext';
 
 // MTabs filtered to non-FAB entries (MobileApp.jsx:3–9, android branch
@@ -55,7 +55,7 @@ export function NavBar({ navLabels = true }: NavBarProps) {
     <View
       style={[
         styles.navbar,
-        { backgroundColor: t.bg1, borderTopColor: t.border, paddingBottom: 12 + insets.bottom },
+        { backgroundColor: t.bg1, borderTopColor: t.border, paddingBottom: space[12] + insets.bottom },
       ]}
     >
       {DESTS.map((dest) => {
@@ -147,16 +147,21 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     height: 80,
-    paddingTop: 12,
-    paddingHorizontal: 8,
+    paddingTop: space[12],
+    paddingHorizontal: space[8],
     borderTopWidth: 1,
+    // Lift the bar above the FabActions dim backdrop (elevation 4) so it stays
+    // crisp/unblurred and tappable while the stage above it dims. The MFab
+    // floats above the bar with a gap so its own elevation is unaffected.
+    zIndex: 70,
+    elevation: 12,
   },
   // .m-navdest (platform.css:107–118)
   navdest: {
     flex: 1,
     maxWidth: 96,
     alignItems: 'center',
-    gap: 4,
+    gap: space[4],
   },
   // .m-navdest .m-navpill (platform.css:120–131)
   navpill: {

@@ -54,9 +54,10 @@ import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
 import { api, type TxPeriod } from '../api';
 import { shareTxCsv } from '../lib/exportCsv';
 import { useApiData } from '../api/useApi';
@@ -121,18 +122,36 @@ function sparkable(values: number[]): number[] {
   return values.length >= 2 ? values : [0, 0];
 }
 
-function fmtKpi(n: number): string {
+/**
+ * Shared ₹-amount formatter behind `fmtKpi` and the inline ₹K/₹L spots
+ * below (asset allocation, net worth trend, category/source totals). A
+ * ₹1–999 value returns the real (en-IN grouped, sign-preserved) figure
+ * instead of rounding to "₹0K" (task P3-A / F6). `lDecimals`/`kDecimals`
+ * preserve each call site's existing precision for values ≥₹1,000;
+ * `withL` lets call sites that never had a ≥₹1-lakh check (categories/
+ * sources) opt out, so their large-value behavior stays unchanged too.
+ */
+function fmtK(
+  n: number,
+  { lDecimals = 1, kDecimals = 0, withL = true }: { lDecimals?: number; kDecimals?: number; withL?: boolean } = {},
+): string {
   const sign = n < 0 ? '-' : '';
   const abs = Math.abs(n);
-  if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(2)}L`;
-  if (abs >= 1000) return `${sign}₹${Math.round(abs / 1000)}K`;
+  if (withL && abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(lDecimals)}L`;
+  if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(kDecimals)}K`;
   return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
+}
+
+function fmtKpi(n: number): string {
+  return fmtK(n, { lDecimals: 2 });
 }
 
 export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, nav } = useNav();
   const { toast, sheet } = useFeedback();
+  const { prefs } = usePrefs();
+  const hide = prefs.hideBalances;
   const [tab, setTab] = useState<TabId>('overview');
   const [scrolled, setScrolled] = useState(false);
   const [period, setPeriod] = useState<PeriodValue>('6m');
@@ -241,7 +260,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
       const v = assets.filter((a) => g.match(a.type)).reduce((s, a) => s + a.bal, 0);
       return {
         n: g.n,
-        v: v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : `₹${Math.round(v / 1000)}K`,
+        v: fmtK(v),
         pct: assetTotal > 0 ? Math.round((v / assetTotal) * 100) : 0,
         c: g.c,
         raw: v,
@@ -251,10 +270,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
 
   const incomeDelta = seriesDeltaPct(series.income);
   const expenseDelta = seriesDeltaPct(series.expense);
-  const netWorthDisplay =
-    nwTrend.current >= 100000
-      ? `₹${(nwTrend.current / 100000).toFixed(1)}L`
-      : `₹${Math.round(nwTrend.current / 1000)}K`;
+  const netWorthDisplay = fmtK(nwTrend.current);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrolled(e.nativeEvent.contentOffset.y > 8);
@@ -349,7 +365,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Net Income</Text>
                 <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
-                  {fmtKpi(overview.netIncome)}
+                  {hide ? MASKED_AMOUNT : fmtKpi(overview.netIncome)}
                 </Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
@@ -361,13 +377,13 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Income</Text>
                 <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
-                  {fmtKpi(overview.totalIncome)}
+                  {hide ? MASKED_AMOUNT : fmtKpi(overview.totalIncome)}
                 </Text>
               </GlassCard>
               <GlassCard style={styles.kpiCard}>
                 <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Expenses</Text>
                 <Text style={[styles.kpiValue, { color: t.red, fontFamily: weight(700) }]}>
-                  {fmtKpi(overview.totalExpenses)}
+                  {hide ? MASKED_AMOUNT : fmtKpi(overview.totalExpenses)}
                 </Text>
               </GlassCard>
             </SpringIn>
@@ -414,7 +430,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                         <View style={[styles.legendDot10, { backgroundColor: d.color }]} />
                         <Text style={[styles.donutLegendLabel, { color: t.text1 }]}>{d.label}</Text>
                         <Text style={[styles.donutLegendValue, { color: t.text1, fontFamily: weight(700) }]}>
-                          ₹{(d.value / 1000).toFixed(1)}K
+                          {hide ? MASKED_AMOUNT : fmtK(d.value, { kDecimals: 1, withL: false })}
                         </Text>
                         <Text style={[styles.donutLegendPct, { color: t.text3 }]}>{pct}%</Text>
                       </View>
@@ -433,7 +449,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                       Net Worth Trend
                     </Text>
                     <Text style={[styles.netWorthValue, { color: t.text1, fontFamily: weight(700) }]}>
-                      {netWorthDisplay}
+                      {hide ? MASKED_AMOUNT : netWorthDisplay}
                     </Text>
                   </View>
                   <View style={[styles.deltaBadge, styles.deltaBadgeRow, { backgroundColor: t.emDim }]}>
@@ -486,7 +502,13 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                         </View>
                         <View style={styles.eventRowRight}>
                           <Text style={[styles.eventRowAmt, { color: t.text1, fontFamily: weight(700) }]}>
-                            {fmtKpi(ev.paid)} <Text style={{ color: t.text3 }}>/ {fmtKpi(ev.budget)}</Text>
+                            {hide ? (
+                              MASKED_AMOUNT
+                            ) : (
+                              <>
+                                {fmtKpi(ev.paid)} <Text style={{ color: t.text3 }}>/ {fmtKpi(ev.budget)}</Text>
+                              </>
+                            )}
                           </Text>
                           <Text style={[styles.eventRowStatus, { color: ev.over ? t.red : t.text3 }]}>
                             {ev.over ? 'over' : 'under'}
@@ -508,7 +530,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 Total Income
               </Text>
               <Text style={[styles.totalValue, { color: t.em, fontFamily: weight(700) }]}>
-                {fmtKpi(overview.totalIncome)}
+                {hide ? MASKED_AMOUNT : fmtKpi(overview.totalIncome)}
               </Text>
               {incomeDelta !== null && (
                 <View style={styles.deltaRow}>
@@ -541,7 +563,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                   </View>
                   <View style={styles.sourceRight}>
                     <Text style={[styles.sourceAmt, { color: t.text1, fontFamily: weight(700) }]}>
-                      ₹{(d.amt / 1000).toFixed(0)}K
+                      {hide ? MASKED_AMOUNT : fmtK(d.amt, { withL: false })}
                     </Text>
                     <Text style={[styles.sourcePct, { color: t.text3 }]}>{d.pct}%</Text>
                   </View>
@@ -558,7 +580,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 Total Expenses
               </Text>
               <Text style={[styles.totalValue, { color: t.red, fontFamily: weight(700) }]}>
-                {fmtKpi(overview.totalExpenses)}
+                {hide ? MASKED_AMOUNT : fmtKpi(overview.totalExpenses)}
               </Text>
               {expenseDelta !== null && (
                 <View style={styles.deltaRow}>
@@ -589,7 +611,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                           {d.label}
                         </Text>
                         <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
-                          ₹{d.value.toLocaleString('en-IN')}
+                          {hide ? MASKED_AMOUNT : `₹${d.value.toLocaleString('en-IN')}`}
                         </Text>
                       </View>
                       <ProgressBar pct={pct} color={d.color} />
@@ -609,7 +631,9 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 {overview.savingsRate.toFixed(1)}%
               </Text>
               <Text style={[styles.savingsRateSub, { color: t.text2 }]}>
-                {fmtKpi(Math.max(0, totalSaved))} saved over the period
+                {hide
+                  ? `${MASKED_AMOUNT} saved over the period`
+                  : `${fmtKpi(Math.max(0, totalSaved))} saved over the period`}
               </Text>
               <View style={styles.sparklineBleedTop}>
                 <MSparkline data={sparkable(savingsSpark)} color="#7faf93" height={56} />
@@ -646,7 +670,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                 Total Net Worth
               </Text>
               <Text style={[styles.savingsRateValue, { color: t.text1, fontFamily: weight(700) }]}>
-                {netWorthDisplay}
+                {hide ? MASKED_AMOUNT : netWorthDisplay}
               </Text>
               <View style={styles.deltaRow}>
                 <AppIcon
@@ -674,7 +698,7 @@ export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
                     <View style={styles.topCatHeaderRow}>
                       <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{d.n}</Text>
                       <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
-                        {d.v} <Text style={[styles.topCatValueSub, { color: t.text3 }]}>· {d.pct}%</Text>
+                        {hide ? MASKED_AMOUNT : d.v} <Text style={[styles.topCatValueSub, { color: t.text3 }]}>· {d.pct}%</Text>
                       </Text>
                     </View>
                     <ProgressBar pct={d.pct} color={d.c} />
@@ -697,33 +721,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 30,
+    paddingTop: space[14],
+    paddingHorizontal: space[18],
+    paddingBottom: space[32],
   },
 
   // Sub-tabs (MobileScreens.jsx:115–123)
   tabsWrap: {
     flexShrink: 0,
-    paddingTop: 4,
-    paddingBottom: 10,
+    paddingTop: space[4],
+    paddingBottom: space[10],
     borderBottomWidth: 1,
   },
 
   // Period selector
   periodWrap: {
-    marginBottom: 18,
+    marginBottom: space[18],
   },
   retryWrap: {
-    marginBottom: 18,
+    marginBottom: space[18],
   },
 
   // KPI strip (MobileScreens.jsx:137–156)
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 14,
+    gap: space[10],
+    marginBottom: space[14],
   },
   kpiCard: {
     width: '48%',
@@ -735,16 +759,16 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     fontSize: 20,
-    marginTop: 4,
+    marginTop: space[4],
   },
   kpiDelta: {
     fontSize: 10.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // Generic section card
   sectionCard: {
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   sectionCardLast: {},
 
@@ -752,7 +776,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   cardEyebrow: {
     fontSize: 10.5,
@@ -760,20 +784,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.84, // 0.08em of 10.5px
   },
   cardEyebrowMb: {
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   cardSubtitle: {
     fontSize: 14,
-    marginTop: 4,
+    marginTop: space[4],
   },
   legendRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: space[10],
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: space[6],
   },
   legendDot: {
     width: 8,
@@ -787,13 +811,13 @@ const styles = StyleSheet.create({
   // Donut legend
   donutLegend: {
     flexDirection: 'column',
-    gap: 10,
-    marginTop: 18,
+    gap: space[10],
+    marginTop: space[18],
   },
   donutLegendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space[10],
   },
   legendDot10: {
     width: 10,
@@ -816,18 +840,18 @@ const styles = StyleSheet.create({
   // Net worth trend
   netWorthValue: {
     fontSize: 22,
-    marginTop: 4,
+    marginTop: space[4],
   },
   deltaBadge: {
     fontSize: 11,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: space[4],
+    paddingHorizontal: space[10],
     borderRadius: 99,
   },
   deltaBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: space[4],
   },
   deltaBadgeText: {
     fontSize: 11,
@@ -836,20 +860,20 @@ const styles = StyleSheet.create({
     marginHorizontal: -8,
   },
   sparklineBleedTop: {
-    marginTop: 12,
+    marginTop: space[12],
     marginHorizontal: -8,
   },
 
   // Income / Expense / Wealth totals
   totalValue: {
     fontSize: 30,
-    marginTop: 6,
+    marginTop: space[6],
   },
   deltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: space[4],
+    marginTop: space[4],
   },
   totalDelta: {
     fontSize: 12,
@@ -863,7 +887,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sourceBarWrap: {
-    marginTop: 8,
+    marginTop: space[8],
   },
   sourceRight: {
     alignItems: 'flex-end',
@@ -873,7 +897,7 @@ const styles = StyleSheet.create({
   },
   sourcePct: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // Event Budgets list rows
@@ -881,7 +905,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space[10],
     minWidth: 0,
   },
   eventRowText: {
@@ -892,30 +916,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   eventRowBarWrap: {
-    marginTop: 8,
+    marginTop: space[8],
   },
   eventRowRight: {
     alignItems: 'flex-end',
-    marginLeft: 10,
+    marginLeft: space[10],
   },
   eventRowAmt: {
     fontSize: 13,
   },
   eventRowStatus: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space[2],
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
 
   // Top categories / goal progress / asset allocation rows
   topCatRow: {
-    marginBottom: 12,
+    marginBottom: space[12],
   },
   topCatHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: space[6],
   },
   topCatLabel: {
     fontSize: 13,
@@ -930,10 +954,10 @@ const styles = StyleSheet.create({
   // Savings rate
   savingsRateValue: {
     fontSize: 32,
-    marginTop: 6,
+    marginTop: space[6],
   },
   savingsRateSub: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: space[4],
   },
 });

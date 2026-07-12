@@ -11,12 +11,14 @@
  * `expo-blur`'s `BlurView` approximates the CSS `backdrop-filter: blur(22px)`
  * (there's no native `saturate()` knob, so we lean on a slightly higher
  * intensity to keep the frosted feel). The `glassHi` inset highlight has no
- * RN box-shadow equivalent, so it's emulated with a 1px absolutely
- * positioned View along the top inner edge.
+ * RN box-shadow equivalent, so it's emulated with a 1px SVG path stroked
+ * along the rounded-rect top edge — it curves around the top corners and,
+ * via a horizontal gradient stroke, fades gradually toward both ends.
  */
-import type { PropsWithChildren } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useId, useState, type PropsWithChildren } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView, type BlurTint } from 'expo-blur';
+import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { radius } from '../theme/tokens';
@@ -53,9 +55,21 @@ export function GlassView({ style, contentStyle, intensity = 30, radius: r = rad
   const { t, mode } = useTheme();
   const tint: BlurTint = mode === 'light' ? 'light' : 'dark';
   // `glassHi` is authored as a CSS shadow string (`inset 0 1px 0 <color>`);
-  // RN has no inset-shadow primitive, so pull just the color out and render
-  // it as a 1px highlight View along the top inner edge.
+  // RN has no inset-shadow primitive, so pull just the color out and stroke
+  // it along the top edge as a 1px SVG path. The path traces the actual
+  // rounded-rect top (arc → straight → arc), so the sheen curves around the
+  // top-left/top-right corners; a horizontal gradient stroke (transparent →
+  // colour → colour → transparent) makes it brightest across the middle and
+  // fade gradually toward both ends. Needs the surface width, so it renders
+  // once `onLayout` reports it.
   const hiColor = t.glassHi.slice(t.glassHi.lastIndexOf(' ') + 1);
+  const [hiW, setHiW] = useState(0);
+  const gradId = 'glassHi-' + useId().replace(/[^a-zA-Z0-9]/g, '');
+  const onHiLayout = (e: LayoutChangeEvent) => setHiW(e.nativeEvent.layout.width);
+  // Clamp corner radius so narrow surfaces (icon buttons) don't produce a
+  // reversed straight segment; there the two arcs simply meet.
+  const rr = Math.min(r, hiW / 2);
+  const hiPath = `M0.5 ${rr} A ${rr} ${rr} 0 0 1 ${rr} 0.5 L ${hiW - rr} 0.5 A ${rr} ${rr} 0 0 1 ${hiW - 0.5} ${rr}`;
 
   return (
     // The 1px border lives on this outer wrapper, NOT the clipped overlay:
@@ -80,7 +94,21 @@ export function GlassView({ style, contentStyle, intensity = 30, radius: r = rad
           contentStyle,
         ]}
       >
-        <View style={[styles.hiLight, { backgroundColor: hiColor }]} pointerEvents="none" />
+        <View style={[styles.hiLight, { height: r }]} pointerEvents="none" onLayout={onHiLayout}>
+          {hiW > 0 && (
+            <Svg width={hiW} height={r} pointerEvents="none">
+              <Defs>
+                <SvgGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor={hiColor} stopOpacity={0} />
+                  <Stop offset="0.12" stopColor={hiColor} stopOpacity={0.2} />
+                  <Stop offset="0.88" stopColor={hiColor} stopOpacity={0.2} />
+                  <Stop offset="1" stopColor={hiColor} stopOpacity={0} />
+                </SvgGradient>
+              </Defs>
+              <Path d={hiPath} stroke={`url(#${gradId})`} strokeWidth={1} fill="none" />
+            </Svg>
+          )}
+        </View>
         {children}
       </View>
     </View>
@@ -111,10 +139,12 @@ const styles = StyleSheet.create({
     // pass explicit dimensions via `contentStyle` instead.
   },
   hiLight: {
+    // Host for the top-edge SVG sheen. Spans the full width and just the
+    // top-corner band (height set inline to the radius) so the stroked path
+    // has room to curve around both top corners. `height` is applied inline.
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 1,
   },
 });

@@ -12,7 +12,7 @@ import { useFeedback } from '../../feedback/FeedbackProvider';
 import { ApiError } from '../../api/client';
 import { authApi } from '../../api';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 import { AuthInput, AuthShell, Field, PasswordField, SpringIn, Wordmark } from './authUi';
 
 const MIN_PASSWORD = 8;
@@ -66,7 +66,7 @@ export function ResetPassword({
 
   return (
     <AuthShell onBack={onBack}>
-      <SpringIn style={{ marginTop: 8, marginBottom: 24 }}>
+      <SpringIn style={{ marginTop: space[8], marginBottom: space[24] }}>
         <Wordmark size={30} />
         <Text style={[styles.title, { color: t.text1, fontFamily: weight(800) }]}>Reset password</Text>
         <Text style={[styles.sub, { color: t.text2, fontFamily: weight(500) }]}>
@@ -101,14 +101,14 @@ export function ResetPassword({
           <PasswordField value={pwd} onChange={setPwd} />
         </Field>
 
-        <Btn onPress={submit} disabled={pending} style={{ height: 54, marginTop: 8 }}>
+        <Btn onPress={submit} disabled={pending} style={{ height: 54, marginTop: space[8] }}>
           <Text style={{ fontSize: 16, color: '#1a1228', fontFamily: weight(600) }}>
             {pending ? 'Updating…' : 'Update password'}
           </Text>
         </Btn>
       </SpringIn>
 
-      <View style={{ alignItems: 'center', marginTop: 28, flexDirection: 'row', justifyContent: 'center' }}>
+      <View style={{ alignItems: 'center', marginTop: space[28], flexDirection: 'row', justifyContent: 'center' }}>
         <Text style={{ fontSize: 14, color: t.text2, fontFamily: weight(500) }}>Remembered it? </Text>
         <Pressable onPress={onDone}>
           <Text style={{ fontSize: 14, color: t.em, fontFamily: weight(700) }}>Back to log in</Text>
@@ -119,6 +119,6 @@ export function ResetPassword({
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, marginTop: 14 },
-  sub: { fontSize: 15, marginTop: 6, lineHeight: 21 },
+  title: { fontSize: 26, marginTop: space[14] },
+  sub: { fontSize: 15, marginTop: space[6], lineHeight: 21 },
 });

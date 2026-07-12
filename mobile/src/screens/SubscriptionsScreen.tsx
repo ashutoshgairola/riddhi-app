@@ -55,7 +55,7 @@ import { IconButton, ListCard, ListRow, SectionHead, TopbarActions } from '../co
 import { MSeg } from '../components/MSeg';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight, type Tokens } from '../theme/tokens';
+import { space, weight, type Tokens } from '../theme/tokens';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useCountUp } from '../hooks/useCountUp';
@@ -87,9 +87,9 @@ const payTagStyles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 1.5,
-    paddingHorizontal: 7,
+    gap: space[4],
+    paddingVertical: space[2],
+    paddingHorizontal: space[8],
     borderRadius: 99,
     borderWidth: 1,
     alignSelf: 'flex-start',
@@ -361,10 +361,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 26,
-    padding: 20,
-    paddingTop: 22,
+    padding: space[20],
+    paddingTop: space[24],
     borderWidth: 1,
-    marginBottom: 24,
+    marginBottom: space[24],
   },
   heroGlowBlob: {
     position: 'absolute',
@@ -381,8 +381,8 @@ const styles = StyleSheet.create({
   heroAmountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 3,
-    marginTop: 8,
+    gap: space[4],
+    marginTop: space[8],
   },
   heroRupee: {
     fontSize: 24,
@@ -394,13 +394,13 @@ const styles = StyleSheet.create({
   },
   heroPerMo: {
     fontSize: 15,
-    marginLeft: 2,
+    marginLeft: space[2],
   },
   heroStatsRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
-    paddingTop: 14,
+    gap: space[16],
+    marginTop: space[16],
+    paddingTop: space[14],
     borderTopWidth: 1,
   },
   heroStatLabel: {
@@ -411,20 +411,20 @@ const styles = StyleSheet.create({
   },
   heroStatValue: {
     fontSize: 16,
-    marginTop: 3,
+    marginTop: space[4],
   },
 
   // Flags (MobileSubs.jsx:163–186)
   flagsList: {
-    gap: 10,
-    marginBottom: 24,
+    gap: space[10],
+    marginBottom: space[24],
   },
   flagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
+    gap: space[12],
+    paddingVertical: space[14],
+    paddingHorizontal: space[16],
     borderRadius: 16,
     borderWidth: 1,
   },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   },
   flagSubtitle: {
     fontSize: 11.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // Upcoming (MobileSubs.jsx:188–206)
@@ -454,17 +454,17 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     textTransform: 'uppercase',
     letterSpacing: 0.48, // 0.05em of 9.5px
-    marginTop: 2,
+    marginTop: space[2],
   },
   upcomingDivider: {
     width: 1,
     alignSelf: 'stretch',
-    marginVertical: 2,
+    marginVertical: space[2],
   },
   upcomingTextBlock: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: space[4],
   },
   upcomingName: {
     fontSize: 14,
@@ -476,17 +476,17 @@ const styles = StyleSheet.create({
 
   // All subscriptions (MobileSubs.jsx:208–242)
   segWrap: {
-    marginBottom: 12,
+    marginBottom: space[12],
   },
   subsList: {
-    gap: 10,
-    paddingBottom: 8,
+    gap: space[10],
+    paddingBottom: space[8],
   },
   subCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
+    gap: space[12],
+    padding: space[14],
     borderRadius: 18,
     borderWidth: 1,
   },
@@ -497,15 +497,15 @@ const styles = StyleSheet.create({
   subNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: space[8],
   },
   subName: {
     fontSize: 14.5,
     flexShrink: 1,
   },
   pausedBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    paddingVertical: space[2],
+    paddingHorizontal: space[6],
     borderRadius: 99,
   },
   pausedBadgeText: {
@@ -515,8 +515,8 @@ const styles = StyleSheet.create({
   subMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 4,
+    gap: space[8],
+    marginTop: space[4],
   },
   subYearly: {
     fontSize: 11.5,
@@ -530,14 +530,14 @@ const styles = StyleSheet.create({
   },
   subCycle: {
     fontSize: 10.5,
-    marginTop: 2,
+    marginTop: space[2],
   },
 
   // Empty states
   emptyCard: {
-    padding: 22,
+    padding: space[24],
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: space[14],
   },
   emptyText: {
     fontSize: 13,

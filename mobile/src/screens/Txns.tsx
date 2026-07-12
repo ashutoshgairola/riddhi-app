@@ -44,7 +44,7 @@ import { MSeg } from '../components/MSeg';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { api, type TxPeriod } from '../api';
@@ -243,25 +243,25 @@ const styles = StyleSheet.create({
   topbarActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space[8],
     flexShrink: 0,
   },
   body: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 4,
-    paddingHorizontal: 18,
+    paddingTop: space[4],
+    paddingHorizontal: space[18],
     // The centred footer hint lines up under the centre FAB, which protrudes
     // ~21px above the tab-bar top (TabBar fabRing marginTop -29 on a 68px
     // ring). paddingBottom is the min gap between the hint and the bar top in
     // both scroll states, so it must clear that overhang with room to spare.
-    paddingBottom: 44,
+    paddingBottom: space[48],
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
+    gap: space[10],
+    marginTop: space[8],
   },
   summaryCard: {
     flex: 1,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   // Padding override (14 vs GlassCard's 18) — contentStyle so it replaces
   // the overlay's padding instead of stacking on the outer wrapper.
   summaryCardContent: {
-    padding: 14,
+    padding: space[14],
   },
   summaryLabel: {
     fontSize: 10.5,
@@ -279,23 +279,23 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 18,
-    marginTop: 4,
+    marginTop: space[4],
   },
   segWrap: {
-    marginTop: 16,
+    marginTop: space[16],
   },
   retryWrap: {
-    marginTop: 20,
+    marginTop: space[20],
   },
   groupWrap: {
-    marginTop: 20,
+    marginTop: space[20],
   },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingBottom: 10,
+    paddingHorizontal: space[4],
+    paddingBottom: space[10],
   },
   groupLabel: {
     fontSize: 13,
@@ -306,6 +306,6 @@ const styles = StyleSheet.create({
   footerHint: {
     textAlign: 'center',
     fontSize: 11,
-    marginTop: 18,
+    marginTop: space[18],
   },
 });

@@ -13,6 +13,9 @@ export interface LiquidGlassProps extends PropsWithChildren {
   radius?: number;
   padding?: number;
   specular?: boolean;
+  /** Override the theme's specular rim color (e.g. a dimmer rim on large
+   * surfaces like sheets where the full-strength rim reads too bright). */
+  specularColor?: string;
   chromatic?: boolean;
   tint?: string;
   /** Draw the 1px glass rim. Default true; set false when the surface is a
@@ -28,7 +31,7 @@ export interface LiquidGlassProps extends PropsWithChildren {
 
 export function LiquidGlass({
   children, style, contentStyle, radius: r = R.xl, padding = 0,
-  specular = true, chromatic = true, tint, border = true, intensity = 12, pointerEvents,
+  specular = true, specularColor, chromatic = true, tint, border = true, intensity = 12, pointerEvents,
 }: LiquidGlassProps) {
   const { t, mode } = useTheme();
   const [size, setSize] = useState<[number, number]>([0, 0]);
@@ -53,7 +56,7 @@ export function LiquidGlass({
     glowRadius: page[0] * 0.95,
     tint: tint ?? t.glassBg,
     refraction: t.refraction,
-    specularColor: specular ? t.specularColor : 'rgba(0,0,0,0)',
+    specularColor: specular ? (specularColor ?? t.specularColor) : 'rgba(0,0,0,0)',
     specularWidth: t.specularWidth,
     chromatic: chromatic ? t.chromatic : 0,
   });

@@ -9,7 +9,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { BottomSheet } from '../../components/BottomSheet';
 import { MI } from '../../components/icons';
 import { useTheme } from '../../theme/ThemeProvider';
-import { weight } from '../../theme/tokens';
+import { space, weight } from '../../theme/tokens';
 import { chatApi, type ThreadSummary } from '../../api/chatApi';
 
 function relativeTime(iso: string): string {
@@ -100,16 +100,16 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 4,
+    gap: space[10],
+    paddingVertical: space[14],
+    paddingHorizontal: space[4],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   newChat: {
     borderRadius: 13,
-    paddingHorizontal: 14,
+    paddingHorizontal: space[14],
     borderBottomWidth: 0,
-    marginBottom: 6,
+    marginBottom: space[6],
   },
   newChatText: {
     fontSize: 13.5,
@@ -123,12 +123,12 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   loading: {
-    paddingVertical: 24,
+    paddingVertical: space[24],
     alignItems: 'center',
   },
   note: {
     fontSize: 12.5,
-    paddingVertical: 16,
+    paddingVertical: space[16],
     textAlign: 'center',
   },
 });
