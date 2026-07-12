@@ -31,6 +31,7 @@ import { AppIcon } from '../components/contentIcons';
 import { FormSheet, type FormConfig } from '../components/FormSheet';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, spring, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 /**
  * `toastShadow` is authored the same way as `BottomSheet`'s `sheetShadow` —
@@ -336,15 +337,15 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 104,
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.xs,
     zIndex: 400,
   },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 99,
     borderWidth: 1,
     maxWidth: '78%',
@@ -369,15 +370,15 @@ const styles = StyleSheet.create({
   },
   sheetOptions: {
     flexDirection: 'column',
-    gap: 8,
-    paddingBottom: 10,
+    gap: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
   },
@@ -390,14 +391,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   sheetSection: {
-    marginTop: 6,
+    marginTop: spacing.xs,
   },
   sheetSectionHeader: {
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 8,
-    marginLeft: 4,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xxs,
   },
   optionCheck: {
     marginLeft: 'auto',
