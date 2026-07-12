@@ -29,7 +29,7 @@ import { IconButton, Topbar } from '../components/ui';
 import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { useTheme } from '../theme/ThemeProvider';
-import { space } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 
 export interface MPageShellProps {
   title: string;
@@ -86,8 +86,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[12],
-    paddingHorizontal: space[18],
-    paddingBottom: space[32],
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
   },
 });
