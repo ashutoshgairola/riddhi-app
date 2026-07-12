@@ -12,7 +12,7 @@
  * buttons (Pressable owns the tap + pressed-opacity feedback, GlassCard is
  * purely visual).
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '../components/Glass';
 import { AppIconBox } from '../components/contentIcons';
@@ -97,6 +97,23 @@ export function GoalDetail({ entry }: { entry: ScreenEntry }) {
       },
     });
   };
+
+  if (!goal?.name) {
+    // `entry.data` from an id-only deep link (e.g. a goal-progress
+    // notification) is a bare `{ id }` stub — every other GoalView field is
+    // undefined until `api.goals.get` resolves. `useApiData` renders that
+    // stub synchronously on the first pass (mirrors TxDetail.tsx's guard),
+    // so without this the header/stats below would flash `fmt(undefined)`
+    // ("₹NaN") and the wrong action card (accountId undefined => "Link a
+    // savings account") before the real goal arrives.
+    return (
+      <MPageShell title="Goal" onBack={pop}>
+        <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+          <ActivityIndicator color={t.text3} />
+        </View>
+      </MPageShell>
+    );
+  }
 
   return (
     <MPageShell title={goal.name} onBack={pop}>
