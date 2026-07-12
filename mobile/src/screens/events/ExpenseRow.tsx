@@ -19,7 +19,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GlassCard } from '../../components/Glass';
 import { MI } from '../../components/icons';
 import { useTheme } from '../../theme/ThemeProvider';
-import { space, weight } from '../../theme/tokens';
+import { weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import type { EventExpenseView } from '../../api/types';
 
 // evFmt — MobileStore.jsx:45.
@@ -120,9 +121,9 @@ const styles = StyleSheet.create({
   expenseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    paddingVertical: space[14],
-    paddingHorizontal: space[14],
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   checkboxBtn: {
     flexShrink: 0,
@@ -156,8 +157,8 @@ const styles = StyleSheet.create({
   expenseSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[6],
-    marginTop: space[2],
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
   },
   expenseSubText: {
     fontSize: 11,
@@ -172,6 +173,6 @@ const styles = StyleSheet.create({
   expensePlannedStrike: {
     fontSize: 11,
     textDecorationLine: 'line-through',
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 });
