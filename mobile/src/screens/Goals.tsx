@@ -104,6 +104,8 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
       ],
     };
 
+    let createdAccountId: string | null = null; // reused across retries of this form
+
     form({
       title: type === 'debt' ? 'New debt payoff goal' : 'New savings goal',
       fields: [
@@ -122,12 +124,15 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
       onSubmit: async (v) => {
         let accountId = v['account'];
         if (accountId === NEW_ACCOUNT) {
-          const created = await api.accounts.create({
-            name: v['name']!,
-            type: 'savings',
-            balance: v['current'] ? Number(v['current']) : 0,
-          });
-          accountId = String(created.id);
+          if (createdAccountId == null) {
+            const created = await api.accounts.create({
+              name: v['name']!,
+              type: 'savings',
+              balance: v['current'] ? Number(v['current']) : 0,
+            });
+            createdAccountId = String(created.id);
+          }
+          accountId = createdAccountId;
         }
         await api.goals.create({
           name: v['name']!,
