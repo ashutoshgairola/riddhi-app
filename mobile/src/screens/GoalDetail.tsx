@@ -16,9 +16,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '../components/Glass';
 import { AppIconBox } from '../components/contentIcons';
-import { ProgressBar, SectionHead } from '../components/ui';
+import { ProgressBar } from '../components/ui';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { space, weight, type Tokens } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import type { FormFieldSpec } from '../components/FormSheet';
@@ -144,7 +144,7 @@ export function GoalDetail({ entry }: { entry: ScreenEntry }) {
   );
 }
 
-function Stat({ label, value, t }: { label: string; value: string; t: any }) {
+function Stat({ label, value, t }: { label: string; value: string; t: Tokens }) {
   return (
     <View style={styles.stat}>
       <Text style={[styles.statLabel, { color: t.text3 }]}>{label}</Text>
