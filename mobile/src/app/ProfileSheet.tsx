@@ -15,7 +15,8 @@ import { MI } from "../components/icons";
 import { useFeedback } from "../feedback/FeedbackProvider";
 import { shareTxCsv } from "../lib/exportCsv";
 import { useTheme } from "../theme/ThemeProvider";
-import { space, weight } from "../theme/tokens";
+import { weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { useNav, type ScreenKind } from "./navContext";
 
 const HELP_URL = "https://riddhi.app/help";
@@ -135,9 +136,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[14],
-    paddingTop: space[4],
-    paddingBottom: space[20],
+    gap: spacing.md,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.lg,
   },
   avatar: {
     width: 60,
@@ -159,15 +160,15 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: 12,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   badge: {
     alignSelf: "flex-start",
     fontSize: 10.5,
-    paddingVertical: space[4],
-    paddingHorizontal: space[8],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: 99,
-    marginTop: space[6],
+    marginTop: spacing.xs,
   },
   badgeLabel: {
     fontSize: 10.5,
@@ -177,6 +178,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   signOutBtn: {
-    marginTop: space[14],
+    marginTop: spacing.md,
   },
 });
