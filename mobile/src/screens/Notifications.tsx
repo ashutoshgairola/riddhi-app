@@ -24,35 +24,34 @@
  *    body; time — MobileScreens.jsx:698–712.
  */
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Chip, HScroll, IconButton, SearchButton, TopbarActions } from "../components/ui";
+import {
+  Chip,
+  HScroll,
+  IconButton,
+  SearchButton,
+  TopbarActions,
+} from "../components/ui";
 import { MI } from "../components/icons";
 import { AppIconBox } from "../components/contentIcons";
+import { GlassCard } from "../components/Glass";
 import { SpringIn } from "../components/SpringIn";
 import { useTheme } from "../theme/ThemeProvider";
-import { weight } from "../theme/tokens";
+import { space, weight } from "../theme/tokens";
 import { useFeedback } from "../feedback/FeedbackProvider";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { useApiData } from "../api/useApi";
+import { mapNotificationToScreen, fallbackTargetForType } from "../notifications/deepLink";
+import type { NotificationView } from "../api/types";
 import { MPageShell } from "./_MPageShell";
 
 // ── Data (MobileScreens.jsx:672–680) ─────────────────────────────────
 type NotifType = "budget" | "goal" | "tx" | "report" | "security" | "munshi";
 
-interface Notification {
-  icon: string;
-  title: string;
-  body: string;
-  time: string;
-  color: string;
-  unread: boolean;
-  type: NotifType;
-}
-
 // Renders empty while the api loads (or is unreachable) — no mock data.
-const ALL_NOTIFS: Notification[] = [];
+const ALL_NOTIFS: NotificationView[] = [];
 
 type FilterValue = "all" | "unread" | NotifType;
 
@@ -85,6 +84,13 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
       : filter === "unread"
         ? notifs.filter((n) => n.unread)
         : notifs.filter((n) => n.type === filter);
+
+  const onTapNotif = (n: NotificationView) => {
+    const target = mapNotificationToScreen(n.data) ?? fallbackTargetForType(n.type);
+    // Fire-and-forget: bumpData() inside markRead refetches and clears the dot.
+    void api.notifications.markRead(n.id).catch(() => {});
+    nav(target.kind, target.data);
+  };
 
   const openMoreSheet = () => {
     sheet({
@@ -132,60 +138,109 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
         </HScroll>
       </View>
 
-      <View style={styles.list}>
-        {filtered.map((n, i) => (
-          // animationDelay: `${i*0.03}s` (MobileScreens.jsx:699)
-          <SpringIn key={i} delay={i * 30}>
-            <View
+      {filtered.length === 0 ? (
+        <SpringIn>
+          <GlassCard contentStyle={styles.emptyCard}>
+            <MI.bell size={32} color={t.text3} />
+            <Text
               style={[
-                styles.card,
-                {
-                  backgroundColor: n.unread ? t.bg2 : t.bg1,
-                  borderColor: t.border,
-                },
+                styles.emptyTitle,
+                { color: t.text1, fontFamily: weight(700) },
               ]}
             >
-              {n.unread && (
-                <View style={[styles.unreadDot, { backgroundColor: t.em }]} />
-              )}
-              <AppIconBox value={n.icon} color={n.color} size={40} iconSize={18} />
-              <View style={styles.textBlock}>
-                <Text
+              You're all caught up
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: t.text2 }]}>
+              No notifications yet
+            </Text>
+          </GlassCard>
+        </SpringIn>
+      ) : (
+        <View style={styles.list}>
+          {filtered.map((n, i) => (
+            // animationDelay: `${i*0.03}s` (MobileScreens.jsx:699)
+            <SpringIn key={n.id} delay={i * 30}>
+              <Pressable onPress={() => onTapNotif(n)}>
+                <View
                   style={[
-                    styles.title,
+                    styles.card,
                     {
-                      color: t.text1,
-                      fontFamily: weight(n.unread ? 700 : 600),
+                      backgroundColor: n.unread ? t.bg2 : t.bg1,
+                      borderColor: t.border,
                     },
                   ]}
-                  numberOfLines={2}
                 >
-                  {n.title}
-                </Text>
-                <Text style={[styles.body, { color: t.text2 }]}>{n.body}</Text>
-                <Text style={[styles.time, { color: t.text3 }]}>{n.time}</Text>
-              </View>
-            </View>
-          </SpringIn>
-        ))}
-      </View>
+                  {n.unread && (
+                    <View style={[styles.unreadDot, { backgroundColor: t.em }]} />
+                  )}
+                  {n.type === "munshi" ? (
+                    <View
+                      style={[styles.iconBox, { backgroundColor: n.color + "22" }]}
+                    >
+                      <Image
+                        source={require("../../assets/munshi.png")}
+                        style={styles.iconImage}
+                      />
+                    </View>
+                  ) : (
+                    <AppIconBox value={n.icon} color={n.color} size={40} iconSize={18} />
+                  )}
+                  <View style={styles.textBlock}>
+                    <Text
+                      style={[
+                        styles.title,
+                        {
+                          color: t.text1,
+                          fontFamily: weight(n.unread ? 700 : 600),
+                        },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {n.title}
+                    </Text>
+                    <Text style={[styles.body, { color: t.text2 }]}>
+                      {n.body}
+                    </Text>
+                    <Text style={[styles.time, { color: t.text3 }]}>
+                      {n.time}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            </SpringIn>
+          ))}
+        </View>
+      )}
     </MPageShell>
   );
 }
 
 const styles = StyleSheet.create({
   hscrollWrap: {
-    marginBottom: 14,
+    marginBottom: space[14],
+  },
+  emptyCard: {
+    alignItems: "center",
+    gap: space[10],
+    paddingVertical: space[32],
+  },
+  emptyTitle: {
+    fontSize: 15,
+    marginTop: space[4],
+  },
+  emptySubtitle: {
+    fontSize: 12.5,
+    textAlign: "center",
   },
   list: {
     flexDirection: "column",
-    gap: 10,
+    gap: space[10],
   },
   card: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
-    padding: 14,
+    gap: space[12],
+    padding: space[14],
     borderWidth: 1,
     borderRadius: 14,
     position: "relative",
@@ -198,13 +253,26 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 99,
   },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  iconImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+  },
   textBlock: {
     flex: 1,
     minWidth: 0,
   },
   title: {
     fontSize: 13.5,
-    marginBottom: 3,
+    marginBottom: space[4],
   },
   body: {
     fontSize: 12,
@@ -212,6 +280,6 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 11,
-    marginTop: 4,
+    marginTop: space[4],
   },
 });
