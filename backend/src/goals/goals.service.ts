@@ -88,8 +88,17 @@ export class GoalsService {
     const goal = await this.goalsRepository.findOneByUser(id, userId);
     if (!goal) throw new NotFoundException('Goal not found');
     const previousPct = computeGoalFields(goal).progressPct;
+    const accountChanged =
+      dto.accountId !== undefined && dto.accountId !== goal.accountId;
     Object.assign(goal, dto);
-    const saved = await this.goalsRepository.save(goal);
+    const savedEntity = await this.goalsRepository.save(goal);
+    // A changed accountId leaves the `account` relation on the saved entity
+    // stale (still the old account or null), so progress would be computed
+    // against the wrong balance. Reload with the relation to derive from the
+    // newly linked account.
+    const saved = accountChanged
+      ? (await this.goalsRepository.findOneByUser(id, userId))!
+      : savedEntity;
     const computed = computeGoalFields(saved);
     if (computed.progressPct !== previousPct) {
       this.events.emit(GOAL_UPDATED, {

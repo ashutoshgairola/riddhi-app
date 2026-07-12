@@ -2,6 +2,7 @@ import { computeGoalFields, GoalsService } from './goals.service';
 import { GoalType, GoalStatus } from '../common/enums';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TransactionType } from '../common/enums';
+import { GOAL_UPDATED } from '../notifications/notification-events';
 
 function baseGoal(overrides: any = {}): any {
   return {
@@ -52,6 +53,50 @@ describe('computeGoalFields', () => {
     const result = computeGoalFields(goal);
     expect(result.progressPct).toBe(100);
     expect(result.remaining).toBe(0);
+  });
+});
+
+describe('GoalsService.update relink', () => {
+  it('recomputes progress from the newly linked account and emits GOAL_UPDATED', async () => {
+    const legacyGoal = baseGoal({
+      id: 'g1',
+      targetAmount: 100000,
+      currentAmount: 0,
+      accountId: null,
+      account: null,
+    });
+    // After relinking + save, a fresh load carries the funded account relation.
+    const relinkedGoal = baseGoal({
+      id: 'g1',
+      targetAmount: 100000,
+      currentAmount: 0,
+      accountId: 'a1',
+      account: { id: 'a1', balance: 50000 },
+    });
+    const goalsRepository = {
+      findOneByUser: jest
+        .fn()
+        .mockResolvedValueOnce(legacyGoal)
+        .mockResolvedValueOnce(relinkedGoal),
+      // save() returns the entity with the stale (null) relation still attached.
+      save: jest.fn().mockResolvedValue({ ...legacyGoal, accountId: 'a1' }),
+    };
+    const events = { emit: jest.fn() };
+    const svc = new GoalsService(
+      goalsRepository as any,
+      events as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await svc.update('g1', 'u1', { accountId: 'a1' } as any);
+
+    expect(result.saved).toBe(50000);
+    expect(result.progressPct).toBe(50);
+    expect(events.emit).toHaveBeenCalledWith(
+      GOAL_UPDATED,
+      expect.objectContaining({ previousPct: 0, newPct: 50 }),
+    );
   });
 });
 
