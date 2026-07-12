@@ -42,7 +42,8 @@ import { Btn } from "../components/ui";
 import { MI } from "../components/icons";
 import { useFeedback } from "../feedback/FeedbackProvider";
 import { useTheme } from "../theme/ThemeProvider";
-import { radius, space, weight } from "../theme/tokens";
+import { radius, weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { useNav } from "./navContext";
 
 /** No-accounts fallback for `useApiData` (kept as a stable module-level
@@ -579,15 +580,15 @@ export function AddTxSheet() {
 
 const styles = StyleSheet.create({
   segWrap: {
-    marginBottom: space[20],
+    marginBottom: spacing.lg,
   },
   amountWrap: {
     flexDirection: "row",
     alignItems: "baseline",
     justifyContent: "center",
-    gap: space[6],
-    paddingTop: space[4],
-    paddingBottom: space[18],
+    gap: spacing.xxs,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.md,
   },
   amountSymbol: {
     fontSize: 26,
@@ -599,16 +600,16 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: "row",
-    gap: space[8],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[8],
-    paddingVertical: space[10],
-    paddingHorizontal: space[14],
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 99,
     borderWidth: 1,
   },
@@ -617,15 +618,15 @@ const styles = StyleSheet.create({
   },
   acctRow: {
     flexDirection: "row",
-    gap: space[8],
-    paddingVertical: space[2],
-    paddingHorizontal: space[2],
-    marginTop: space[10],
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+    marginTop: spacing.md,
   },
   acctChip: {
     minWidth: 96,
-    paddingVertical: space[8],
-    paddingHorizontal: space[14],
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 13,
     borderWidth: 1,
   },
@@ -634,23 +635,23 @@ const styles = StyleSheet.create({
   },
   acctType: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   noteInput: {
-    marginTop: space[14],
+    marginTop: spacing.md,
     height: 46,
     borderRadius: radius.md,
     borderWidth: 1,
-    paddingHorizontal: space[16],
+    paddingHorizontal: spacing.md,
     fontSize: 14,
   },
   receiptCard: {
-    marginTop: space[10],
+    marginTop: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    gap: space[12],
-    paddingVertical: space[10],
-    paddingHorizontal: space[12],
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderWidth: 1,
     borderRadius: 13,
   },
@@ -668,7 +669,7 @@ const styles = StyleSheet.create({
   },
   receiptSubtitle: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   receiptRemove: {
     width: 30,
@@ -679,16 +680,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   attachBtn: {
-    marginTop: space[10],
+    marginTop: spacing.md,
     width: "100%",
-    paddingVertical: space[12],
+    paddingVertical: spacing.sm,
     borderRadius: 13,
     borderWidth: 1,
     borderStyle: "dashed",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: space[8],
+    gap: spacing.xs,
   },
   attachLabel: {
     fontSize: 13,
@@ -696,8 +697,8 @@ const styles = StyleSheet.create({
   keypad: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: space[6],
-    marginTop: space[14],
+    gap: spacing.xxs,
+    marginTop: spacing.md,
   },
   key: {
     width: "32%",
@@ -710,7 +711,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   saveBtn: {
-    marginTop: space[14],
+    marginTop: spacing.md,
     height: 54,
   },
 });
