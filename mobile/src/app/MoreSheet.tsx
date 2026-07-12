@@ -11,7 +11,8 @@ import { AppIconBox } from "../components/contentIcons";
 import { ListCard, ListRow } from "../components/ui";
 import { MI } from "../components/icons";
 import { useTheme } from "../theme/ThemeProvider";
-import { radius, space, weight } from "../theme/tokens";
+import { radius, weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { useNav, type ScreenKind } from "./navContext";
 
 interface MoreItem {
@@ -177,22 +178,22 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: space[10],
-    marginBottom: space[14],
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   card: {
     width: "48%",
-    padding: space[16],
+    padding: spacing.md,
     borderRadius: radius.xl,
     borderWidth: 1,
-    gap: space[10],
+    gap: spacing.xs,
   },
   cardLabel: {
     fontSize: 14,
   },
   cardDesc: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   rowText: {
     flex: 1,
@@ -202,6 +203,6 @@ const styles = StyleSheet.create({
   },
   rowDesc: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 });
