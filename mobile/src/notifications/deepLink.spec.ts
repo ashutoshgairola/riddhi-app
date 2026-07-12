@@ -17,6 +17,13 @@ describe('mapNotificationToScreen', () => {
   it('returns null for tx-detail without a string id', () => {
     expect(mapNotificationToScreen({ screen: 'tx-detail' })).toBeNull();
   });
+  it('resolves goal-detail with an id', () => {
+    expect(mapNotificationToScreen({ screen: 'goal-detail', id: 'g1' }))
+      .toEqual({ kind: 'goal-detail', data: { id: 'g1' } });
+  });
+  it('returns null for goal-detail without a string id', () => {
+    expect(mapNotificationToScreen({ screen: 'goal-detail' })).toBeNull();
+  });
 });
 
 describe('fallbackTargetForType', () => {

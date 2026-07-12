@@ -2,7 +2,10 @@ import type { ScreenKind } from '../app/navContext';
 import type { NotifViewType } from '../api/types';
 
 /** Screens a notification tap is allowed to deep-link into. */
-const ALLOWED: ScreenKind[] = ['budgets', 'goals', 'reports', 'chat', 'tx-detail', 'sync', 'subscriptions'];
+const ALLOWED: ScreenKind[] = ['budgets', 'goals', 'reports', 'chat', 'tx-detail', 'goal-detail', 'sync', 'subscriptions'];
+
+/** Screens that require a string id to render. */
+const ID_SCREENS: ScreenKind[] = ['tx-detail', 'goal-detail'];
 
 export interface NotifNavTarget {
   kind: ScreenKind;
@@ -22,11 +25,11 @@ export function mapNotificationToScreen(data: unknown): NotifNavTarget | null {
     return null;
   }
   const id = (data as Record<string, unknown>).id;
-  // tx-detail can only render with a string id (the detail screen fetches by
-  // id); an id-less tx-detail payload resolves to null so the caller falls
-  // back to a safe screen instead of pushing a detail with no id.
-  if (screen === 'tx-detail') {
-    return typeof id === 'string' ? { kind: 'tx-detail', data: { id } } : null;
+  // ID_SCREENS (tx-detail, goal-detail) require a string id to render; an
+  // id-less payload resolves to null so the caller falls back to a safe screen
+  // instead of pushing a detail without an id.
+  if (ID_SCREENS.includes(screen as ScreenKind)) {
+    return typeof id === 'string' ? { kind: screen as ScreenKind, data: { id } } : null;
   }
   return { kind: screen as ScreenKind };
 }
