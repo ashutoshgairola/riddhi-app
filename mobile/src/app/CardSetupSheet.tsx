@@ -23,7 +23,8 @@ import { BottomSheet } from '../components/BottomSheet';
 import { Btn } from '../components/ui';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, space, weight } from '../theme/tokens';
+import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { buildCardSetupPatch } from '../lib/cardSetup';
 
 export interface CardSetupSheetProps {
@@ -98,9 +99,9 @@ export function CardSetupSheet({ open, onClose, accountId }: CardSetupSheetProps
 }
 
 const styles = StyleSheet.create({
-  intro: { fontSize: 12.5, lineHeight: 18, paddingBottom: space[14] },
-  fieldBlock: { marginBottom: space[12] },
-  fieldLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: space[6] },
-  input: { height: 48, borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: space[14], fontSize: 15 },
-  saveBtn: { marginTop: space[8], height: 52 },
+  intro: { fontSize: 12.5, lineHeight: 18, paddingBottom: spacing.md },
+  fieldBlock: { marginBottom: spacing.sm },
+  fieldLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: spacing.xs },
+  input: { height: 48, borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.md, fontSize: 15 },
+  saveBtn: { marginTop: spacing.xs, height: 52 },
 });
