@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   // Account list (MobileScreens.jsx:386–411)
   accountList: {
     flexDirection: 'column',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   accountCard: {
     padding: spacing.md,
