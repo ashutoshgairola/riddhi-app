@@ -54,7 +54,8 @@ import { MI } from "../components/icons";
 import { AppIcon } from "../components/contentIcons";
 import { PageBackground } from "../components/PageBackground";
 import { useTheme } from "../theme/ThemeProvider";
-import { space, weight } from "../theme/tokens";
+import { weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { streamChat, ChatStreamInterrupted } from "../api/chatStream";
@@ -431,7 +432,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
       <PageBackground />
 
       {/* topbar */}
-      <View style={[styles.topbar, { paddingTop: insets.top + space[14] }]}>
+      <View style={[styles.topbar, { paddingTop: insets.top + spacing.md }]}>
         <IconButton onPress={pop}>
           <MI.back size={20} color={t.text1} />
         </IconButton>
@@ -594,7 +595,7 @@ export function Chat({ entry }: { entry: ScreenEntry }) {
           {
             borderTopColor: t.border,
             backgroundColor: t.bg,
-            paddingBottom: Math.max(insets.bottom, 0) + space[12],
+            paddingBottom: Math.max(insets.bottom, 0) + spacing.sm,
           },
         ]}
       >
@@ -646,18 +647,18 @@ const styles = StyleSheet.create({
   },
   topbar: {
     position: "relative",
-    paddingTop: space[14],
-    paddingHorizontal: space[18],
-    paddingBottom: space[12],
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    gap: space[10],
+    gap: spacing.xs,
   },
   topbarMid: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: space[10],
+    gap: spacing.xs,
   },
   sparkleBox: {
     width: 34,
@@ -680,7 +681,7 @@ const styles = StyleSheet.create({
   onlineRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[4],
+    gap: spacing.xxs,
     marginTop: -1,
   },
   online: {
@@ -690,13 +691,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingHorizontal: space[18],
-    paddingTop: space[12],
-    paddingBottom: space[8],
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
     flexGrow: 1,
   },
   emptyWrap: {
-    paddingTop: space[24],
+    paddingTop: spacing.lg,
   },
   emptySparkle: {
     width: 54,
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: space[16],
+    marginBottom: spacing.md,
     overflow: "hidden",
   },
   emptyLogo: {
@@ -719,35 +720,35 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 13.5,
-    marginTop: space[8],
+    marginTop: spacing.xs,
     lineHeight: 20,
   },
   emptyActions: {
     flexDirection: "column",
-    gap: space[8],
-    marginTop: space[24],
+    gap: spacing.xs,
+    marginTop: spacing.lg,
   },
   scanBtn: {
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: space[10],
+    gap: spacing.xs,
   },
   scanBtnText: {
     fontSize: 13.5,
     flexShrink: 1,
   },
   suggestionBtn: {
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: space[10],
+    gap: spacing.xs,
   },
   suggestionText: {
     fontSize: 13.5,
@@ -755,14 +756,14 @@ const styles = StyleSheet.create({
   },
   msgRow: {
     flexDirection: "column",
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   bubble: {
     maxWidth: "82%",
-    paddingVertical: space[10],
-    paddingHorizontal: space[14],
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 18,
-    marginTop: space[6],
+    marginTop: spacing.xs,
   },
   bubbleUser: {
     borderBottomRightRadius: 5,
@@ -781,13 +782,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   errorWrap: {
-    marginTop: space[6],
-    gap: space[8],
+    marginTop: spacing.xs,
+    gap: spacing.xs,
   },
   errorBubble: {
     maxWidth: "82%",
-    paddingVertical: space[10],
-    paddingHorizontal: space[14],
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
@@ -800,9 +801,9 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: space[6],
-    paddingVertical: space[8],
-    paddingHorizontal: space[14],
+    gap: spacing.xxs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 13,
     borderWidth: 1,
   },
@@ -811,16 +812,16 @@ const styles = StyleSheet.create({
   },
   typingRow: {
     flexDirection: "row",
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   typingBubble: {
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: 18,
     borderBottomLeftRadius: 5,
     borderWidth: 1,
     flexDirection: "row",
-    gap: space[6],
+    gap: spacing.xxs,
   },
   dot: {
     width: 7,
@@ -829,12 +830,12 @@ const styles = StyleSheet.create({
   },
   composer: {
     flexShrink: 0,
-    paddingTop: space[10],
-    paddingHorizontal: space[16],
+    paddingTop: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderTopWidth: 1,
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: space[10],
+    gap: spacing.xs,
   },
   attachBtn: {
     width: 42,
@@ -848,8 +849,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     maxHeight: 96,
-    paddingVertical: space[12],
-    paddingHorizontal: space[16],
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: 20,
     borderWidth: 1,
     fontSize: 14,
