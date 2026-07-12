@@ -67,7 +67,8 @@ import { WeekChart } from "../components/charts";
 import { useCountUp } from "../hooks/useCountUp";
 import { pluralize } from "../lib/pluralize";
 import { useTheme } from "../theme/ThemeProvider";
-import { radius, space, weight } from "../theme/tokens";
+import { radius, weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
 import { useApiData } from "../api/useApi";
@@ -262,7 +263,7 @@ export function Home({ entry: _entry }: { entry: ScreenEntry }) {
         onRefresh={refetchAll}
         onScroll={handleScroll}
         topInset={topbarHeight}
-        contentStyle={[styles.scrollContent, { paddingTop: topbarHeight + space[8] }]}
+        contentStyle={[styles.scrollContent, { paddingTop: topbarHeight + spacing.xs }]}
       >
         {/* ── Signature hero card (MobileHome.jsx:98–125) ── */}
         <SpringIn style={[styles.hero, { borderColor: t.glassBrd2 }]}>
@@ -751,7 +752,7 @@ function UpcomingSubsSection({
                   size={42}
                   iconSize={19}
                 />
-                <View style={[styles.dueRowMain, { marginLeft: space[12] }]}>
+                <View style={[styles.dueRowMain, { marginLeft: spacing.sm }]}>
                   <Text
                     style={[
                       styles.dueTitle,
@@ -858,9 +859,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: space[14],
-    paddingHorizontal: space[18],
-    paddingBottom: space[12],
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   topbarHairline: {
     position: "absolute",
@@ -872,7 +873,7 @@ const styles = StyleSheet.create({
   topbarRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[12],
+    gap: spacing.sm,
   },
   avatarPressTarget: {
     flexShrink: 0,
@@ -899,14 +900,14 @@ const styles = StyleSheet.create({
   greetingName: {
     fontSize: 16,
     letterSpacing: -0.16,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 
   // Scroll content — paddingTop is set inline (topbar height + 8, the
   // web's 8px body padding) since the bar overlays the scroller.
   scrollContent: {
-    paddingHorizontal: space[18],
-    paddingBottom: space[28],
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
   },
 
   // Hero card
@@ -914,9 +915,9 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     borderRadius: 30,
-    paddingTop: space[24],
-    paddingHorizontal: space[24],
-    paddingBottom: space[20],
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
     borderWidth: 1,
   },
   heroGlowSvg: {
@@ -947,8 +948,8 @@ const styles = StyleSheet.create({
   },
   daysChip: {
     fontSize: 11,
-    paddingVertical: space[4],
-    paddingHorizontal: space[12],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 99,
     borderWidth: 1,
   },
@@ -958,8 +959,8 @@ const styles = StyleSheet.create({
   amountRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: space[4],
-    marginTop: space[10],
+    gap: spacing.xxs,
+    marginTop: spacing.xs,
   },
   amountRupee: {
     fontSize: 26,
@@ -974,7 +975,7 @@ const styles = StyleSheet.create({
     lineHeight: 54,
   },
   progressTrack: {
-    marginTop: space[20],
+    marginTop: spacing.lg,
     height: 8,
     backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 99,
@@ -988,7 +989,7 @@ const styles = StyleSheet.create({
   progressLabelsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   progressLeft: {
     fontSize: 12.5,
@@ -999,12 +1000,12 @@ const styles = StyleSheet.create({
 
   // Read-path error banner
   retryWrap: {
-    marginTop: space[14],
+    marginTop: spacing.md,
   },
 
   // SMS sync banner
   syncBanner: {
-    marginTop: space[14],
+    marginTop: spacing.md,
   },
   syncBannerTouchable: {
     width: "100%",
@@ -1012,9 +1013,9 @@ const styles = StyleSheet.create({
   syncBannerContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[14],
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   syncIconWrap: {
     width: 40,
@@ -1033,7 +1034,7 @@ const styles = StyleSheet.create({
   },
   syncSubtitle: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   syncReview: {
     fontSize: 12.5,
@@ -1045,9 +1046,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     justifyContent: "space-between",
-    marginTop: space[28],
-    marginHorizontal: space[4],
-    marginBottom: space[14],
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.xxs,
+    marginBottom: spacing.md,
   },
   labelText: {
     fontSize: 16,
@@ -1060,16 +1061,16 @@ const styles = StyleSheet.create({
   // Week card
   weekCard: {},
   weekCardInner: {
-    paddingTop: space[18],
-    paddingHorizontal: space[14],
-    paddingBottom: space[12],
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   weekHeaderRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: space[8],
-    paddingHorizontal: space[4],
-    paddingBottom: space[4],
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xxs,
+    paddingBottom: spacing.xxs,
   },
   weekHeaderLabel: {
     fontSize: 13,
@@ -1082,7 +1083,7 @@ const styles = StyleSheet.create({
 
   // Recent
   recentList: {
-    gap: space[8],
+    gap: spacing.xs,
   },
   recentRowTouchable: {
     width: "100%",
@@ -1090,9 +1091,9 @@ const styles = StyleSheet.create({
   recentRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[14],
-    paddingVertical: space[12],
-    paddingHorizontal: space[14],
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -1106,8 +1107,8 @@ const styles = StyleSheet.create({
   recentMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[6],
-    marginTop: space[2],
+    gap: spacing.xxs,
+    marginTop: spacing.xxs,
   },
   recentMeta: {
     fontSize: 11.5,
@@ -1124,11 +1125,11 @@ const styles = StyleSheet.create({
   dueRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: space[12],
-    paddingHorizontal: space[14],
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   dueRowMain: { flex: 1 },
   dueTitle: { fontSize: 15 },
-  dueSub: { fontSize: 12.5, marginTop: space[2] },
+  dueSub: { fontSize: 12.5, marginTop: spacing.xxs },
   dueAmount: { fontSize: 15 },
 });
