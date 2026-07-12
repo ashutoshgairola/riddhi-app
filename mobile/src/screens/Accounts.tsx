@@ -41,7 +41,8 @@ import { IconButton, SearchButton, SectionHead, TopbarActions } from '../compone
 import { MI } from '../components/icons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
@@ -294,11 +295,11 @@ const styles = StyleSheet.create({
   // Net worth hero (MobileScreens.jsx:365–384)
   heroCard: {
     borderRadius: 26, // .m-card border-radius (--r-xl), the hero card keeps that radius
-    marginBottom: space[14],
+    marginBottom: spacing.md,
     overflow: 'hidden',
   },
   heroGradient: {
-    padding: space[20],
+    padding: spacing.lg,
     borderWidth: 1,
   },
   heroLabel: {
@@ -313,14 +314,14 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     color: '#fff',
-    marginTop: space[6],
+    marginTop: spacing.xxs,
     letterSpacing: -0.96, // -0.03em of 32px
   },
   heroSplitRow: {
     flexDirection: 'row',
-    gap: space[14],
-    marginTop: space[14],
-    paddingTop: space[14],
+    gap: spacing.md,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
   },
@@ -337,16 +338,16 @@ const styles = StyleSheet.create({
   heroSplitValue: {
     fontFamily: weight(700),
     fontSize: 15,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
 
   // Account list (MobileScreens.jsx:386–411)
   accountList: {
     flexDirection: 'column',
-    gap: space[12],
+    gap: spacing.sm,
   },
   accountCard: {
-    padding: space[16],
+    padding: spacing.md,
     borderRadius: 18,
     overflow: 'hidden',
     position: 'relative',
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
+    gap: spacing.sm,
   },
   accountTextBlock: {
     flex: 1,
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
   accountSub: {
     fontSize: 11.5,
     opacity: 0.75,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
     color: '#fff',
   },
   accountRight: {
@@ -394,7 +395,7 @@ const styles = StyleSheet.create({
   accountChange: {
     fontSize: 11,
     opacity: 0.75,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
     fontFamily: weight(600),
     fontWeight: '600',
     color: '#fff',
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
   accountDueHint: {
     fontSize: 11,
     opacity: 0.85,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
     fontFamily: weight(600),
     fontWeight: '600',
     color: '#fff',
