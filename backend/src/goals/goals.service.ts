@@ -10,6 +10,8 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { CategoriesService } from '../categories/categories.service';
 import { CreateTransactionDto } from '../transactions/dto/create-transaction.dto';
 
+const TRANSFER_CATEGORY_NAME = 'Transfer';
+
 const PERIODS_PER_YEAR: Record<ContributionFrequency, number> = {
   [ContributionFrequency.DAILY]: 365,
   [ContributionFrequency.WEEKLY]: 52,
@@ -132,9 +134,11 @@ export class GoalsService {
     }
 
     const categories = await this.categoriesService.findAll(userId);
-    let transferCat = categories.find((c) => c.name === 'Transfer');
+    let transferCat = categories.find((c) => c.name === TRANSFER_CATEGORY_NAME);
     if (!transferCat) {
-      transferCat = await this.categoriesService.create(userId, { name: 'Transfer' });
+      transferCat = await this.categoriesService.create(userId, {
+        name: TRANSFER_CATEGORY_NAME,
+      });
     }
 
     const previousPct = computeGoalFields(goal).progressPct;
@@ -148,7 +152,7 @@ export class GoalsService {
       accountId: dto.sourceAccountId,
       destinationAccountId: goal.accountId,
       status: TransactionStatus.CLEARED,
-    } as CreateTransactionDto;
+    };
 
     await this.transactionsService.create(userId, txDto);
 
