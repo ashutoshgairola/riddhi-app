@@ -678,6 +678,11 @@ export const api = {
       });
       bumpData();
     },
+
+    async update(id: string, patch: { accountId?: string }): Promise<void> {
+      await apiClient.patch(`/goals/${id}`, patch);
+      bumpData();
+    },
   },
 
   investments: {
