@@ -15,7 +15,8 @@ import { getBiometricEnabled, getPinLength, hasPin, savePin } from '../../auth/t
 import { PageBackground } from '../../components/PageBackground';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radius, space, weight } from '../../theme/tokens';
+import { radius, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { OBKeypad } from '../onboarding/obUi';
 import { FaceIdGlyph, PressableScale, SpringIn, Wordmark } from './authUi';
 
@@ -173,8 +174,8 @@ export function LockScreen() {
         style={{
           flex: 1,
           paddingTop: insets.top + 64,
-          paddingBottom: insets.bottom + space[16],
-          paddingHorizontal: space[28],
+          paddingBottom: insets.bottom + spacing.md,
+          paddingHorizontal: spacing.lg,
         }}
       >
         <SpringIn style={{ alignItems: 'center' }}>
@@ -240,17 +241,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     letterSpacing: -0.66, // -0.03em of 22px
-    marginTop: space[24],
+    marginTop: spacing.lg,
   },
   sub: {
     fontSize: 14,
-    marginTop: space[6],
+    marginTop: spacing.xs,
   },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: space[16],
-    paddingBottom: space[28],
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   dot: {
     width: 18,
@@ -260,17 +261,17 @@ const styles = StyleSheet.create({
   },
   bioBtn: {
     height: 50,
-    marginTop: space[14],
+    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[10],
+    gap: spacing.xs,
     borderRadius: radius.md,
     borderWidth: 1,
   },
   logout: {
     alignItems: 'center',
-    paddingVertical: space[8],
-    marginTop: space[14],
+    paddingVertical: spacing.xs,
+    marginTop: spacing.md,
   },
 });
