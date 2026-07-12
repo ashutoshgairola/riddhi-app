@@ -63,7 +63,8 @@ import { MI } from '../../components/icons';
 import { AppIcon } from '../../components/contentIcons';
 import { SpringIn } from '../../components/SpringIn';
 import { useTheme } from '../../theme/ThemeProvider';
-import { ease, space, weight } from '../../theme/tokens';
+import { ease, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../../app/navContext';
 import { api } from '../../api';
@@ -446,12 +447,12 @@ export function EventDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Hero
   heroCard: {
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   heroCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[18],
+    gap: spacing.md,
   },
   ringWrap: {
     width: RING_SIZE,
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
   },
   ringPct: {
     fontSize: 13,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   heroTextBlock: {
     flex: 1,
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
   },
   heroValue: {
     fontSize: 24,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
     letterSpacing: -0.48,
   },
   heroValueOf: {
@@ -490,14 +491,14 @@ const styles = StyleSheet.create({
   },
   heroChipsRow: {
     flexDirection: 'row',
-    gap: space[8],
-    marginTop: space[8],
+    gap: spacing.xs,
+    marginTop: spacing.xs,
     flexWrap: 'wrap',
   },
   heroChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
+    gap: spacing.xxs,
   },
   heroChip: {
     fontSize: 11.5,
@@ -505,13 +506,13 @@ const styles = StyleSheet.create({
 
   // Stats row
   statsCard: {
-    marginTop: space[12],
+    marginTop: spacing.sm,
   },
   statsCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: space[16],
-    paddingHorizontal: space[8],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   statCell: {
     flex: 1,
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   statDivider: {
     width: 1,
@@ -533,14 +534,14 @@ const styles = StyleSheet.create({
 
   // Over banner
   overBanner: {
-    marginTop: space[12],
-    padding: space[14],
-    paddingHorizontal: space[14],
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: 13,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
+    gap: spacing.xs,
   },
   overBannerText: {
     flex: 1,
@@ -549,28 +550,28 @@ const styles = StyleSheet.create({
 
   // Empty state
   emptyCard: {
-    paddingVertical: space[28],
+    paddingVertical: spacing.lg,
     alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 14,
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   emptySubtitle: {
     fontSize: 12,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
     textAlign: 'center',
   },
 
   // Expense list (single-day flat list; multi-day rows live in ExpenseDragList).
   expenseList: {
     flexDirection: 'column',
-    gap: space[10],
+    gap: spacing.xs,
   },
 
   // Add button + footer
   addBtn: {
-    marginTop: space[14],
+    marginTop: spacing.md,
     borderStyle: 'dashed',
     borderWidth: 1,
   },
@@ -578,12 +579,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[8],
+    gap: spacing.xs,
   },
   footerNote: {
     fontSize: 11,
     textAlign: 'center',
-    marginTop: space[14],
+    marginTop: spacing.md,
     lineHeight: 16.5,
   },
 });
