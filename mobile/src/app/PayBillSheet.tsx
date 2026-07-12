@@ -39,7 +39,8 @@ import { Btn } from "../components/ui";
 import { MI } from "../components/icons";
 import { useFeedback } from "../feedback/FeedbackProvider";
 import { useTheme } from "../theme/ThemeProvider";
-import { radius, space, weight } from "../theme/tokens";
+import { radius, weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 
 /** No-accounts fallback for `useApiData` (stable module-level reference —
  * see AddTxSheet.tsx for why this matters: a fresh array identity on every
@@ -244,25 +245,25 @@ export function PayBillSheet({ open, onClose, card }: PayBillSheetProps) {
 
 const styles = StyleSheet.create({
   cardMini: {
-    paddingVertical: space[6],
-    paddingBottom: space[16],
+    paddingVertical: spacing.xs,
+    paddingBottom: spacing.md,
   },
   cardMiniName: {
     fontSize: 14,
   },
   cardMiniSub: {
     fontSize: 11.5,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   optionList: {
-    gap: space[8],
+    gap: spacing.xs,
   },
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[12],
-    paddingVertical: space[14],
-    paddingHorizontal: space[16],
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
   },
@@ -289,19 +290,19 @@ const styles = StyleSheet.create({
   },
   optionHint: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   optionAmount: {
     fontSize: 15,
   },
   customBox: {
-    marginTop: space[10],
+    marginTop: spacing.xs,
     flexDirection: "row",
     alignItems: "center",
-    gap: space[8],
+    gap: spacing.xs,
     borderWidth: 1,
     borderRadius: radius.lg,
-    paddingHorizontal: space[16],
+    paddingHorizontal: spacing.md,
     height: 50,
   },
   customSymbol: {
@@ -315,33 +316,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: space[18],
-    marginBottom: space[8],
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
   acctRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[12],
-    paddingVertical: space[12],
-    paddingHorizontal: space[14],
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
   },
   noAccounts: {
     fontSize: 12.5,
-    paddingVertical: space[4],
+    paddingVertical: spacing.xxs,
   },
   warningRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[4],
-    marginTop: space[10],
+    gap: spacing.xxs,
+    marginTop: spacing.xs,
   },
   warning: {
     fontSize: 11.5,
   },
   payBtn: {
-    marginTop: space[16],
+    marginTop: spacing.md,
     height: 52,
   },
 });
