@@ -48,7 +48,8 @@ import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { radius, space, weight } from '../theme/tokens';
+import { radius, weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import type { ScreenEntry } from '../app/navContext';
 import { useCountUp } from '../hooks/useCountUp';
@@ -214,19 +215,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[4],
-    paddingHorizontal: space[18],
-    paddingBottom: space[24],
+    paddingTop: spacing.xxs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
   },
 
   // Portfolio hero
   heroCard: {
-    marginTop: space[8],
+    marginTop: spacing.xs,
     borderRadius: radius.xl,
     overflow: 'hidden',
   },
   heroGradient: {
-    padding: space[20],
+    padding: spacing.lg,
     borderWidth: 1,
     borderRadius: radius.xl,
   },
@@ -240,15 +241,15 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 32,
     color: '#fff',
-    marginTop: space[6],
+    marginTop: spacing.xxs,
     letterSpacing: -0.96, // -0.03em of 32px
     fontFamily: weight(700),
   },
   gainChip: {
     alignSelf: 'flex-start',
-    marginTop: space[6],
-    paddingVertical: space[4],
-    paddingHorizontal: space[10],
+    marginTop: spacing.xxs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
     borderRadius: 99,
     backgroundColor: 'rgba(182,164,243,0.18)',
   },
@@ -258,13 +259,13 @@ const styles = StyleSheet.create({
     fontFamily: weight(600),
   },
   sparklineWrap: {
-    marginTop: space[12],
+    marginTop: spacing.sm,
     marginHorizontal: -8,
   },
 
   // Holdings
   sectionWrap: {
-    marginTop: space[24],
+    marginTop: spacing.lg,
   },
   symBox: {
     width: 42,
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
   },
   holdingSym: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   holdingRight: {
     alignItems: 'flex-end',
@@ -296,6 +297,6 @@ const styles = StyleSheet.create({
   },
   holdingRet: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
 });
