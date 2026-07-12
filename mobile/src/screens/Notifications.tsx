@@ -38,7 +38,8 @@ import { AppIconBox } from "../components/contentIcons";
 import { GlassCard } from "../components/Glass";
 import { SpringIn } from "../components/SpringIn";
 import { useTheme } from "../theme/ThemeProvider";
-import { space, weight } from "../theme/tokens";
+import { weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
 import { useFeedback } from "../feedback/FeedbackProvider";
 import { useNav, type ScreenEntry } from "../app/navContext";
 import { api } from "../api";
@@ -217,16 +218,16 @@ export function Notifications({ entry: _entry }: { entry: ScreenEntry }) {
 
 const styles = StyleSheet.create({
   hscrollWrap: {
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   emptyCard: {
     alignItems: "center",
-    gap: space[10],
-    paddingVertical: space[32],
+    gap: spacing.xs,
+    paddingVertical: spacing.xl,
   },
   emptyTitle: {
     fontSize: 15,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   emptySubtitle: {
     fontSize: 12.5,
@@ -234,13 +235,15 @@ const styles = StyleSheet.create({
   },
   list: {
     flexDirection: "column",
-    gap: space[10],
+    // "sibling cards in a list" pattern — aligned with Accounts/Budgets/
+    // TxCategories (see 8pt-spacing-audit.md sibling consistency flag).
+    gap: spacing.md,
   },
   card: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: space[12],
-    padding: space[14],
+    gap: spacing.sm,
+    padding: spacing.md,
     borderWidth: 1,
     borderRadius: 14,
     position: "relative",
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 13.5,
-    marginBottom: space[4],
+    marginBottom: spacing.xxs,
   },
   body: {
     fontSize: 12,
@@ -280,6 +283,6 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 11,
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
 });
