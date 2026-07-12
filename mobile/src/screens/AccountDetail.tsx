@@ -37,7 +37,8 @@ import { GlassCard } from '../components/Glass';
 import { IconButton, ListCard, ListRow, SearchButton, SectionHead, TopbarActions } from '../components/ui';
 import { MI } from '../components/icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
@@ -249,11 +250,11 @@ export function AccountDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   // Balance card (MobileScreens.jsx:426–438)
   balanceCard: {
-    padding: space[24],
+    padding: spacing.lg,
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   balanceGlowBlob: {
     position: 'absolute',
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: space[12],
+    gap: spacing.sm,
   },
   balanceTextBlock: {
     flex: 1,
@@ -287,22 +288,22 @@ const styles = StyleSheet.create({
     fontFamily: weight(700),
     fontSize: 34,
     fontWeight: '700',
-    marginTop: space[4],
+    marginTop: spacing.xxs,
     letterSpacing: -1.02, // -0.03em of 34px
     color: '#fff',
   },
   balanceSub: {
     fontSize: 12,
     opacity: 0.8,
-    marginTop: space[6],
+    marginTop: spacing.xxs,
     color: '#fff',
   },
 
   // Quick actions (MobileScreens.jsx:441–448)
   quickActionsGrid: {
     flexDirection: 'row',
-    gap: space[8],
-    marginBottom: space[18],
+    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
   quickActionPressable: {
     flex: 1,
@@ -316,9 +317,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[10],
-    paddingVertical: space[16],
-    paddingHorizontal: space[14],
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   quickActionIconBox: {
     width: 34,
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
   },
   txDate: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   txAmount: {
     fontSize: 14,
