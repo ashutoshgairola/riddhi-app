@@ -8,7 +8,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ListCard, ListRow, ProgressBar } from '../../components/ui';
 import { MDonut, MGroupedBars, MSparkline } from '../../components/charts';
 import { useTheme } from '../../theme/ThemeProvider';
-import { space, weight } from '../../theme/tokens';
+import { weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 import { ChatTxCard, CHAT_CATCOL } from '../ChatTxCard';
 import { ConfirmationCard } from './ConfirmationCard';
 import type { TxWidgetItem, Widget } from '../../ai/widgets';
@@ -341,10 +342,10 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
 
 const styles = StyleSheet.create({
   shell: {
-    marginTop: space[10],
+    marginTop: spacing.xs,
     borderWidth: 1,
     borderRadius: 16,
-    padding: space[14],
+    padding: spacing.md,
     alignSelf: 'stretch',
     maxWidth: 320,
   },
@@ -352,13 +353,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
-    marginBottom: space[8],
+    marginBottom: spacing.xs,
   },
   emptyText: {
     fontSize: 12.5,
   },
   listWrap: {
-    marginTop: space[10],
+    marginTop: spacing.xs,
     alignSelf: 'stretch',
     maxWidth: 320,
   },
@@ -366,7 +367,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[10],
+    gap: spacing.xs,
   },
   txMid: {
     flex: 1,
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
   },
   txMeta: {
     fontSize: 11,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   txAmt: {
     fontSize: 13.5,
@@ -385,14 +386,14 @@ const styles = StyleSheet.create({
   },
   moreNote: {
     fontSize: 11,
-    marginTop: space[6],
-    marginLeft: space[4],
+    marginTop: spacing.xs,
+    marginLeft: spacing.xxs,
   },
   budgetHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginBottom: space[8],
+    marginBottom: spacing.xs,
   },
   budgetSpent: {
     fontSize: 16,
@@ -404,16 +405,16 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
   },
   budgetCats: {
-    marginTop: space[12],
-    gap: space[10],
+    marginTop: spacing.sm,
+    gap: spacing.xs,
   },
   budgetCat: {
-    gap: space[4],
+    gap: spacing.xxs,
   },
   budgetCatHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: space[8],
+    gap: spacing.xs,
   },
   budgetCatName: {
     fontSize: 11.5,
@@ -427,24 +428,24 @@ const styles = StyleSheet.create({
   },
   goalAmounts: {
     fontSize: 12.5,
-    marginTop: space[4],
-    marginBottom: space[8],
+    marginTop: spacing.xxs,
+    marginBottom: spacing.xs,
   },
   goalProjection: {
     fontSize: 11,
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   nwTotal: {
     fontSize: 22,
     letterSpacing: -0.4,
   },
   nwSpark: {
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   nwSplit: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: space[10],
+    marginTop: spacing.xs,
   },
   nwSplitItem: {
     fontSize: 11.5,
@@ -452,16 +453,16 @@ const styles = StyleSheet.create({
   donutRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[14],
+    gap: spacing.md,
   },
   donutLegend: {
     flex: 1,
-    gap: space[6],
+    gap: spacing.xs,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[6],
+    gap: spacing.xxs,
   },
   legendDot: {
     width: 7,
@@ -476,12 +477,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   statRows: {
-    gap: space[8],
+    gap: spacing.xs,
   },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: space[12],
+    gap: spacing.sm,
   },
   statLabel: {
     fontSize: 12.5,
