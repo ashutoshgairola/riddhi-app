@@ -16,6 +16,7 @@ import { CategoryDetail } from '../screens/CategoryDetail';
 import { Chat } from '../screens/Chat';
 import { EventDetail } from '../screens/events/EventDetail';
 import { Events } from '../screens/events/Events';
+import { GoalDetail } from '../screens/GoalDetail';
 import { Goals } from '../screens/Goals';
 import { Home } from '../screens/Home';
 import { Invest } from '../screens/Invest';
@@ -46,6 +47,7 @@ export const SCREEN_REGISTRY: Partial<Record<ScreenKind, ScreenComponent>> = {
   txns: Txns,
   budgets: Budgets,
   goals: Goals,
+  'goal-detail': GoalDetail,
   invest: Invest,
   reports: Reports,
   sync: Sync,

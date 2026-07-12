@@ -26,6 +26,7 @@ export type ScreenKind =
   | 'txns'
   | 'budgets'
   | 'goals'
+  | 'goal-detail'
   | 'invest'
   | 'reports'
   | 'sync'

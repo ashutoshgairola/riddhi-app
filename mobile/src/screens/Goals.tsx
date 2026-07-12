@@ -27,6 +27,7 @@
  */
 import { useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -44,13 +45,14 @@ import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { radius, space, weight } from '../theme/tokens';
 import { useFeedback } from '../feedback/FeedbackProvider';
-import type { ScreenEntry } from '../app/navContext';
+import { useNav, type ScreenEntry } from '../app/navContext';
 import { api } from '../api';
 import { useApiData } from '../api/useApi';
 import type { FormFieldSpec } from '../components/FormSheet';
 
 // ── Data (MobileSecondary.jsx:101–106) ───────────────────────────────
 interface Goal {
+  id: string;
   name: string;
   emoji: string;
   color: string;
@@ -74,6 +76,7 @@ function fmtTarget(n: number): string {
 
 export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
+  const { push } = useNav();
   const { toast, sheet, form } = useFeedback();
   const [scrolled, setScrolled] = useState(false);
 
@@ -190,41 +193,43 @@ export function Goals({ entry: _entry }: { entry: ScreenEntry }) {
             const pct = Math.round((g.current / g.target) * 100);
             return (
               // animationDelay: `${0.05 + i*0.05}s` (MobileSecondary.jsx:130)
-              <SpringIn key={g.name} delay={50 + i * 50}>
-                {/* GlassView (not GlassCard) so the accent bar can sit flush
-                    at the card's top edge: Yoga offsets absolutely-positioned
-                    children by the parent's padding, so inside GlassCard's
-                    18px-padded overlay the bar would float 18px down/in. The
-                    18px card padding moves to an inner wrapper instead. */}
-                <GlassView style={styles.goalCard} intensity={40} radius={radius.xl} padding={0}>
-                  <View style={[styles.accentBar, { backgroundColor: g.color }]} />
-                  <View style={styles.goalCardBody}>
-                  <View style={styles.goalHeaderRow}>
-                    <AppIconBox value={g.emoji} color={g.color} size={48} iconSize={22} />
-                    <View style={styles.goalTextBlock}>
-                      <Text style={[styles.goalName, { color: t.text1, fontFamily: weight(700) }]}>
-                        {g.name}
-                      </Text>
-                      <View style={styles.goalTargetRow}>
-                        <AppIcon value="calendar2" size={16} color={g.color} />
-                        <Text style={[styles.goalTarget, { color: t.text3 }]}>Target {g.date}</Text>
+              <SpringIn key={g.id} delay={50 + i * 50}>
+                <Pressable onPress={() => push({ kind: 'goal-detail', data: g })}>
+                  {/* GlassView (not GlassCard) so the accent bar can sit flush
+                      at the card's top edge: Yoga offsets absolutely-positioned
+                      children by the parent's padding, so inside GlassCard's
+                      18px-padded overlay the bar would float 18px down/in. The
+                      18px card padding moves to an inner wrapper instead. */}
+                  <GlassView style={styles.goalCard} intensity={40} radius={radius.xl} padding={0}>
+                    <View style={[styles.accentBar, { backgroundColor: g.color }]} />
+                    <View style={styles.goalCardBody}>
+                    <View style={styles.goalHeaderRow}>
+                      <AppIconBox value={g.emoji} color={g.color} size={48} iconSize={22} />
+                      <View style={styles.goalTextBlock}>
+                        <Text style={[styles.goalName, { color: t.text1, fontFamily: weight(700) }]}>
+                          {g.name}
+                        </Text>
+                        <View style={styles.goalTargetRow}>
+                          <AppIcon value="calendar2" size={16} color={g.color} />
+                          <Text style={[styles.goalTarget, { color: t.text3 }]}>Target {g.date}</Text>
+                        </View>
                       </View>
+                      <Text style={[styles.goalPct, { color: g.color, fontFamily: weight(700) }]}>
+                        {pct}%
+                      </Text>
                     </View>
-                    <Text style={[styles.goalPct, { color: g.color, fontFamily: weight(700) }]}>
-                      {pct}%
-                    </Text>
-                  </View>
-                  <ProgressBar pct={pct} color={g.color} height={8} />
-                  <View style={styles.goalAmountRow}>
-                    <Text style={[styles.goalCurrent, { color: t.text1, fontFamily: weight(700) }]}>
-                      ₹{fmtCurrent(g.current)}
-                    </Text>
-                    <Text style={[styles.goalTargetAmount, { color: t.text3 }]}>
-                      of ₹{fmtTarget(g.target)}
-                    </Text>
-                  </View>
-                  </View>
-                </GlassView>
+                    <ProgressBar pct={pct} color={g.color} height={8} />
+                    <View style={styles.goalAmountRow}>
+                      <Text style={[styles.goalCurrent, { color: t.text1, fontFamily: weight(700) }]}>
+                        ₹{fmtCurrent(g.current)}
+                      </Text>
+                      <Text style={[styles.goalTargetAmount, { color: t.text3 }]}>
+                        of ₹{fmtTarget(g.target)}
+                      </Text>
+                    </View>
+                    </View>
+                  </GlassView>
+                </Pressable>
               </SpringIn>
             );
           })}
