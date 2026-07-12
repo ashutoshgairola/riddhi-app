@@ -39,7 +39,8 @@ import { Btn, IconButton, ListCard, ListRow, SearchButton, TopbarActions } from 
 import { MI } from '../components/icons';
 import { SourceTag } from '../components/SourceTag';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MPageShell } from './_MPageShell';
@@ -71,7 +72,7 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
   if (!tx) {
     return (
       <MPageShell title="Transaction" onBack={pop}>
-        <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+        <View style={{ paddingVertical: spacing.xxl, alignItems: 'center' }}>
           <ActivityIndicator color={t.text3} />
         </View>
       </MPageShell>
@@ -252,20 +253,20 @@ export function TxDetail({ entry }: { entry: ScreenEntry }) {
 const styles = StyleSheet.create({
   heroWrap: {
     alignItems: 'center',
-    paddingVertical: space[18],
-    paddingBottom: space[24],
-    gap: space[14],
+    paddingVertical: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
   },
   desc: {
     fontSize: 13,
-    marginBottom: space[6],
+    marginBottom: spacing.xxs,
   },
   amount: {
     fontSize: 38,
     letterSpacing: -1.14, // -0.03em of 38px
   },
   listWrap: {
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   rowKey: {
     flex: 1,
@@ -280,20 +281,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   noteCard: {
-    marginBottom: space[14],
+    marginBottom: spacing.md,
   },
   noteLabel: {
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0.88, // 0.08em of 11px
-    marginBottom: space[6],
+    marginBottom: spacing.xxs,
   },
   noteBody: {
     fontSize: 13,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: space[10],
+    gap: spacing.xs,
   },
   actionCol: {
     flex: 1,
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[6],
+    gap: spacing.xxs,
   },
   deleteLabel: {
     fontSize: 15,
