@@ -58,7 +58,8 @@ import { MI } from '../components/icons';
 import { PageBackground } from '../components/PageBackground';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { space, weight } from '../theme/tokens';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
 import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
@@ -400,14 +401,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: space[4],
-    paddingHorizontal: space[18],
-    paddingBottom: space[24],
+    paddingTop: spacing.xxs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
   },
 
   // Overall ring card
   ringCard: {
-    marginTop: space[8],
+    marginTop: spacing.xs,
   },
   // Row layout must go through contentStyle to reach the card's content
   // (on `style` it applies to GlassCard's outer wrapper — ring and text
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
   ringCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[16],
+    gap: spacing.md,
   },
   ringWrap: {
     width: RING_SIZE,
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     textTransform: 'uppercase',
     letterSpacing: 0.57, // 0.06em of 9.5px
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   ringInfo: {
     flex: 1,
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
   ringInfoAmountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginTop: space[4],
+    marginTop: spacing.xxs,
   },
   ringInfoAmount: {
     fontSize: 22,
@@ -461,27 +462,30 @@ const styles = StyleSheet.create({
   },
   ringInfoRemaining: {
     fontSize: 12,
-    marginTop: space[6],
+    marginTop: spacing.xxs,
   },
 
   // Categories
   sectionWrap: {
-    marginTop: space[24],
+    marginTop: spacing.lg,
   },
   categoryList: {
     flexDirection: 'column',
-    gap: space[10],
+    // Aligned with Accounts.accountList — same "sibling cards in a list"
+    // pattern, unified to spacing.md (see 8pt-spacing-audit.md sibling
+    // consistency flag).
+    gap: spacing.md,
   },
   // Padding override (16 vs GlassCard's 18 default) — must be contentStyle;
   // on `style` it pads the outer wrapper *around* the already-padded overlay.
   categoryCardContent: {
-    padding: space[16],
+    padding: spacing.md,
   },
   categoryHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    marginBottom: space[10],
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   categoryTextBlock: {
     flex: 1,
@@ -492,20 +496,20 @@ const styles = StyleSheet.create({
   },
   categoryAmount: {
     fontSize: 11.5,
-    marginTop: space[2],
+    marginTop: spacing.xxs,
   },
   categoryPctBadge: {
     fontSize: 14,
-    paddingVertical: space[4],
-    paddingHorizontal: space[10],
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
     borderRadius: 99,
     overflow: 'hidden',
   },
   overBudgetWarningRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[4],
-    marginTop: space[8],
+    gap: spacing.xxs,
+    marginTop: spacing.xs,
   },
   overBudgetWarning: {
     fontSize: 11,
@@ -515,9 +519,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: space[18],
-    paddingTop: space[4],
-    paddingBottom: space[4],
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xxs,
   },
   monthSwitcherLabel: {
     fontSize: 15,
@@ -528,16 +532,16 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: 'center',
-    gap: space[12],
-    paddingVertical: space[28],
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
   },
   emptyText: {
     fontSize: 13,
     textAlign: 'center',
   },
   emptyBtn: {
-    paddingVertical: space[10],
-    paddingHorizontal: space[20],
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.lg,
     borderRadius: 99,
   },
   emptyBtnText: {
