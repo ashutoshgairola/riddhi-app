@@ -40,7 +40,10 @@ export function GoalDetail({ entry }: { entry: ScreenEntry }) {
   const { data: goal } = useApiData(() => api.goals.get(seed.id), seed);
   const { data: accounts } = useApiData(() => api.accounts.list(), []);
 
-  const pct = goal.target > 0 ? Math.round((goal.saved / goal.target) * 100) : 0;
+  const pct =
+    goal.target > 0
+      ? Math.min(100, Math.max(0, Math.round((goal.saved / goal.target) * 100)))
+      : 0;
 
   const transfer = () => {
     const sources = accounts.filter((a) => String(a.id) !== goal.accountId);
