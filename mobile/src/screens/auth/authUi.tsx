@@ -25,7 +25,8 @@ import { IconButton } from '../../components/ui';
 import { MI } from '../../components/icons';
 import { PageBackground } from '../../components/PageBackground';
 import { useTheme } from '../../theme/ThemeProvider';
-import { space, spring, weight } from '../../theme/tokens';
+import { spring, weight } from '../../theme/tokens';
+import { spacing } from '../../theme/spacing';
 
 // ── .m-spring: springIn .5s var(--spring) backwards ────────────────
 const SPRING_MS = 500;
@@ -116,7 +117,7 @@ export function SocialRow({ onGoogle, onApple }: { onGoogle: () => void; onApple
   const { t } = useTheme();
   const btn = [styles.socialBtn, { backgroundColor: t.glassBg, borderColor: t.glassBrd }];
   return (
-    <View style={{ flexDirection: 'row', gap: space[10] }}>
+    <View style={{ flexDirection: 'row', gap: spacing.xs }}>
       <PressableScale onPress={onGoogle} style={{ flex: 1 }}>
         <View style={btn}>
           <GoogleG />
@@ -179,7 +180,7 @@ export function AuthInput(props: TextInputProps) {
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   const { t } = useTheme();
   return (
-    <View style={{ marginBottom: space[14] }}>
+    <View style={{ marginBottom: spacing.md }}>
       <Text style={[styles.label, { color: t.text3, fontFamily: weight(700) }]}>{label.toUpperCase()}</Text>
       {children}
     </View>
@@ -206,7 +207,7 @@ export function PasswordField({
         onChangeText={onChange}
         placeholder={placeholder}
         autoCapitalize="none"
-        style={{ paddingRight: space[48] }}
+        style={{ paddingRight: spacing.xxl }}
       />
       <Pressable onPress={() => setShow((s) => !s)} style={styles.eyeBtn}>
         {show ? <MI.eye size={18} color={t.text3} /> : <MI.eyeOff size={18} color={t.text3} />}
@@ -223,7 +224,7 @@ export function AuthShell({ onBack, children }: { onBack?: () => void; children:
     <View style={{ flex: 1 }}>
       <PageBackground />
       {onBack ? (
-        <View style={[styles.topbar, { paddingTop: insets.top + space[14] }]}>
+        <View style={[styles.topbar, { paddingTop: insets.top + spacing.md }]}>
           <IconButton onPress={onBack}>
             <MI.back size={20} color={t.text1} />
           </IconButton>
@@ -235,9 +236,9 @@ export function AuthShell({ onBack, children }: { onBack?: () => void; children:
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingTop: onBack ? space[8] : insets.top + space[32],
-          paddingHorizontal: space[28],
-          paddingBottom: insets.bottom + space[32],
+          paddingTop: onBack ? spacing.xs : insets.top + spacing.xl,
+          paddingHorizontal: spacing.lg,
+          paddingBottom: insets.bottom + spacing.xl,
         }}
       >
         {children}
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space[10],
+    gap: spacing.xs,
     borderRadius: 16,
     borderWidth: 1,
   },
@@ -262,8 +263,8 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[12],
-    marginVertical: space[20],
+    gap: spacing.sm,
+    marginVertical: spacing.lg,
   },
   dividerLine: {
     flex: 1,
@@ -278,13 +279,13 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: space[16],
+    paddingHorizontal: spacing.md,
     fontSize: 15,
   },
   label: {
     fontSize: 11,
     letterSpacing: 0.88, // 0.08em of 11px
-    marginBottom: space[8],
+    marginBottom: spacing.xs,
   },
   eyeBtn: {
     position: 'absolute',
@@ -296,8 +297,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topbar: {
-    paddingTop: space[14],
-    paddingHorizontal: space[18],
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
     paddingBottom: 0,
   },
 });
