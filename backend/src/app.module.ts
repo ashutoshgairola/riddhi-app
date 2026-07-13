@@ -17,7 +17,6 @@ import { GoalsModule } from './goals/goals.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
-import { SmsSyncModule } from './sms-sync/sms-sync.module';
 import { NotificationSyncModule } from './notification-sync/notification-sync.module';
 import { AiChatModule } from './ai-chat/ai-chat.module';
 import { InsightsModule } from './insights/insights.module';
@@ -56,7 +55,6 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
     InvestmentsModule,
     NotificationsModule,
     ReportsModule,
-    SmsSyncModule,
     NotificationSyncModule,
     AiChatModule,
     InsightsModule,

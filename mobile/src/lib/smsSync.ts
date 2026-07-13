@@ -5,9 +5,9 @@
  *   1. request the READ_SMS runtime permission,
  *   2. read the recent inbox via the local `sms-reader` native module,
  *   3. drop messages already processed (persisted id set) + non-currency noise,
- *   4. send the survivors to the backend parser (`POST /sms-sync/parse-batch`),
- *   5. map the parsed results into the `SyncDetected` shape the Sync screen
- *      renders.
+ *   4. upload the survivors to the shared capture store
+ *      (`POST /notification-sync/ingest`) for the unified detect/analyze
+ *      pipeline to pick up.
  *
  * Message bodies are only sent to the app's own backend for parsing; nothing
  * is written back to the device and ids of confirmed/dismissed messages are
