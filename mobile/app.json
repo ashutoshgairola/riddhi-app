@@ -38,6 +38,14 @@
           "defaultChannel": "default",
           "color": "#E6F4FE"
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#14101f",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
       ]
     ],
     "extra": {
