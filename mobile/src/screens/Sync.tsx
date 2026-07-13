@@ -1,7 +1,16 @@
 /**
- * Sync — RN port of `project/riddhi/MobileSync.jsx` (the `MobileSync`
- * component, lines 101–211), including its local data constants
- * `SYNC_DETECTED` (4–29), `SYNC_RECENT` (31–35) and `SYNC_BANKS` (37–41).
+ * Sync — originally an RN port of `project/riddhi/MobileSync.jsx`
+ * (the `MobileSync` component); since unified onto the single backend
+ * detected queue, so the local SMS pending state and its
+ * confirm/dismiss/addAll handlers are gone.
+ *
+ * What it renders now:
+ *  - "Needs review": the backend detected queue (`detected`, fed by both
+ *    notification and SMS capture channels), each item as a `DetectedCard`
+ *    with `confirmDetectedItem`/`dismissDetectedItem` handlers.
+ *  - "Auto-added": `added`, the transactions confirmed this session.
+ *  - "Sync now" (more sheet) uploads both capture channels then runs
+ *    `analyzeNow()` before reloading the queue.
  *
  * Building blocks reused rather than reimplemented:
  *  - `MPageShell` for the `.m-page`/`.m-topbar`(back+title+right)/`.m-body`
@@ -9,34 +18,20 @@
  *  - `IconButton` for the more button.
  *  - `GlassCard` (`.m-card`) for the status card and the empty "All caught
  *    up" state.
- *  - `Toggle` for the auto-sync switch (MobileSync.jsx:136–138).
+ *  - `Toggle` for the auto-sync switch.
  *  - "Needs review" / "Auto-added" section heads are composed inline rather
  *    than via `SectionHead` — its `title` prop is a plain string and can't
- *    host the conditional amber `· {count}` suffix or the conditional
- *    (only when `pending.length > 1`) "Add all" link (MobileSync.jsx:153–155).
+ *    host the conditional amber `· {count}` suffix.
  *  - `ListCard`/`ListRow` for the "Auto-added" recent list.
  *  - `MI.refresh`/`MI.more`/`MI.check`/`MI.info` icons.
- *  - `DetectedCard` (./DetectedCard.tsx) for each pending SMS-detected
- *    transaction, including its confirm/dismiss slide+collapse animation.
+ *  - `DetectedCard` (./DetectedCard.tsx) for each detected transaction,
+ *    including its confirm/dismiss slide+collapse animation.
  *  - `useNav().pop` for the back button.
  *  - `useFeedback().toast`/`.sheet` for the more-button action sheet.
  *
- * Source values transcribed verbatim:
- *  - `SYNC_DETECTED`/`SYNC_RECENT`/`SYNC_BANKS` — MobileSync.jsx:4–41.
- *  - `fmtR` — MobileSync.jsx:43 (`'₹' + Math.abs(n).toLocaleString('en-IN')`).
- *  - More-sheet options (Sync now / Manage banks / Pause auto-sync) —
- *    MobileSync.jsx:115–119.
- *  - Status card: refresh icon box (em-tinted + status dot when `autoSync`,
- *    else `bg3`/`text3`), "SMS auto-sync" title, "Listening · last synced 2
- *    min ago" / "Paused" subtitle, `Toggle` — MobileSync.jsx:126–139.
- *  - Connected banks row: colored logo box + name (or "Add" + 0.4 opacity
- *    when `b.off`) — MobileSync.jsx:142–149.
- *  - `pending`/`autoSync`/`justAdded` state + `confirm`/`dismiss`/`addAll`
- *    handlers — MobileSync.jsx:102–108.
- *  - Empty state copy (`justAdded` count vs default message) —
- *    MobileSync.jsx:165–174.
- *  - "Auto-added" recent list rows — MobileSync.jsx:182–193.
- *  - "How it works" info row copy — MobileSync.jsx:197–204.
+ * Kept from the original design: the status card (refresh icon box +
+ * auto-sync toggle), the connected banks row, the empty-state copy, and
+ * the "How it works" info row.
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
@@ -99,8 +94,6 @@ export interface SyncDetected {
   paymentMethod: PaymentMethod;
   /** Resolved source account (from last4/institution match), when known. */
   accountId?: string;
-  /** True when this charge likely already exists (reverse-dedup). */
-  possibleDuplicate?: boolean;
 }
 
 interface SyncRecent {
