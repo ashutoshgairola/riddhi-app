@@ -11,6 +11,14 @@ describe('isOtpMessage', () => {
       isOtpMessage('Rs.1190 spent on HDFC Bank Card x8374 at BUNDL TECHNOLOGIES. Never share your OTP with anyone.'),
     ).toBe(false);
   });
+  it('lets an amount-first / code-last OTP through the gate', () => {
+    expect(isOtpMessage('OTP for txn of INR 1190.00 is 867317')).toBe(true);
+  });
+  it('does not gate a real debit alert with a ref number near the OTP footer', () => {
+    expect(
+      isOtpMessage('Rs.1190 spent on HDFC Card x8374 at BUNDL. Never share your OTP. Ref 867317'),
+    ).toBe(false);
+  });
 });
 
 describe('parseSms', () => {

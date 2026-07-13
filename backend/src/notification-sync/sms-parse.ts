@@ -11,13 +11,22 @@ export interface ParsedSms {
   paymentMethod: 'upi' | 'card' | 'autopay';
 }
 
-/** True for OTP / verification SMS. These carry an "INR 1190.00" amount that
- * would otherwise parse as a completed transaction. Matches an OTP keyword
- * within a short span of a 3–8 digit code (either order), so a "never share
- * your OTP" footer on a real debit alert — no code nearby — doesn't trip it. */
+/** True for OTP / verification SMS, which must not become transactions.
+ * A completed money-movement verb marks a real alert, so those are never
+ * OTPs even when they carry an "…never share your OTP" footer with a
+ * helpline/ref number nearby. Otherwise, an OTP keyword plus any 3–8
+ * digit code (either word order) is an OTP request. */
 export function isOtpMessage(text: string): boolean {
-  return /\b(?:otp|one[\s-]?time\s*password|verification code)\b\D{0,15}\d{3,8}|\d{3,8}\D{0,15}\b(?:is\s+your\s+)?(?:otp|one[\s-]?time\s*password)\b/i.test(
-    text,
+  if (
+    /\b(?:debited|credited|spent|paid|withdrawn|sent|deposited|received|purchased?)\b/i.test(
+      text,
+    )
+  ) {
+    return false;
+  }
+  return (
+    /\b(?:otp|one[\s-]?time\s*password|verification\s*(?:code|pin))\b/i.test(text) &&
+    /\b\d{3,8}\b/.test(text)
   );
 }
 
