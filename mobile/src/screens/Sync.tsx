@@ -51,7 +51,7 @@ import { MI } from '../components/icons';
 import { AppIconBox } from '../components/contentIcons';
 import { SpringIn } from '../components/SpringIn';
 import { useTheme } from '../theme/ThemeProvider';
-import { weight } from '../theme/tokens';
+import { radius, weight } from '../theme/tokens';
 import { spacing } from '../theme/spacing';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useNav, type ScreenEntry } from '../app/navContext';
@@ -59,11 +59,9 @@ import { useStatementImportLauncher } from '../app/useStatementImportLauncher';
 import { usePrefs } from '../prefs/PrefsProvider';
 import {
   ensureSmsPermission,
-  fetchSmsSuggestions,
-  rememberProcessed,
+  uploadSmsCaptures,
   smsSyncSupported,
 } from '../lib/smsSync';
-import { nonDuplicates } from '../lib/smsSyncMap';
 import {
   notificationSyncSupported,
   configureAllowlist,
@@ -71,7 +69,9 @@ import {
   fetchDetected,
   confirmDetected,
   dismissDetected,
+  analyzeNow,
   CAPTURE_PAUSED_KEY,
+  DETECTED_FETCH_LIMIT,
   type DetectedView,
 } from '../lib/notificationSync';
 import {
@@ -121,11 +121,6 @@ interface SyncBank {
   off?: boolean;
 }
 
-// No SMS pipeline exists yet (Expo has no SMS access on iOS), so there is
-// no fake "detected" queue — the screen starts at its real empty state and
-// the confirm flow below stays wired for when detection lands.
-const NO_DETECTED: SyncDetected[] = [];
-
 // Brand colors for the banks picked during onboarding (prefs.selectedBanks).
 const BANK_COLORS: Record<string, string> = {
   HDFC: '#004c8f',
@@ -145,6 +140,13 @@ const AUTO_SYNC_KEY = 'sms-sync/auto';
 // user's real category list (see `toDetectedCardTx`).
 const DEFAULT_CATEGORY_COLOR = '#6b7280';
 
+// How many review cards render at once, and how many each "Show more" tap
+// reveals. `DetectedCard` is blur-heavy (a live `expo-blur` surface each), so
+// mounting a whole backlog — the backend can hold hundreds — at once overwhelms
+// the GPU and blanks the screen. Rendering a small window keeps it smooth; the
+// rest are one tap away.
+const REVIEW_PAGE = 12;
+
 export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, push } = useNav();
@@ -155,7 +157,6 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   // the backend resolves by last4, falling back to an account-picker sheet.
   const { launch: launchStatementImport, sheet: statementImportSheet } = useStatementImportLauncher();
 
-  const [pending, setPending] = useState<SyncDetected[]>(NO_DETECTED);
   // Transactions confirmed from SMS during this session (the "Auto-added"
   // list). Previously this relabeled *all* recent transactions as if they were
   // SMS-added and mis-set `account` to the category — both fixed here.
@@ -171,24 +172,25 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const [detected, setDetected] = useState<DetectedView[]>([]);
   const [categories, setCategories] = useState<CategoryView[]>([]);
   const [capturePaused, setCapturePaused] = useState(false);
+  // Sliding window over the detected review list — grows by REVIEW_PAGE on
+  // each "Show more" tap (see the needs-review section below).
+  const [reviewLimit, setReviewLimit] = useState(REVIEW_PAGE);
 
   useEffect(() => {
     void AsyncStorage.getItem(CAPTURE_PAUSED_KEY).then((v) => setCapturePaused(v === '1'));
   }, []);
 
-  /** Pushes the allowlist, uploads captured notifications, and reloads the
-   * backend-detected review queue. Re-run after pause/resume/clear so the
-   * list reflects the latest server state. */
-  const refreshDetections = useCallback(async () => {
-    if (!notifSupported) return;
+  /** Pushes the allowlist, uploads both capture channels (notifications +
+   * SMS), optionally runs analysis, and reloads the backend-detected review
+   * queue. Re-run after pause/resume/clear so the list reflects the latest
+   * server state. */
+  const refreshDetections = useCallback(async (analyze = false) => {
     setListenerEnabled(isListenerEnabled());
-    // Mirror `runSync`'s convention: wrap the network work in try/catch and
-    // toast on failure so an offline device shows feedback instead of
-    // silently failing (or crashing the screen).
     try {
       const paused = (await AsyncStorage.getItem(CAPTURE_PAUSED_KEY)) === '1';
       if (!paused) await configureAllowlist();
-      await uploadCaptured();
+      await Promise.all([uploadCaptured(), uploadSmsCaptures()]);
+      if (analyze) await analyzeNow();
       const [cats, det] = await Promise.all([api.categories.list(), fetchDetected()]);
       setCategories(cats);
       setDetected(det);
@@ -307,59 +309,6 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
     void AsyncStorage.setItem(AUTO_SYNC_KEY, on ? '1' : '0');
   };
 
-  /** Reads recent bank SMS and loads new suggestions into the review queue. */
-  const runSync = useCallback(
-    async (interactive: boolean) => {
-      if (!smsSyncSupported()) {
-        if (interactive) toast('SMS auto-sync needs the Android app', '🤖');
-        return;
-      }
-      const granted = await ensureSmsPermission();
-      if (!granted) {
-        if (interactive) toast('SMS permission denied', '🔒');
-        return;
-      }
-      setSyncing(true);
-      try {
-        const found = await fetchSmsSuggestions();
-        setPending((prev) => {
-          const seen = new Set(prev.map((p) => p.id));
-          return [...found.filter((f) => !seen.has(f.id)), ...prev];
-        });
-        if (interactive) {
-          toast(
-            found.length
-              ? `Found ${found.length} message${found.length > 1 ? 's' : ''}`
-              : 'No new messages',
-            '🔄',
-          );
-        }
-      } catch {
-        if (interactive) toast("Couldn't read messages", '📡');
-      } finally {
-        setSyncing(false);
-      }
-    },
-    [toast],
-  );
-
-  // Auto-read on open when auto-sync is enabled (Android only; no-op elsewhere).
-  useEffect(() => {
-    if (autoSync) void runSync(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSync]);
-
-  /** Persists one detected SMS transaction through the api layer. */
-  const saveDetected = (tx: SyncDetected) =>
-    api.transactions.create({
-      desc: tx.merchant,
-      amount: tx.amount,
-      type: tx.amount > 0 ? 'inc' : 'exp',
-      categoryName: tx.cat,
-      paymentMethod: tx.paymentMethod,
-      ...(tx.accountId ? { accountId: tx.accountId } : {}),
-    });
-
   /** Maps a confirmed detection into an "Auto-added" list row. */
   const toRecentRow = (tx: SyncDetected): SyncRecent => ({
     merchant: tx.merchant,
@@ -371,44 +320,6 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
     time: 'Just now',
   });
 
-  const confirm = (id: string) => {
-    const tx = pending.find((p) => p.id === id);
-    setPending((p) => p.filter((t2) => t2.id !== id));
-    if (!tx) return;
-    saveDetected(tx)
-      .then(() => {
-        setJustAdded((n) => n + 1);
-        setAdded((a) => [toRecentRow(tx), ...a]);
-        void rememberProcessed([tx.id]);
-      })
-      .catch(() => {
-        toast("Couldn't add that transaction", '📡');
-        setPending((p) => [tx, ...p]);
-      });
-  };
-  const dismiss = (id: string) => {
-    const tx = pending.find((p) => p.id === id);
-    setPending((p) => p.filter((t2) => t2.id !== id));
-    // Remember it so the same message isn't re-suggested on the next sync.
-    if (tx) void rememberProcessed([tx.id]);
-  };
-  const addAll = () => {
-    const batch = nonDuplicates(pending);
-    if (batch.length === 0) return;
-    const remaining = pending.filter((p) => p.possibleDuplicate);
-    setPending(remaining);
-    Promise.all(batch.map(saveDetected))
-      .then(() => {
-        setJustAdded((n) => n + batch.length);
-        setAdded((a) => [...batch.map(toRecentRow), ...a]);
-        void rememberProcessed(batch.map((b) => b.id));
-      })
-      .catch(() => {
-        toast("Couldn't add all transactions", '📡');
-        setPending((p) => [...batch, ...p]);
-      });
-  };
-
   const openMoreSheet = () => {
     sheet({
       title: 'Auto-sync',
@@ -416,11 +327,19 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         {
           label: syncing ? 'Syncing…' : 'Sync now',
           icon: '🔄',
-          // Sync both pipelines: read new bank SMS *and* upload/re-fetch
-          // notification-detected transactions. Each guards its own platform
-          // support and surfaces its own error toast, so running them together
-          // is safe on SMS-only or notification-only devices.
-          onPress: () => void Promise.all([runSync(true), refreshDetections()]),
+          // Upload both capture channels (notifications + SMS) then run
+          // analysis so newly uploaded raw captures turn into review items.
+          onPress: () =>
+            void (async () => {
+              setSyncing(true);
+              try {
+                if (smsSyncSupported()) await ensureSmsPermission();
+                await refreshDetections(true);
+                toast('Synced', '🔄');
+              } finally {
+                setSyncing(false);
+              }
+            })(),
         },
         {
           label: autoSync ? 'Pause auto-sync' : 'Resume auto-sync',
@@ -461,6 +380,17 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
       ],
     });
   };
+
+  // Review list is `detected` (notifications + SMS, both fed through the
+  // same backend queue), windowed to `reviewLimit` so only a handful of
+  // blur-heavy cards mount at once.
+  const reviewCount = detected.length;
+  // The fetch is capped (DETECTED_FETCH_LIMIT); when it comes back full there
+  // are likely more on the server, so the badge reads e.g. "50+".
+  const reviewCountLabel =
+    detected.length >= DETECTED_FETCH_LIMIT ? `${reviewCount}+` : `${reviewCount}`;
+  const shownDetected = detected.slice(0, reviewLimit);
+  const hiddenCount = reviewCount - shownDetected.length;
 
   return (
     <>
@@ -583,36 +513,21 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         </SpringIn>
       ) : null}
 
-      {/* needs review (MobileSync.jsx:152–156) — merges SMS-detected
-          `pending` with backend notification-detected `detected` */}
+      {/* needs review (MobileSync.jsx:152–156) — backend detected queue,
+          fed by both notification and SMS capture channels */}
       <View style={styles.sectionHeadRow}>
         <Text style={[styles.sectionTitle, { color: t.text1, fontFamily: weight(700) }]}>
           Needs review
-          {pending.length + detected.length > 0 ? (
-            <Text style={{ color: t.amber }}> · {pending.length + detected.length}</Text>
+          {reviewCount > 0 ? (
+            <Text style={{ color: t.amber }}> · {reviewCountLabel}</Text>
           ) : null}
         </Text>
-        {nonDuplicates(pending).length > 1 ? (
-          <Text style={[styles.sectionLink, { color: t.em, fontFamily: weight(600) }]} onPress={addAll}>
-            Add all
-          </Text>
-        ) : null}
       </View>
 
-      {pending.length + detected.length > 0 ? (
+      {reviewCount > 0 ? (
         // animationDelay: .05s (MobileSync.jsx:159)
         <SpringIn delay={50} style={styles.block}>
-          {pending.map((tx) => (
-            <View key={tx.id}>
-              <DetectedCard tx={tx} onConfirm={confirm} onDismiss={dismiss} />
-              {tx.possibleDuplicate ? (
-                <Text style={[styles.duplicateHint, { color: t.amber, fontFamily: weight(600) }]}>
-                  Possible duplicate
-                </Text>
-              ) : null}
-            </View>
-          ))}
-          {detected.map((d) => (
+          {shownDetected.map((d) => (
             <DetectedCard
               key={d.id}
               tx={toDetectedCardTx(d)}
@@ -620,6 +535,16 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
               onDismiss={dismissDetectedItem}
             />
           ))}
+          {hiddenCount > 0 ? (
+            <Pressable
+              onPress={() => setReviewLimit((n) => n + REVIEW_PAGE)}
+              style={[styles.showMore, { borderColor: t.border }]}
+            >
+              <Text style={[styles.showMoreText, { color: t.em, fontFamily: weight(600) }]}>
+                Show {Math.min(hiddenCount, REVIEW_PAGE)} more
+              </Text>
+            </Pressable>
+          ) : null}
         </SpringIn>
       ) : (
         <SpringIn style={styles.block}>
@@ -764,9 +689,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: -0.15,
   },
-  sectionLink: {
-    fontSize: 13,
-  },
   sectionMeta: {
     fontSize: 11.5,
   },
@@ -821,14 +743,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flexShrink: 0,
   },
-  // Sits in the gap DetectedCard's idle `marginBottom: 12` already leaves
-  // below the card, so it reads as a caption for that row rather than a
-  // new section.
-  duplicateHint: {
-    fontSize: 11,
-    marginTop: -8, // structural: pulls up into DetectedCard's idle 12px gap
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.md,
+  showMore: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  showMoreText: {
+    fontSize: 13,
   },
   // No marginTop: gets its top gap from the previous block's `block` margin.
   infoRow: {
