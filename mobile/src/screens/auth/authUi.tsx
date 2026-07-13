@@ -21,6 +21,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } fro
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandWordmark } from '../../components/brand';
 import { IconButton } from '../../components/ui';
 import { MI } from '../../components/icons';
 import { PageBackground } from '../../components/PageBackground';
@@ -71,14 +72,7 @@ export function PressableScale({
 
 // ── Brand wordmark (MobileAuth.jsx:4-11) ────────────────────────────
 export function Wordmark({ size = 40 }: { size?: number }) {
-  const { t } = useTheme();
-  const ls = -0.035 * size;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-      <Text style={{ fontSize: size, color: t.em, fontFamily: weight(800), letterSpacing: ls, lineHeight: size * 1.05 }}>₹</Text>
-      <Text style={{ fontSize: size, color: t.text1, fontFamily: weight(800), letterSpacing: ls, lineHeight: size * 1.05 }}>iddhi</Text>
-    </View>
-  );
+  return <BrandWordmark size={size} />;
 }
 
 // ── Google / Apple glyphs (MobileAuth.jsx:14-19) ────────────────────

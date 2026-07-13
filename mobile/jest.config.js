@@ -16,5 +16,6 @@ module.exports = {
   },
   moduleNameMapper: {
     '^react-native-reanimated$': '<rootDir>/jest/mocks/react-native-reanimated.js',
+    '\\.svg$': '<rootDir>/jest/mocks/svg.js',
   },
 };
