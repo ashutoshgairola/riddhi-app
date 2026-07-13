@@ -96,8 +96,17 @@ export async function uploadCaptured(): Promise<number> {
   return uploaded;
 }
 
-export async function fetchDetected(): Promise<DetectedView[]> {
-  return apiClient.get<DetectedView[]>('/notification-sync/pending');
+/** Upper bound on how many pending detections a single fetch pulls. The
+ * screen only renders a small window at a time (see `Sync.tsx`), and the
+ * backend clamps to its own max — this keeps the payload (and the number of
+ * blur-heavy `DetectedCard`s that can ever mount) bounded so a large backlog
+ * can't blank the review screen. */
+export const DETECTED_FETCH_LIMIT = 50;
+
+export async function fetchDetected(
+  limit: number = DETECTED_FETCH_LIMIT,
+): Promise<DetectedView[]> {
+  return apiClient.get<DetectedView[]>(`/notification-sync/pending?limit=${limit}`);
 }
 
 export async function confirmDetected(id: string, payload: ConfirmPayload): Promise<void> {
@@ -106,4 +115,12 @@ export async function confirmDetected(id: string, payload: ConfirmPayload): Prom
 
 export async function dismissDetected(id: string): Promise<void> {
   await apiClient.post(`/notification-sync/${id}/dismiss`, {});
+}
+
+/** Triggers an immediate server-side analysis pass for the current user
+ * (SMS + notification captures), independent of the cron. Returns how many
+ * new detections it produced. Safe to call repeatedly — the server no-ops when
+ * there are no unanalyzed captures. */
+export async function analyzeNow(): Promise<{ detected: number }> {
+  return apiClient.post<{ detected: number }>(`/notification-sync/analyze`, {});
 }

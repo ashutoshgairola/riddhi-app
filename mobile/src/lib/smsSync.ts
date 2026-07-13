@@ -18,8 +18,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { apiClient } from '../api/client';
 import { getMessages, isSmsReaderAvailable } from '../../modules/sms-reader';
-import type { SyncDetected } from '../screens/Sync';
-import { toSyncDetected, type ParsedSmsWire } from './smsSyncMap';
 
 const PROCESSED_IDS_KEY = 'sms-sync/processed-ids';
 /** How far back to read on each sync. */
@@ -71,29 +69,25 @@ export async function rememberProcessed(ids: string[]): Promise<void> {
 
 const looksLikeMoney = (body: string) => /(?:₹|rs\.?|inr)\s*[\d,]/i.test(body);
 
-/**
- * Reads recent SMS and returns parsed, not-yet-processed transaction
- * suggestions. Assumes the permission is already granted (call
- * `ensureSmsPermission` first); returns [] on unsupported platforms.
- */
-export async function fetchSmsSuggestions(): Promise<SyncDetected[]> {
-  if (!smsSyncSupported()) return [];
-
+/** Reads recent bank SMS and uploads the money-looking, not-yet-processed
+ * ones to the shared capture store as `packageName: "sms"` captures. The
+ * backend dedups by content, so re-runs are cheap. Returns the count uploaded.
+ * Assumes READ_SMS is already granted (call `ensureSmsPermission` first). */
+export async function uploadSmsCaptures(): Promise<number> {
+  if (!smsSyncSupported()) return 0;
   const since = Date.now() - LOOKBACK_DAYS * 24 * 3600 * 1000;
   const messages = await getMessages(since, 300);
   const processed = await loadProcessedIds();
-
-  const candidates = messages
-    .filter((m) => !processed.has(m.id) && looksLikeMoney(m.body))
-    .map((m) => ({ id: m.id, raw: m.body, date: m.date }));
-  if (candidates.length === 0) return [];
-
-  const parsed = await apiClient.post<ParsedSmsWire[]>('/sms-sync/parse-batch', {
-    messages: candidates,
+  const fresh = messages.filter((m) => !processed.has(m.id) && looksLikeMoney(m.body));
+  if (fresh.length === 0) return 0;
+  await apiClient.post('/notification-sync/ingest', {
+    notifications: fresh.map((m) => ({
+      packageName: 'sms',
+      title: m.address,
+      text: m.body,
+      postedAt: m.date,
+    })),
   });
-
-  const dateById = new Map(candidates.map((c) => [c.id, c.date]));
-  return parsed.map((p) =>
-    toSyncDetected(p, new Date(dateById.get(p.id) ?? Date.now()).toISOString().slice(0, 10)),
-  );
+  await rememberProcessed(fresh.map((m) => m.id));
+  return fresh.length;
 }
