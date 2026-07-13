@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationSyncService } from './notification-sync.service';
@@ -24,8 +24,11 @@ export class NotificationSyncController {
   }
 
   @Get('pending')
-  pending(@CurrentUser() user: { userId: string }) {
-    return this.service.listPending(user.userId);
+  pending(
+    @CurrentUser() user: { userId: string },
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listPending(user.userId, limit);
   }
 
   @Post(':id/confirm')
@@ -40,5 +43,10 @@ export class NotificationSyncController {
   @Post(':id/dismiss')
   dismiss(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
     return this.service.dismiss(user.userId, id);
+  }
+
+  @Post('analyze')
+  analyze(@CurrentUser() user: { userId: string; email: string }) {
+    return this.service.runAnalysisForUser(user.userId, { interactive: true });
   }
 }
