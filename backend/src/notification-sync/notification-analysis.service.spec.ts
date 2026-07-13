@@ -1,4 +1,7 @@
-import { parseGroups } from './notification-analysis.service';
+import {
+  parseGroups,
+  NotificationAnalysisService,
+} from './notification-analysis.service';
 
 describe('parseGroups', () => {
   const keys = new Set(['k-rapido', 'k-hdfc', 'k-other']);
@@ -53,7 +56,16 @@ describe('parseGroups', () => {
 
   it('drops groups with no amount', () => {
     const text = JSON.stringify([
-      { merchant: 'X', amount: null, type: 'expense', category: null, institution: null, rail: null, confidence: 0.4, sourceKeys: ['k-other'] },
+      {
+        merchant: 'X',
+        amount: null,
+        type: 'expense',
+        category: null,
+        institution: null,
+        rail: null,
+        confidence: 0.4,
+        sourceKeys: ['k-other'],
+      },
     ]);
     expect(parseGroups(text, keys)).toEqual([]);
   });
@@ -147,5 +159,27 @@ describe('parseGroups', () => {
 
   it('returns [] for an unparseable payload', () => {
     expect(parseGroups('[ {bad json ]', keys)).toEqual([]);
+  });
+});
+
+describe('NotificationAnalysisService.analyze fallback', () => {
+  it('falls back to regex detections when no LLM client is configured', async () => {
+    const svc = new NotificationAnalysisService(null, {
+      get: () => undefined,
+    } as any);
+    const groups = await svc.analyze([
+      {
+        dedupKey: 'k1',
+        packageName: 'sms',
+        title: 'HDFCBK',
+        text: 'Rs.499 spent on HDFC Bank Card xx1234 at SWIGGY',
+      },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      amount: 499,
+      type: 'expense',
+      sourceKeys: ['k1'],
+    });
   });
 });

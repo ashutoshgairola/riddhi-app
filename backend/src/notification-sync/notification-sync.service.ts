@@ -6,6 +6,7 @@ import { DetectedTransaction } from './detected-transaction.entity';
 import { IngestItemDto } from './dto/ingest.dto';
 import { ConfirmDetectedDto } from './dto/confirm.dto';
 import { computeDedupKey } from './dedup';
+import { isOtpMessage, parseSms } from './sms-parse';
 import { NotificationAnalysisService } from './notification-analysis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TransactionsService } from '../transactions/transactions.service';
@@ -23,6 +24,18 @@ import { NOTIFICATION_CATALOG, CatalogEntry } from './catalog.constant';
 
 @Injectable()
 export class NotificationSyncService {
+  /** Default page size for `listPending` when the client sends no `limit`. */
+  private static readonly PENDING_LIMIT_DEFAULT = 50;
+  /** Hard ceiling on `listPending` so a client can't request an unbounded page. */
+  private static readonly PENDING_LIMIT_MAX = 100;
+
+  /** Users with an analysis pass in flight — a second concurrent call (double
+   * tap of "Sync now", or a cron firing mid-sync) returns early instead of
+   * re-processing the same captures.
+   * ponytail: in-process Set; swap for a Postgres advisory lock if the backend
+   * ever runs multi-instance. */
+  private readonly inFlight = new Set<string>();
+
   constructor(
     @InjectRepository(CapturedNotification)
     private readonly captures: Repository<CapturedNotification>,
@@ -79,131 +92,164 @@ export class NotificationSyncService {
    * group into a pending DetectedTransaction (resolving its payment source),
    * mark the captures analysed, and push a summary if anything was found.
    */
-  async runAnalysisForUser(userId: string): Promise<{ detected: number }> {
-    const captures = await this.captures.find({
-      where: { userId, analyzed: false },
-      order: { postedAt: 'ASC' },
-      take: 150,
-    });
-    if (captures.length === 0) return { detected: 0 };
+  async runAnalysisForUser(
+    userId: string,
+    opts: { interactive?: boolean } = {},
+  ): Promise<{ detected: number }> {
+    if (this.inFlight.has(userId)) return { detected: 0 };
+    this.inFlight.add(userId);
+    try {
+      const captures = await this.captures.find({
+        where: { userId, analyzed: false },
+        order: { postedAt: 'ASC' },
+        take: 150, // ponytail: batch ceiling; an OTP-heavy first backlog drains over successive syncs
+      });
+      if (captures.length === 0) return { detected: 0 };
 
-    const groups = await this.analysis.analyze(
-      captures.map((c) => ({
-        dedupKey: c.dedupKey,
-        packageName: c.packageName,
-        title: c.title,
-        text: c.text,
-      })),
-    );
-
-    const userAccounts = await this.accounts.find({ where: { userId } });
-    // Only credit accounts carry a last4 (on their credit_card row); use it to
-    // resolve card spends by the exact card and to dedup against existing txns.
-    const cardRows = await this.cards.find({ where: { userId } });
-    const last4ByAccount = new Map(cardRows.map((c) => [c.accountId, c.last4]));
-    const augmentedAccounts = userAccounts.map((a) => ({
-      id: a.id,
-      institutionName: a.institutionName,
-      type: a.type,
-      last4: last4ByAccount.get(a.id) ?? null,
-    }));
-    const keyToPostedAt = new Map(
-      captures.map((c) => [c.dedupKey, c.postedAt]),
-    );
-
-    let detected = 0;
-    for (const g of groups) {
-      const { accountId, paymentMethod } = resolvePaymentSource(
-        g.institution,
-        g.rail,
-        augmentedAccounts,
-        g.last4,
+      // Cheap gate: drop OTP/promo/balance-only (no priceable amount) before the
+      // LLM. Gated captures are still marked analyzed at the end so they don't loop.
+      const candidates = captures.filter(
+        (c) => !isOtpMessage(c.text) && parseSms(c.text).amount !== null,
       );
-      const postedAt =
-        g.sourceKeys.map((k) => keyToPostedAt.get(k)).find(Boolean) ?? null;
 
-      // Reverse dedup: when we know the account, skip a detection that already
-      // matches an existing transaction (including one imported from a
-      // statement) so the same charge isn't surfaced twice. Only possible when
-      // accountId resolved — without it we can't scope the candidate query.
-      if (accountId) {
-        const when = postedAt ?? new Date();
-        const from = new Date(when.getTime() - 5 * 86_400_000);
-        const to = new Date(when.getTime() + 5 * 86_400_000);
-        const rows = await this.transactions.findForAccountInRange(
-          userId,
-          accountId,
-          from,
-          to,
+      const groups =
+        candidates.length > 0
+          ? await this.analysis.analyze(
+              candidates.map((c) => ({
+                dedupKey: c.dedupKey,
+                packageName: c.packageName,
+                title: c.title,
+                text: c.text,
+              })),
+            )
+          : [];
+
+      const userAccounts = await this.accounts.find({ where: { userId } });
+      // Only credit accounts carry a last4 (on their credit_card row); use it to
+      // resolve card spends by the exact card and to dedup against existing txns.
+      const cardRows = await this.cards.find({ where: { userId } });
+      const last4ByAccount = new Map(
+        cardRows.map((c) => [c.accountId, c.last4]),
+      );
+      const augmentedAccounts = userAccounts.map((a) => ({
+        id: a.id,
+        institutionName: a.institutionName,
+        type: a.type,
+        last4: last4ByAccount.get(a.id) ?? null,
+      }));
+      const keyToPostedAt = new Map(
+        captures.map((c) => [c.dedupKey, c.postedAt]),
+      );
+
+      let detected = 0;
+      for (const g of groups) {
+        const { accountId, paymentMethod } = resolvePaymentSource(
+          g.institution,
+          g.rail,
+          augmentedAccounts,
+          g.last4,
         );
-        const existing: ExistingTxn[] = rows.map((t) => ({
-          id: t.id,
-          isoDate: new Date(t.date).toISOString().slice(0, 10),
-          amount: Math.abs(t.amount),
-          direction:
-            t.type === TransactionType.INCOME
-              ? 'credit'
-              : t.type === TransactionType.TRANSFER
-                ? t.accountId === accountId
-                  ? 'debit'
-                  : 'credit'
-                : 'debit',
-          descriptor: t.description ?? '',
-          importFingerprint: t.importFingerprint ?? null,
-        }));
-        const candidate = {
-          isoDate: when.toISOString().slice(0, 10),
-          amount: g.amount as number,
-          direction: (g.type === 'income' ? 'credit' : 'debit') as
-            'credit' | 'debit',
-          descriptor: g.merchant ?? '',
-          category: null,
-        };
-        if (isLikelyDuplicateOfExisting(candidate, existing)) continue;
+        const postedAt =
+          g.sourceKeys.map((k) => keyToPostedAt.get(k)).find(Boolean) ?? null;
+
+        // Reverse dedup: when we know the account, skip a detection that already
+        // matches an existing transaction (including one imported from a
+        // statement) so the same charge isn't surfaced twice. Only possible when
+        // accountId resolved — without it we can't scope the candidate query.
+        if (accountId) {
+          const when = postedAt ?? new Date();
+          const from = new Date(when.getTime() - 5 * 86_400_000);
+          const to = new Date(when.getTime() + 5 * 86_400_000);
+          const rows = await this.transactions.findForAccountInRange(
+            userId,
+            accountId,
+            from,
+            to,
+          );
+          const existing: ExistingTxn[] = rows.map((t) => ({
+            id: t.id,
+            isoDate: new Date(t.date).toISOString().slice(0, 10),
+            amount: Math.abs(t.amount),
+            direction:
+              t.type === TransactionType.INCOME
+                ? 'credit'
+                : t.type === TransactionType.TRANSFER
+                  ? t.accountId === accountId
+                    ? 'debit'
+                    : 'credit'
+                  : 'debit',
+            descriptor: t.description ?? '',
+            importFingerprint: t.importFingerprint ?? null,
+          }));
+          const candidate = {
+            isoDate: when.toISOString().slice(0, 10),
+            amount: g.amount as number,
+            direction: (g.type === 'income' ? 'credit' : 'debit') as
+              'credit' | 'debit',
+            descriptor: g.merchant ?? '',
+            category: null,
+          };
+          if (isLikelyDuplicateOfExisting(candidate, existing)) continue;
+        }
+
+        await this.detected.save(
+          this.detected.create({
+            userId,
+            merchant: g.merchant,
+            amount: g.amount,
+            type:
+              g.type === 'income'
+                ? TransactionType.INCOME
+                : TransactionType.EXPENSE,
+            suggestedCategory: g.category,
+            accountId,
+            paymentMethod,
+            confidence: g.confidence,
+            status: DetectedStatus.PENDING,
+            sourceKeys: g.sourceKeys,
+            transactionId: null,
+            postedAt,
+          }),
+        );
+        detected += 1;
       }
 
-      await this.detected.save(
-        this.detected.create({
-          userId,
-          merchant: g.merchant,
-          amount: g.amount,
-          type:
-            g.type === 'income'
-              ? TransactionType.INCOME
-              : TransactionType.EXPENSE,
-          suggestedCategory: g.category,
-          accountId,
-          paymentMethod,
-          confidence: g.confidence,
-          status: DetectedStatus.PENDING,
-          sourceKeys: g.sourceKeys,
-          transactionId: null,
-          postedAt,
-        }),
+      await this.captures.update(
+        { id: In(captures.map((c) => c.id)) },
+        { analyzed: true },
       );
-      detected += 1;
-    }
 
-    await this.captures.update(
-      { id: In(captures.map((c) => c.id)) },
-      { analyzed: true },
-    );
-
-    if (detected > 0) {
-      await this.notifications.create(userId, {
-        type: NotificationType.MUNSHI_SUGGESTION,
-        title: 'New transactions to review',
-        body: `Munshi ji found ${detected} transaction${detected === 1 ? '' : 's'} from your notifications.`,
-        data: { screen: 'sync' },
-      });
+      if (detected > 0 && !opts.interactive) {
+        await this.notifications.create(userId, {
+          type: NotificationType.MUNSHI_SUGGESTION,
+          title: 'New transactions to review',
+          body: `Munshi ji found ${detected} transaction${detected === 1 ? '' : 's'} from your notifications.`,
+          data: { screen: 'sync' },
+        });
+      }
+      return { detected };
+    } finally {
+      this.inFlight.delete(userId);
     }
-    return { detected };
   }
 
-  listPending(userId: string): Promise<DetectedTransaction[]> {
+  /** Newest-first pending detections, always bounded so a large backlog
+   * (hundreds of rows) can't be pulled — or rendered — in one shot. `limit`
+   * arrives as a raw query string; it's parsed and clamped to
+   * [1, PENDING_LIMIT_MAX], falling back to PENDING_LIMIT_DEFAULT. */
+  listPending(
+    userId: string,
+    limit?: string | number,
+  ): Promise<DetectedTransaction[]> {
+    const parsed = typeof limit === 'string' ? parseInt(limit, 10) : limit;
+    const take =
+      typeof parsed === 'number' && Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, NotificationSyncService.PENDING_LIMIT_MAX)
+        : NotificationSyncService.PENDING_LIMIT_DEFAULT;
     return this.detected.find({
       where: { userId, status: DetectedStatus.PENDING },
       order: { createdAt: 'DESC' },
+      take,
     });
   }
 
@@ -224,6 +270,16 @@ export class NotificationSyncService {
     dto: ConfirmDetectedDto,
   ): Promise<{ transactionId: string }> {
     const det = await this.loadPending(userId, id);
+    // Default the note to the source notification text(s) so the saved txn
+    // keeps the "respective info" it was detected from; an explicit dto.notes
+    // still wins.
+    let notes = dto.notes;
+    if (!notes && det.sourceKeys.length > 0) {
+      const caps = await this.captures.find({
+        where: { userId, dedupKey: In(det.sourceKeys) },
+      });
+      notes = caps.map((c) => c.text).join('\n') || undefined;
+    }
     const tx = await this.transactions.create(userId, {
       date: dto.date,
       description: dto.description,
@@ -232,7 +288,7 @@ export class NotificationSyncService {
       categoryId: dto.categoryId,
       accountId: dto.accountId,
       paymentMethod: dto.paymentMethod,
-      notes: dto.notes,
+      notes,
     });
     det.status = DetectedStatus.CONFIRMED;
     det.transactionId = tx.id;

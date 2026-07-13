@@ -1,7 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
-import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisUserPrompt } from './analysis.prompt';
+import {
+  ANALYSIS_SYSTEM_PROMPT,
+  buildAnalysisUserPrompt,
+} from './analysis.prompt';
+import { parseSms } from './sms-parse';
 
 /** DI token for the (optional) Anthropic client used by notification analysis.
  * Defined here (not in the module) so the module→service and service→token
@@ -24,7 +28,10 @@ const RAILS = ['upi', 'card', 'netbanking', 'autopay'] as const;
 
 /** Parse the model's JSON array, dropping malformed / amount-less groups and
  *  any hallucinated sourceKeys not present in the batch. */
-export function parseGroups(text: string, validKeys: Set<string>): DetectedGroup[] {
+export function parseGroups(
+  text: string,
+  validKeys: Set<string>,
+): DetectedGroup[] {
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) return [];
   let raw: unknown;
@@ -39,7 +46,9 @@ export function parseGroups(text: string, validKeys: Set<string>): DetectedGroup
     if (typeof item !== 'object' || item === null) continue;
     const r = item as Record<string, unknown>;
     const amount =
-      typeof r['amount'] === 'number' && isFinite(r['amount']) && r['amount'] > 0
+      typeof r['amount'] === 'number' &&
+      isFinite(r['amount']) &&
+      r['amount'] > 0
         ? Math.abs(r['amount'])
         : null;
     if (amount === null) continue; // not a real transaction
@@ -50,7 +59,8 @@ export function parseGroups(text: string, validKeys: Set<string>): DetectedGroup
       : [];
     if (sourceKeys.length === 0) continue; // nothing to attribute it to
     const rail =
-      typeof r['rail'] === 'string' && (RAILS as readonly string[]).includes(r['rail'])
+      typeof r['rail'] === 'string' &&
+      (RAILS as readonly string[]).includes(r['rail'])
         ? (r['rail'] as DetectedGroup['rail'])
         : null;
     out.push({
@@ -58,15 +68,50 @@ export function parseGroups(text: string, validKeys: Set<string>): DetectedGroup
       amount,
       type: r['type'] === 'income' ? 'income' : 'expense',
       category: typeof r['category'] === 'string' ? r['category'] : null,
-      institution: typeof r['institution'] === 'string' ? r['institution'] : null,
+      institution:
+        typeof r['institution'] === 'string' ? r['institution'] : null,
       rail,
       last4:
-        typeof r['last4'] === 'string' ? r['last4'].replace(/\D/g, '').slice(-4) || null : null,
+        typeof r['last4'] === 'string'
+          ? r['last4'].replace(/\D/g, '').slice(-4) || null
+          : null,
       confidence:
-        typeof r['confidence'] === 'number' && r['confidence'] >= 0 && r['confidence'] <= 1
+        typeof r['confidence'] === 'number' &&
+        r['confidence'] >= 0 &&
+        r['confidence'] <= 1
           ? r['confidence']
           : 0.5,
       sourceKeys: Array.from(new Set(sourceKeys)),
+    });
+  }
+  return out;
+}
+
+/** Deterministic detections when no LLM is configured: one group per capture
+ * the regex can price. Keeps SMS/notification detection working with the LLM
+ * off (the LLM path supersedes this whenever a client is present). */
+function regexFallback(
+  captures: {
+    dedupKey: string;
+    packageName: string;
+    title: string | null;
+    text: string;
+  }[],
+): DetectedGroup[] {
+  const out: DetectedGroup[] = [];
+  for (const c of captures) {
+    const p = parseSms(c.text);
+    if (p.amount === null) continue;
+    out.push({
+      merchant: p.merchant,
+      amount: p.amount,
+      type: p.type,
+      category: p.category,
+      institution: p.bank,
+      rail: p.paymentMethod,
+      last4: p.last4,
+      confidence: p.confidence,
+      sourceKeys: [c.dedupKey],
     });
   }
   return out;
@@ -77,7 +122,8 @@ export class NotificationAnalysisService {
   private readonly logger = new Logger(NotificationAnalysisService.name);
 
   constructor(
-    @Inject(NOTIFICATION_ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
+    @Inject(NOTIFICATION_ANTHROPIC_CLIENT)
+    private readonly client: Anthropic | null,
     private readonly config: ConfigService,
   ) {}
 
@@ -86,9 +132,15 @@ export class NotificationAnalysisService {
   }
 
   async analyze(
-    captures: { dedupKey: string; packageName: string; title: string | null; text: string }[],
+    captures: {
+      dedupKey: string;
+      packageName: string;
+      title: string | null;
+      text: string;
+    }[],
   ): Promise<DetectedGroup[]> {
-    if (!this.client || captures.length === 0) return [];
+    if (captures.length === 0) return [];
+    if (!this.client) return regexFallback(captures);
     const validKeys = new Set(captures.map((c) => c.dedupKey));
     const response = await this.client.messages.create({
       model: this.model,
