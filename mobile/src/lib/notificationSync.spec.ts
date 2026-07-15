@@ -31,7 +31,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
-import { uploadCaptured, configureAllowlist } from './notificationSync';
+import { uploadCaptured, configureAllowlist, applyDetectedEdit, type DetectedView } from './notificationSync';
 
 describe('uploadCaptured', () => {
   beforeEach(() => { getPending.mockReset(); markUploaded.mockReset(); post.mockReset(); });
@@ -84,5 +84,56 @@ describe('configureAllowlist', () => {
     await configureAllowlist();
     expect(setAllowlist).toHaveBeenCalledWith([]);
     expect(fetchCatalog).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyDetectedEdit', () => {
+  const base: DetectedView = {
+    id: 'det-1',
+    merchant: 'DILIP KUMAR',
+    amount: 150,
+    type: 'expense',
+    suggestedCategory: null,
+    accountId: null,
+    paymentMethod: 'upi',
+    confidence: 0.9,
+    postedAt: '2026-07-14T17:36:00.000Z',
+  };
+  const values = {
+    desc: 'Dilip (milk)',
+    amount: '180',
+    cat: 'Groceries',
+    account: 'acc-9',
+    date: '2026-07-13',
+    type: 'expense',
+  };
+
+  it('maps form values onto the view', () => {
+    const out = applyDetectedEdit(base, values);
+    expect(out).toEqual({
+      ...base,
+      merchant: 'Dilip (milk)',
+      amount: 180,
+      type: 'expense',
+      suggestedCategory: 'Groceries',
+      accountId: 'acc-9',
+      postedAt: '2026-07-13T17:36:00.000Z', // date replaced, time-of-day kept
+    });
+  });
+
+  it('stores amount as an absolute number and honors income type', () => {
+    const out = applyDetectedEdit(base, { ...values, amount: '-250', type: 'income' });
+    expect(out.amount).toBe(250);
+    expect(out.type).toBe('income');
+  });
+
+  it('maps an empty account selection to null (Unlinked)', () => {
+    const out = applyDetectedEdit({ ...base, accountId: 'acc-1' }, { ...values, account: '' });
+    expect(out.accountId).toBeNull();
+  });
+
+  it('builds a midnight-UTC postedAt when the original had none', () => {
+    const out = applyDetectedEdit({ ...base, postedAt: null }, values);
+    expect(out.postedAt).toBe('2026-07-13T00:00:00.000Z');
   });
 });

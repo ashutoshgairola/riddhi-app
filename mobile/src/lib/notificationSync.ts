@@ -52,6 +52,24 @@ export interface ConfirmPayload {
   notes?: string;
 }
 
+/** Merges FormSheet edit values (Sync's "Edit detection" form — keys `desc`,
+ * `amount`, `cat`, `account`, `date`, `type`) back onto a detected view.
+ * Amount is stored unsigned (sign comes from `type`, matching how
+ * `confirmDetectedItem` builds its payload); an empty account value means
+ * Unlinked; editing the date keeps the original time-of-day when known. */
+export function applyDetectedEdit(d: DetectedView, v: Record<string, string>): DetectedView {
+  const date = v['date']!;
+  return {
+    ...d,
+    merchant: v['desc']!,
+    amount: Math.abs(Number(v['amount'])),
+    type: v['type'] === 'income' ? 'income' : 'expense',
+    suggestedCategory: v['cat']!,
+    accountId: v['account'] ? v['account'] : null,
+    postedAt: d.postedAt ? date + d.postedAt.slice(10) : `${date}T00:00:00.000Z`,
+  };
+}
+
 export function notificationSyncSupported(): boolean {
   return Platform.OS === 'android' && isNotificationListenerAvailable;
 }
