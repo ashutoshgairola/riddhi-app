@@ -8,6 +8,7 @@
  *  - "Needs review": the backend detected queue (`detected`, fed by both
  *    notification and SMS capture channels), each item as a `DetectedCard`
  *    with `confirmDetectedItem`/`dismissDetectedItem` handlers.
+ *    Review cards are editable before confirming — body tap/Edit button opens a FormSheet, the category chip a picker; edits patch the item in `detected`.
  *  - "Auto-added": `added`, the transactions confirmed this session.
  *  - "Sync now" (more sheet) uploads both capture channels then runs
  *    `analyzeNow()` before reloading the queue.
@@ -38,7 +39,8 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from '../api';
-import type { CategoryView, PaymentMethod } from '../api/types';
+import type { AccountView, CategoryView, PaymentMethod } from '../api/types';
+import { useApiData } from '../api/useApi';
 import { GlassCard } from '../components/Glass';
 import { BankLogo } from '../components/BankLogo';
 import { IconButton, ListCard, ListRow, SearchButton, Toggle, TopbarActions } from '../components/ui';
@@ -65,6 +67,7 @@ import {
   confirmDetected,
   dismissDetected,
   analyzeNow,
+  applyDetectedEdit,
   CAPTURE_PAUSED_KEY,
   DETECTED_FETCH_LIMIT,
   type DetectedView,
@@ -133,6 +136,8 @@ const AUTO_SYNC_KEY = 'sms-sync/auto';
 // user's real category list (see `toDetectedCardTx`).
 const DEFAULT_CATEGORY_COLOR = '#6b7280';
 
+const EMPTY_ACCOUNTS: AccountView[] = [];
+
 // How many review cards render at once, and how many each "Show more" tap
 // reveals. `DetectedCard` is blur-heavy (a live `expo-blur` surface each), so
 // mounting a whole backlog — the backend can hold hundreds — at once overwhelms
@@ -143,7 +148,7 @@ const REVIEW_PAGE = 12;
 export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const { t } = useTheme();
   const { pop, push } = useNav();
-  const { toast, sheet } = useFeedback();
+  const { toast, sheet, form } = useFeedback();
   const { prefs } = usePrefs();
 
   // Task 10: pick → decrypt → parse → StatementReview. No accountId here —
@@ -164,6 +169,9 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
   const [listenerEnabled, setListenerEnabled] = useState(false);
   const [detected, setDetected] = useState<DetectedView[]>([]);
   const [categories, setCategories] = useState<CategoryView[]>([]);
+  // Accounts feed the Account select in the edit form and the account label
+  // on each review card.
+  const { data: accounts } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
   const [capturePaused, setCapturePaused] = useState(false);
   // Sliding window over the detected review list — grows by REVIEW_PAGE on
   // each "Show more" tap (see the needs-review section below).
@@ -225,7 +233,9 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         icon: match?.icon ?? '🔔',
         cat: catName,
         catCol: match?.color ?? DEFAULT_CATEGORY_COLOR,
-        account: d.accountId ? 'Linked account' : 'Unlinked',
+        account: d.accountId
+          ? (accounts.find((a) => String(a.id) === d.accountId)?.name ?? 'Linked account')
+          : 'Unlinked',
         time: d.postedAt
           ? new Date(d.postedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
           : 'Just now',
@@ -233,7 +243,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         paymentMethod: d.paymentMethod as PaymentMethod,
       };
     },
-    [categories],
+    [categories, accounts],
   );
 
   /** Resolves the suggested category name to a real id (creating it if it
@@ -276,6 +286,87 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
     void dismissDetected(d.id).catch(() => {
       toast("Couldn't dismiss that transaction", '📡');
       setDetected((cur) => [d, ...cur]);
+    });
+  };
+
+  const patchDetected = (id: string, patch: (d: DetectedView) => DetectedView) =>
+    setDetected((cur) => cur.map((x) => (x.id === id ? patch(x) : x)));
+
+  /** Full edit form (card body tap / Edit action button) — same FormSheet
+   * TxDetail's Edit uses. Saving patches the item in `detected`; the card
+   * display and the confirm payload both derive from it, so edited values
+   * flow through with no other changes. */
+  const editDetectedItem = (id: string) => {
+    const d = detected.find((x) => x.id === id);
+    if (!d) return;
+    const catName = d.suggestedCategory ?? 'Uncategorized';
+    const catOptions = categories.map((c) => ({ label: `${c.icon} ${c.name}`, value: c.name }));
+    // Keep a suggestion that isn't a real category yet (e.g. "Uncategorized")
+    // selectable so the select has a valid initial.
+    if (!categories.some((c) => c.name.toLowerCase() === catName.toLowerCase())) {
+      catOptions.unshift({ label: catName, value: catName });
+    }
+    form({
+      title: 'Edit detection',
+      fields: [
+        { key: 'desc', label: 'Description', initial: d.merchant ?? '' },
+        { kind: 'amount', key: 'amount', label: 'Amount (₹)', initial: String(Math.abs(d.amount ?? 0)) },
+        { kind: 'select', key: 'cat', label: 'Category', options: catOptions, initial: catName },
+        {
+          kind: 'select',
+          key: 'account',
+          label: 'Account',
+          options: [
+            { label: 'Unlinked', value: '' },
+            ...accounts.map((a) => ({ label: a.name, value: String(a.id) })),
+          ],
+          initial: d.accountId ?? '',
+        },
+        { kind: 'date', key: 'date', label: 'Date', initial: (d.postedAt ?? new Date().toISOString()).slice(0, 10) },
+        {
+          kind: 'select',
+          key: 'type',
+          label: 'Type',
+          options: [
+            { label: 'Expense', value: 'expense' },
+            { label: 'Income', value: 'income' },
+          ],
+          initial: d.type,
+        },
+      ],
+      submitLabel: 'Save changes',
+      onSubmit: (v) => patchDetected(id, (x) => applyDetectedEdit(x, v)),
+    });
+  };
+
+  /** Category chip tap — picker sheet with a "New category…" fallback,
+   * mirroring StatementReview's `openCategoryPicker`. `resolveId` at confirm
+   * time creates any brand-new name server-side. */
+  const openDetectedCategoryPicker = (id: string) => {
+    const current = detected.find((x) => x.id === id)?.suggestedCategory ?? null;
+    const setCat = (name: string) => patchDetected(id, (x) => ({ ...x, suggestedCategory: name }));
+    sheet({
+      title: 'Category',
+      options: [
+        ...categories.map((c) => ({
+          label: c.name,
+          icon: c.icon,
+          selected: !!current && c.name.toLowerCase() === current.toLowerCase(),
+          onPress: () => setCat(c.name),
+        })),
+        {
+          label: 'New category…',
+          icon: '➕',
+          onPress: () => {
+            form({
+              title: 'New category',
+              fields: [{ key: 'name', label: 'Category name', placeholder: 'e.g. Subscriptions' }],
+              submitLabel: 'Use category',
+              onSubmit: (v) => setCat(v['name']!),
+            });
+          },
+        },
+      ],
     });
   };
 
@@ -526,6 +617,8 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
               tx={toDetectedCardTx(d)}
               onConfirm={confirmDetectedItem}
               onDismiss={dismissDetectedItem}
+              onEdit={editDetectedItem}
+              onEditCategory={openDetectedCategoryPicker}
             />
           ))}
           {hiddenCount > 0 ? (
