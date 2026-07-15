@@ -20,6 +20,8 @@
  * source (a single CSS `transition: all`), so the RN port drives all four
  * from one shared `withTiming` per state via `ease` (theme/tokens.ts,
  * matching `--ease`).
+ *
+ * Editing (optional onEdit/onEditCategory props): card body tap or the Edit action button opens the full edit form; the category chip opens a category picker.
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -45,9 +47,13 @@ export interface DetectedCardProps {
   tx: SyncDetected;
   onConfirm: (id: string) => void;
   onDismiss: (id: string) => void;
+  /** Opens the full edit form (card body tap and the Edit action button). */
+  onEdit?: (id: string) => void;
+  /** Opens the category picker (category chip tap). */
+  onEditCategory?: (id: string) => void;
 }
 
-export function DetectedCard({ tx, onConfirm, onDismiss }: DetectedCardProps) {
+export function DetectedCard({ tx, onConfirm, onDismiss, onEdit, onEditCategory }: DetectedCardProps) {
   const { t } = useTheme();
   const isInc = tx.amount > 0;
 
@@ -76,51 +82,63 @@ export function DetectedCard({ tx, onConfirm, onDismiss }: DetectedCardProps) {
   return (
     <Animated.View style={[styles.wrap, wrapStyle]}>
       <GlassView style={styles.card} radius={radius.xl} padding={0}>
-        {/* parsed result */}
-        <View style={styles.resultRow}>
-          <AppIconBox value={tx.icon} color={tx.catCol} size={44} />
-          <View style={styles.resultText}>
-            <Text style={[styles.merchant, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
-              {tx.merchant}
-            </Text>
-            <View style={styles.metaRow}>
-              <View style={[styles.catChip, { backgroundColor: tx.catCol + '1e' }]}>
-                <Text style={[styles.catChipText, { color: tx.catCol, fontFamily: weight(600) }]}>{tx.cat}</Text>
+        <Pressable onPress={onEdit ? () => onEdit(tx.id) : undefined}>
+          {/* parsed result */}
+          <View style={styles.resultRow}>
+            <AppIconBox value={tx.icon} color={tx.catCol} size={44} />
+            <View style={styles.resultText}>
+              <Text style={[styles.merchant, { color: t.text1, fontFamily: weight(600) }]} numberOfLines={1}>
+                {tx.merchant}
+              </Text>
+              <View style={styles.metaRow}>
+                <Pressable
+                  onPress={onEditCategory ? () => onEditCategory(tx.id) : undefined}
+                  hitSlop={6}
+                  style={[styles.catChip, { backgroundColor: tx.catCol + '1e' }]}
+                >
+                  <Text style={[styles.catChipText, { color: tx.catCol, fontFamily: weight(600) }]}>{tx.cat}</Text>
+                </Pressable>
+                <Text style={[styles.accountText, { color: t.text3 }]}>{tx.account}</Text>
               </View>
-              <Text style={[styles.accountText, { color: t.text3 }]}>{tx.account}</Text>
+            </View>
+            <View style={styles.amountCol}>
+              <Text
+                style={[
+                  styles.amount,
+                  { color: isInc ? t.em : t.text1, fontFamily: weight(700) },
+                ]}
+              >
+                {isInc ? '+' : ''}
+                {fmtR(tx.amount)}
+              </Text>
+              <Text style={[styles.time, { color: t.text3 }]}>{tx.time}</Text>
             </View>
           </View>
-          <View style={styles.amountCol}>
-            <Text
-              style={[
-                styles.amount,
-                { color: isInc ? t.em : t.text1, fontFamily: weight(700) },
-              ]}
-            >
-              {isInc ? '+' : ''}
-              {fmtR(tx.amount)}
-            </Text>
-            <Text style={[styles.time, { color: t.text3 }]}>{tx.time}</Text>
-          </View>
-        </View>
 
-        {/* raw SMS source */}
-        <View style={styles.rawWrap}>
-          <View style={[styles.rawRow, { backgroundColor: t.bg, borderColor: t.border }]}>
-            <View style={[styles.rawIconBox, { backgroundColor: t.bg3 }]}>
-              <AppIcon value="mail" size={16} color={tx.catCol} />
+          {/* raw SMS source */}
+          <View style={styles.rawWrap}>
+            <View style={[styles.rawRow, { backgroundColor: t.bg, borderColor: t.border }]}>
+              <View style={[styles.rawIconBox, { backgroundColor: t.bg3 }]}>
+                <AppIcon value="mail" size={16} color={tx.catCol} />
+              </View>
+              <Text style={[styles.rawText, { color: t.text3 }]} numberOfLines={1}>
+                {tx.raw}
+              </Text>
             </View>
-            <Text style={[styles.rawText, { color: t.text3 }]} numberOfLines={1}>
-              {tx.raw}
-            </Text>
           </View>
-        </View>
+        </Pressable>
 
         {/* actions */}
         <View style={[styles.actionsRow, { borderTopColor: t.border }]}>
           <Pressable onPress={() => act('dismissed')} style={[styles.ignoreBtn, { borderRightColor: t.border }]}>
             <Text style={[styles.ignoreLabel, { color: t.text3, fontFamily: weight(600) }]}>Ignore</Text>
           </Pressable>
+          {onEdit ? (
+            <Pressable onPress={() => onEdit(tx.id)} style={[styles.editBtn, { borderRightColor: t.border }]}>
+              <MI.edit size={14} color={t.text2} />
+              <Text style={[styles.editLabel, { color: t.text2, fontFamily: weight(600) }]}>Edit</Text>
+            </Pressable>
+          ) : null}
           <Pressable onPress={() => act('confirmed')} style={styles.addBtn}>
             <MI.check size={16} color={t.em} strokeWidth={2.6} />
             <Text style={[styles.addLabel, { color: t.em, fontFamily: weight(700) }]}>Add transaction</Text>
@@ -218,6 +236,18 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
   },
   ignoreLabel: {
+    fontSize: 13,
+  },
+  editBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xxs,
+    borderRightWidth: 1,
+  },
+  editLabel: {
     fontSize: 13,
   },
   addBtn: {
