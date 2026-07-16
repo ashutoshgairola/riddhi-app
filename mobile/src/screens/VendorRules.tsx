@@ -66,10 +66,11 @@ export function VendorRules({ entry: _entry }: { entry: ScreenEntry }) {
         },
       ],
       submitLabel: 'Save rule',
-      onSubmit: (v) => {
-        void updateVendorMapping(r.id, { displayName: v['name']!, categoryId: v['cat']! })
-          .then(load)
-          .catch(() => toast("Couldn't update the rule", '📡'));
+      // Awaited by FormSheet: it shows its busy state, closes only on
+      // success, and surfaces a thrown error inline while staying open.
+      onSubmit: async (v) => {
+        await updateVendorMapping(r.id, { displayName: v['name']!, categoryId: v['cat']! });
+        await load();
       },
     });
   };
