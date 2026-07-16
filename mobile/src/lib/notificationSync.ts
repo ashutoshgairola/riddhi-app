@@ -39,6 +39,7 @@ export interface DetectedView {
   paymentMethod: string;
   confidence: number;
   postedAt: string | null;
+  remember?: boolean;
 }
 
 export interface ConfirmPayload {
@@ -50,6 +51,7 @@ export interface ConfirmPayload {
   accountId?: string;
   paymentMethod?: string;
   notes?: string;
+  remember?: boolean;
 }
 
 /** Merges FormSheet edit values (Sync's "Edit detection" form — keys `desc`,
@@ -67,6 +69,7 @@ export function applyDetectedEdit(d: DetectedView, v: Record<string, string>): D
     suggestedCategory: v['cat']!,
     accountId: v['account'] ? v['account'] : null,
     postedAt: d.postedAt ? date + d.postedAt.slice(10) : `${date}T00:00:00.000Z`,
+    remember: v['remember'] === '1',
   };
 }
 

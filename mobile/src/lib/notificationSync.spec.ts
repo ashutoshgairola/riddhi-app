@@ -118,6 +118,7 @@ describe('applyDetectedEdit', () => {
       suggestedCategory: 'Groceries',
       accountId: 'acc-9',
       postedAt: '2026-07-13T17:36:00.000Z', // date replaced, time-of-day kept
+      remember: false,
     });
   });
 
@@ -135,5 +136,36 @@ describe('applyDetectedEdit', () => {
   it('builds a midnight-UTC postedAt when the original had none', () => {
     const out = applyDetectedEdit({ ...base, postedAt: null }, values);
     expect(out.postedAt).toBe('2026-07-13T00:00:00.000Z');
+  });
+});
+
+describe('applyDetectedEdit remember flag', () => {
+  const base = {
+    id: 'd1',
+    merchant: 'True Software Scandinavia AB',
+    amount: 249,
+    type: 'expense' as const,
+    suggestedCategory: 'Entertainment',
+    accountId: 'a1',
+    paymentMethod: 'autopay',
+    confidence: 0.9,
+    postedAt: '2026-07-16T13:31:00.000Z',
+  };
+  const edit = {
+    desc: 'Truecaller',
+    amount: '249',
+    cat: 'Subscriptions',
+    account: 'a1',
+    date: '2026-07-16',
+    type: 'expense',
+  };
+
+  it("remember: '1' sets the flag", () => {
+    expect(applyDetectedEdit(base, { ...edit, remember: '1' }).remember).toBe(true);
+  });
+
+  it('remember unset/empty leaves it false', () => {
+    expect(applyDetectedEdit(base, { ...edit, remember: '' }).remember).toBe(false);
+    expect(applyDetectedEdit(base, edit).remember).toBe(false);
   });
 });

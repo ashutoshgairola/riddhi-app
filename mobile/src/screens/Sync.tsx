@@ -264,6 +264,7 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
           categoryId,
           accountId: d.accountId ?? undefined,
           paymentMethod: d.paymentMethod,
+          remember: d.remember,
         });
         setJustAdded((n) => n + 1);
         // Mirror the SMS confirm path (`confirm`): also push into the
@@ -332,6 +333,16 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
             { label: 'Income', value: 'income' },
           ],
           initial: d.type,
+        },
+        {
+          kind: 'select',
+          key: 'remember',
+          label: 'Vendor rule',
+          options: [
+            { label: 'Just this once', value: '' },
+            { label: 'Always map this vendor', value: '1' },
+          ],
+          initial: d.remember ? '1' : '',
         },
       ],
       submitLabel: 'Save changes',
