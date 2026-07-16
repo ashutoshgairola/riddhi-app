@@ -27,6 +27,9 @@ export class SubscriptionsListener {
         amount: Number(tx.amount),
         date: new Date(tx.date).toISOString(),
         accountId: tx.accountId,
+        paymentMethod: tx.paymentMethod,
+        categoryId: tx.categoryId,
+        isRecurring: tx.isRecurring,
       });
     } catch (err) {
       this.logger.warn(

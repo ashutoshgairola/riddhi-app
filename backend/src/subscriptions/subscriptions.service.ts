@@ -79,11 +79,13 @@ export class SubscriptionsService {
     }));
     const candidates = detectSubscriptions(detectTxns, skip, new Date());
     return Promise.all(
-      candidates.map(async (c) => {
-        const hint = isAggregator(c.merchantDescriptor) ? await this.findNotificationName(userId, c.amount) : null;
-        return { ...c, ...(await resolveName(c.merchantDescriptor, { hint })) };
-      }),
+      candidates.map(async (c) => ({ ...c, ...(await this.nameFor(userId, c)) })),
     );
+  }
+
+  private async nameFor(userId: string, c: SubscriptionCandidate): Promise<ResolvedName> {
+    const hint = isAggregator(c.merchantDescriptor) ? await this.findNotificationName(userId, c.amount) : null;
+    return resolveName(c.merchantDescriptor, { hint });
   }
 
   async list(userId: string) {
@@ -174,11 +176,30 @@ export class SubscriptionsService {
   }
 
   /** Called after a recurring charge is created by SMS/statement import.
-   * Links it to a matching active subscription and rolls the sub forward. */
-  async attachTransaction(userId: string, tx: { id: string; description: string; amount: number; date: string; accountId: string | null }): Promise<void> {
+   * Links it to a matching active subscription and rolls the sub forward.
+   * A first-time autopay charge (mandate, no matching sub) auto-creates its
+   * subscription on the spot instead of waiting for a recurrence. */
+  async attachTransaction(
+    userId: string,
+    tx: {
+      id: string;
+      description: string;
+      amount: number;
+      date: string;
+      accountId: string | null;
+      paymentMethod?: string | null;
+      categoryId?: string | null;
+      isRecurring?: boolean;
+    },
+  ): Promise<void> {
     const subs = await this.subRepo.find({ where: { userId } });
     const match = matchSubscription(tx.description, tx.accountId, subs);
-    if (!match) return;
+    if (!match) {
+      if (tx.paymentMethod === PaymentMethod.AUTOPAY) {
+        await this.createFromAutopayCharge(userId, tx, subs);
+      }
+      return;
+    }
     // Spec §6: a reverse-linked recurring charge also carries the subscription's
     // category (guarded, same as create) so it aggregates under Subscriptions.
     await this.txRepo.update({ id: tx.id, userId }, { subscriptionId: match.id, ...(match.categoryId ? { categoryId: match.categoryId } : {}) });
@@ -192,5 +213,40 @@ export class SubscriptionsService {
       match.nextRenewalDate = addCycle(tx.date, match.cycle);
     }
     await this.subRepo.save(match);
+  }
+
+  /** Routes the single charge through detectSubscriptions so the category
+   * exclusions (SIP/investment mandates), the ignore list, and the
+   * monthly-default cycle for a lone mandate charge all apply. Category is
+   * left to create()'s Subscriptions default. */
+  private async createFromAutopayCharge(
+    userId: string,
+    tx: { id: string; description: string; amount: number; date: string; accountId: string | null; categoryId?: string | null; paymentMethod?: string | null; isRecurring?: boolean },
+    subs: Subscription[],
+  ): Promise<void> {
+    const ignored = await this.ignoreRepo.find({ where: { userId } });
+    const skip = new Set([
+      ...subs.map((s) => s.merchantDescriptor),
+      ...ignored.map((i) => i.merchantDescriptor),
+    ]);
+    const cats = await this.categoriesService.findAll(userId);
+    const candidate = detectSubscriptions(
+      [{
+        id: tx.id, date: tx.date, description: tx.description, amount: Math.abs(tx.amount),
+        categoryId: tx.categoryId ?? '', categoryName: cats.find((c) => c.id === tx.categoryId)?.name ?? '',
+        accountId: tx.accountId, paymentMethod: tx.paymentMethod ?? null, isRecurring: tx.isRecurring ?? false,
+      }],
+      skip,
+      new Date(),
+    )[0];
+    if (!candidate) return;
+    const named = await this.nameFor(userId, candidate);
+    await this.create(userId, {
+      name: named.name, emoji: named.emoji, color: named.color,
+      merchantDescriptor: candidate.rawDescription, amount: candidate.amount, cycle: candidate.cycle,
+      nextRenewalDate: candidate.nextRenewalDate, firstSeenDate: candidate.firstSeenDate,
+      accountId: candidate.accountId, paymentMethod: candidate.paymentMethod,
+      transactionIds: candidate.transactionIds, priceHistory: candidate.priceHistory,
+    });
   }
 }
