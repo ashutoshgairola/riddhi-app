@@ -82,7 +82,6 @@ flowchart LR
 riddhi-app/
 ├── mobile/     # Expo app — screens, theme, auto-sync, statement parsing
 ├── backend/    # NestJS API — one module per domain, TypeORM + Postgres
-├── docs/       # design notes, build guides, setup docs
 └── logo/       # brand assets
 ```
 
