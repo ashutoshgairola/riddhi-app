@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CapturedNotification } from './captured-notification.entity';
@@ -28,6 +28,8 @@ import { NOTIFICATION_CATALOG, CatalogEntry } from './catalog.constant';
 
 @Injectable()
 export class NotificationSyncService {
+  private readonly logger = new Logger(NotificationSyncService.name);
+
   /** Default page size for `listPending` when the client sends no `limit`. */
   private static readonly PENDING_LIMIT_DEFAULT = 50;
   /** Hard ceiling on `listPending` so a client can't request an unbounded page. */
@@ -338,6 +340,13 @@ export class NotificationSyncService {
   ): Promise<void> {
     const matchKey = normalizeDescriptor(det.merchant ?? '');
     if (!matchKey) return;
+    // Ownership check: TransactionCategory is user-scoped; without this a
+    // crafted confirm could plant a mapping pointing at another user's
+    // category (mirrors the same guard in updateMapping).
+    const cat = await this.categories.findOne({
+      where: { id: dto.categoryId, userId: det.userId },
+    });
+    if (!cat) throw new NotFoundException('Category not found');
     await this.mappings.upsert(
       {
         userId: det.userId,
@@ -358,7 +367,16 @@ export class NotificationSyncService {
       if (p.id === det.id || !p.merchant || !p.accountId || p.amount == null)
         continue;
       if (normalizeDescriptor(p.merchant) !== mapping.matchKey) continue;
-      await this.autoConfirm(p, mapping);
+      // Best-effort: a sweep failure (e.g. this detection's account was
+      // deleted since it was captured) shouldn't fail the confirm whose
+      // primary transaction already committed.
+      try {
+        await this.autoConfirm(p, mapping);
+      } catch (err) {
+        this.logger.warn(
+          `sweep autoConfirm failed for detection ${p.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
   }
 

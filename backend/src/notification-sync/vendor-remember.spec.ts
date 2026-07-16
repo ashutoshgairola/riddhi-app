@@ -29,6 +29,7 @@ function build(opts: {
   mapRepo: any;
   txCreate?: any;
   capRepo?: any;
+  catRepo?: any;
 }) {
   return Test.createTestingModule({
     providers: [
@@ -44,7 +45,12 @@ function build(opts: {
       { provide: getRepositoryToken(Account), useValue: {} },
       { provide: getRepositoryToken(CreditCard), useValue: {} },
       { provide: getRepositoryToken(VendorMapping), useValue: opts.mapRepo },
-      { provide: getRepositoryToken(TransactionCategory), useValue: {} },
+      {
+        provide: getRepositoryToken(TransactionCategory),
+        useValue: opts.catRepo ?? {
+          findOne: jest.fn(async () => ({ id: 'catSub', userId: 'u1' })),
+        },
+      },
       { provide: NotificationAnalysisService, useValue: {} },
       { provide: NotificationsService, useValue: {} },
       {
@@ -198,5 +204,91 @@ describe('confirm with remember', () => {
     );
     await svc.confirm('u1', 'd1', { ...CONFIRM_DTO, remember: undefined });
     expect(mapRepo.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects remember when the categoryId is not owned by this user, without upserting', async () => {
+    const det: any = {
+      id: 'd1',
+      userId: 'u1',
+      status: DetectedStatus.PENDING,
+      merchant: 'True Software Scandinavia AB',
+      sourceKeys: [],
+    };
+    const detRepo = {
+      findOne: jest.fn(async () => det),
+      save: jest.fn(async (x: any) => x),
+      find: jest.fn(async () => []),
+    };
+    const mapRepo = {
+      upsert: jest.fn(async () => ({})),
+      findOne: jest.fn(async () => MAPPING),
+    };
+    const catRepo = { findOne: jest.fn(async () => null) };
+    const svc = (await build({ detRepo, mapRepo, catRepo })).get(
+      NotificationSyncService,
+    );
+
+    await expect(svc.confirm('u1', 'd1', CONFIRM_DTO)).rejects.toThrow(
+      'Category not found',
+    );
+    expect(mapRepo.upsert).not.toHaveBeenCalled();
+  });
+
+  it('swallows a failing swept autoConfirm and still resolves with the primary transactionId', async () => {
+    const det: any = {
+      id: 'd1',
+      userId: 'u1',
+      status: DetectedStatus.PENDING,
+      merchant: 'True Software Scandinavia AB',
+      sourceKeys: [],
+    };
+    const failing: any = {
+      id: 'd2',
+      userId: 'u1',
+      status: DetectedStatus.PENDING,
+      merchant: 'TRUE SOFTWARE SCANDINAVIA AB',
+      amount: 249,
+      type: TransactionType.EXPENSE,
+      accountId: 'deleted-account',
+      paymentMethod: PaymentMethod.AUTOPAY,
+      postedAt: new Date('2026-07-01T10:00:00Z'),
+      sourceKeys: [],
+    };
+    const sweepable: any = {
+      id: 'd3',
+      userId: 'u1',
+      status: DetectedStatus.PENDING,
+      merchant: 'TRUE SOFTWARE SCANDINAVIA AB',
+      amount: 249,
+      type: TransactionType.EXPENSE,
+      accountId: 'a1',
+      paymentMethod: PaymentMethod.AUTOPAY,
+      postedAt: new Date('2026-07-02T10:00:00Z'),
+      sourceKeys: [],
+    };
+    const detRepo = {
+      findOne: jest.fn(async () => det),
+      save: jest.fn(async (x: any) => x),
+      find: jest.fn(async () => [failing, sweepable]),
+    };
+    const mapRepo = {
+      upsert: jest.fn(async () => ({})),
+      findOne: jest.fn(async () => MAPPING),
+    };
+    const txCreate = jest
+      .fn()
+      .mockResolvedValueOnce({ id: 'tx1' }) // d1's own confirm
+      .mockRejectedValueOnce(new Error('account deleted')) // failing (d2)
+      .mockResolvedValueOnce({ id: 'tx-swept' }); // sweepable (d3)
+    const svc = (await build({ detRepo, mapRepo, txCreate })).get(
+      NotificationSyncService,
+    );
+
+    const result = await svc.confirm('u1', 'd1', CONFIRM_DTO);
+
+    expect(result).toEqual({ transactionId: 'tx1' });
+    expect(failing.status).toBe(DetectedStatus.PENDING);
+    expect(sweepable.status).toBe(DetectedStatus.CONFIRMED);
+    expect(sweepable.transactionId).toBe('tx-swept');
   });
 });
