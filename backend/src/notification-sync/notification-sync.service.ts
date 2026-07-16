@@ -103,8 +103,8 @@ export class NotificationSyncService {
   async runAnalysisForUser(
     userId: string,
     opts: { interactive?: boolean } = {},
-  ): Promise<{ detected: number }> {
-    if (this.inFlight.has(userId)) return { detected: 0 };
+  ): Promise<{ detected: number; autoAdded: number }> {
+    if (this.inFlight.has(userId)) return { detected: 0, autoAdded: 0 };
     this.inFlight.add(userId);
     try {
       const captures = await this.captures.find({
@@ -112,7 +112,7 @@ export class NotificationSyncService {
         order: { postedAt: 'ASC' },
         take: 150, // ponytail: batch ceiling; an OTP-heavy first backlog drains over successive syncs
       });
-      if (captures.length === 0) return { detected: 0 };
+      if (captures.length === 0) return { detected: 0, autoAdded: 0 };
 
       // Cheap gate: drop OTP/promo/balance-only (no priceable amount) before the
       // LLM. Gated captures are still marked analyzed at the end so they don't loop.
@@ -149,7 +149,20 @@ export class NotificationSyncService {
         captures.map((c) => [c.dedupKey, c.postedAt]),
       );
 
+      const rules = await this.mappings.find({ where: { userId } });
+      const ruleByKey = new Map(rules.map((m) => [m.matchKey, m]));
+      // Rules rename the suggested category too — resolve mapped category
+      // names in one query up front.
+      const categoryNameById = new Map<string, string>();
+      if (rules.length > 0) {
+        const cats = await this.categories.find({
+          where: { id: In(rules.map((m) => m.categoryId)) },
+        });
+        for (const c of cats) categoryNameById.set(c.id, c.name);
+      }
+
       let detected = 0;
+      let autoAdded = 0;
       for (const g of groups) {
         const { accountId, paymentMethod } = resolvePaymentSource(
           g.institution,
@@ -200,16 +213,22 @@ export class NotificationSyncService {
           if (isLikelyDuplicateOfExisting(candidate, existing)) continue;
         }
 
-        await this.detected.save(
+        const rule = g.merchant
+          ? ruleByKey.get(normalizeDescriptor(g.merchant))
+          : undefined;
+
+        const det = await this.detected.save(
           this.detected.create({
             userId,
-            merchant: g.merchant,
+            merchant: rule ? rule.displayName : g.merchant,
             amount: g.amount,
             type:
               g.type === 'income'
                 ? TransactionType.INCOME
                 : TransactionType.EXPENSE,
-            suggestedCategory: g.category,
+            suggestedCategory: rule
+              ? (categoryNameById.get(rule.categoryId) ?? g.category)
+              : g.category,
             accountId,
             paymentMethod,
             confidence: g.confidence,
@@ -219,7 +238,13 @@ export class NotificationSyncService {
             postedAt,
           }),
         );
-        detected += 1;
+        // A matched rule with a resolved payment source skips review entirely.
+        if (rule && accountId && g.amount != null) {
+          await this.autoConfirm(det, rule);
+          autoAdded += 1;
+        } else {
+          detected += 1;
+        }
       }
 
       await this.captures.update(
@@ -235,7 +260,7 @@ export class NotificationSyncService {
           data: { screen: 'sync' },
         });
       }
-      return { detected };
+      return { detected, autoAdded };
     } finally {
       this.inFlight.delete(userId);
     }
