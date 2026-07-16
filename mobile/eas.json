@@ -1,0 +1,46 @@
+{
+  "cli": {
+    "version": ">= 20.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://cde8-182-69-180-98.ngrok-free.app",
+        "EXPO_PUBLIC_SHOW_DEV_SETTINGS": "1",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "868348586460-k6vmn5d41fpont1e1vv8vnvvrb4ufq1d.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "868348586460-9hff23rcol3u5av46fb5mv9q966jvc2g.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "868348586460-kcl22dgjr0qprji17aiio8d39l9l5tro.apps.googleusercontent.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://cde8-182-69-180-98.ngrok-free.app",
+        "EXPO_PUBLIC_SHOW_DEV_SETTINGS": "1",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "868348586460-k6vmn5d41fpont1e1vv8vnvvrb4ufq1d.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "868348586460-9hff23rcol3u5av46fb5mv9q966jvc2g.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "868348586460-kcl22dgjr0qprji17aiio8d39l9l5tro.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "environment": "development"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

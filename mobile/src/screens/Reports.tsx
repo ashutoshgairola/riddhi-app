@@ -1,0 +1,964 @@
+/**
+ * Reports — RN port of `project/riddhi/MobileScreens.jsx` (the
+ * `MobileReports` component, lines 78–337), including its local data
+ * constants `REP_OVERVIEW`/`REP_INC`/`REP_EXP`/`REP_LABELS` (lines 26–29)
+ * and the in-component `catData` (lines 83–90).
+ *
+ * Building blocks reused rather than reimplemented:
+ *  - `PageBackground` for the `.m-page` gradient + glow.
+ *  - `Topbar` for the `.m-topbar` title + back/filter icon buttons,
+ *    including its built-in `scrolled` glass treatment.
+ *  - `IconButton` for the back/filter buttons.
+ *  - `Chip` (`.m-chip`/`.m-chip.on`) for the 5 sub-tabs, in an `HScroll`
+ *    (`.m-hscroll`) row (MobileScreens.jsx:114–123).
+ *  - `MSeg` for the period selector (MobileScreens.jsx:128–132).
+ *  - `GlassCard` (`.m-card`) for every card surface.
+ *  - `SectionHead`/`ListCard`/`ListRow`/`ProgressBar` for the income "By
+ *    Source" list (MobileScreens.jsx:224–245).
+ *  - `MGroupedBars`/`MDonut`/`MSparkline` (src/components/charts.tsx) for
+ *    every chart — none reimplemented here.
+ *  - `useNav().pop` for the back button; `useFeedback().toast`/`.sheet` for
+ *    the filter action sheet (MobileScreens.jsx:106–111).
+ *
+ * Source values transcribed verbatim:
+ *  - `REP_OVERVIEW`/`REP_INC`/`REP_EXP`/`REP_LABELS` — MobileScreens.jsx:26–29.
+ *  - `catData` + `totalCat` — MobileScreens.jsx:83–91.
+ *  - Sub-tabs list — MobileScreens.jsx:93–99.
+ *  - Period `MSeg` options — MobileScreens.jsx:130.
+ *  - Overview KPI strip values — MobileScreens.jsx:137–156.
+ *  - Income vs Expenses card + legend — MobileScreens.jsx:158–177.
+ *  - Spending-by-category donut + legend rows — MobileScreens.jsx:179–196.
+ *  - Net worth trend card — MobileScreens.jsx:198–210.
+ *  - Income tab total/sparkline/by-source list — MobileScreens.jsx:214–247.
+ *  - Expense tab total + top categories — MobileScreens.jsx:249–272.
+ *  - Savings tab rate/sparkline/goal progress — MobileScreens.jsx:274–302.
+ *  - Wealth tab net worth/sparkline/asset allocation — MobileScreens.jsx:304–332.
+ */
+import { useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
+
+import { MDonut, MGroupedBars, MSparkline } from '../components/charts';
+import { GlassCard } from '../components/Glass';
+import { InlineRetry } from '../components/InlineRetry';
+import { Chip, HScroll, IconButton, ListCard, ListRow, ProgressBar, SearchButton, SectionHead, Topbar, TopbarActions } from '../components/ui';
+import { MI } from '../components/icons';
+import { AppIcon } from '../components/contentIcons';
+import { MSeg } from '../components/MSeg';
+import { PageBackground } from '../components/PageBackground';
+import { SpringIn } from '../components/SpringIn';
+import { useTheme } from '../theme/ThemeProvider';
+import { weight } from '../theme/tokens';
+import { spacing } from '../theme/spacing';
+import { useFeedback } from '../feedback/FeedbackProvider';
+import { useNav, type ScreenEntry } from '../app/navContext';
+import { MASKED_AMOUNT, usePrefs } from '../prefs/PrefsProvider';
+import { api, type TxPeriod } from '../api';
+import { shareTxCsv } from '../lib/exportCsv';
+import { useApiData } from '../api/useApi';
+import type {
+  AccountView,
+  CategorySliceView,
+  EventView,
+  GoalView,
+  IncomeExpenseSeriesView,
+  NetWorthTrendView,
+  ReportOverviewView,
+  TxView,
+} from '../api/types';
+
+// ── Tabs (MobileScreens.jsx:93–99) ───────────────────────────────────
+type TabId = 'overview' | 'income' | 'expense' | 'savings' | 'wealth';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'income', label: 'Income' },
+  { id: 'expense', label: 'Expense' },
+  { id: 'savings', label: 'Savings' },
+  { id: 'wealth', label: 'Wealth' },
+];
+
+type PeriodValue = '1m' | '3m' | '6m' | '1y' | 'all';
+
+// Empty-but-renderable fallbacks while the api loads (or is unreachable).
+const EMPTY_OVERVIEW: ReportOverviewView = {
+  netIncome: 0,
+  savingsRate: 0,
+  totalIncome: 0,
+  totalExpenses: 0,
+};
+const EMPTY_SERIES: IncomeExpenseSeriesView = { labels: [], income: [], expense: [] };
+const EMPTY_SLICES: CategorySliceView[] = [];
+const EMPTY_TREND: NetWorthTrendView = { points: [], current: 0, deltaPct: 0 };
+// Hoisted (rather than inline `[] as T[]` literals) so each is a stable
+// reference across renders — the InlineRetry wiring below needs to
+// identity-compare a query's `data` against its fallback to tell "still
+// empty/fallback" apart from "genuinely empty real data".
+const EMPTY_GOALS: GoalView[] = [];
+const EMPTY_EVENTS: EventView[] = [];
+const EMPTY_ACCOUNTS: AccountView[] = [];
+const EMPTY_INCOME_TXS: TxView[] = [];
+
+/** Reports periods map onto the transactions period filter for By Source. */
+function txPeriodFor(period: PeriodValue): TxPeriod {
+  return period === '1m' ? 'month' : period === '3m' ? '3m' : 'all';
+}
+
+/** % change first → last of a series, for the derived delta chips. */
+function seriesDeltaPct(values: number[]): number | null {
+  const first = values.find((v) => v !== 0);
+  const last = values[values.length - 1];
+  if (first === undefined || last === undefined || first === 0) return null;
+  return ((last - first) / Math.abs(first)) * 100;
+}
+
+/** Sparkline data needs ≥2 points to draw a path. */
+function sparkable(values: number[]): number[] {
+  return values.length >= 2 ? values : [0, 0];
+}
+
+/**
+ * Shared ₹-amount formatter behind `fmtKpi` and the inline ₹K/₹L spots
+ * below (asset allocation, net worth trend, category/source totals). A
+ * ₹1–999 value returns the real (en-IN grouped, sign-preserved) figure
+ * instead of rounding to "₹0K" (task P3-A / F6). `lDecimals`/`kDecimals`
+ * preserve each call site's existing precision for values ≥₹1,000;
+ * `withL` lets call sites that never had a ≥₹1-lakh check (categories/
+ * sources) opt out, so their large-value behavior stays unchanged too.
+ */
+function fmtK(
+  n: number,
+  { lDecimals = 1, kDecimals = 0, withL = true }: { lDecimals?: number; kDecimals?: number; withL?: boolean } = {},
+): string {
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if (withL && abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(lDecimals)}L`;
+  if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(kDecimals)}K`;
+  return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
+}
+
+function fmtKpi(n: number): string {
+  return fmtK(n, { lDecimals: 2 });
+}
+
+export function Reports({ entry: _entry }: { entry: ScreenEntry }) {
+  const { t } = useTheme();
+  const { pop, nav } = useNav();
+  const { toast, sheet } = useFeedback();
+  const { prefs } = usePrefs();
+  const hide = prefs.hideBalances;
+  const [tab, setTab] = useState<TabId>('overview');
+  const [scrolled, setScrolled] = useState(false);
+  const [period, setPeriod] = useState<PeriodValue>('6m');
+
+  const {
+    data: overview,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useApiData(() => api.reports.overview(period), EMPTY_OVERVIEW, [period]);
+  const {
+    data: series,
+    error: seriesError,
+    refetch: refetchSeries,
+  } = useApiData(() => api.reports.incomeVsExpense(period), EMPTY_SERIES, [period]);
+  const {
+    data: catData,
+    error: catDataError,
+    refetch: refetchCatData,
+  } = useApiData(() => api.reports.categories(period), EMPTY_SLICES, [period]);
+  const {
+    data: nwTrend,
+    error: nwTrendError,
+    refetch: refetchNwTrend,
+  } = useApiData(() => api.reports.netWorthTrend(period), EMPTY_TREND, [period]);
+  const {
+    data: goals,
+    error: goalsError,
+    refetch: refetchGoals,
+  } = useApiData(() => api.goals.list(), EMPTY_GOALS);
+  const {
+    data: events,
+    error: eventsError,
+    refetch: refetchEvents,
+  } = useApiData(() => api.events.list(), EMPTY_EVENTS);
+  const {
+    data: accounts,
+    error: accountsError,
+    refetch: refetchAccounts,
+  } = useApiData(() => api.accounts.list(), EMPTY_ACCOUNTS);
+  const {
+    data: incomeTxs,
+    error: incomeTxsError,
+    refetch: refetchIncomeTxs,
+  } = useApiData(
+    () => api.transactions.list({ filter: 'inc', period: txPeriodFor(period) }),
+    EMPTY_INCOME_TXS,
+    [period],
+  );
+
+  // Refetch every Reports query — used by the inline retry banner.
+  const refetchAllReports = () => {
+    refetchOverview();
+    refetchSeries();
+    refetchCatData();
+    refetchNwTrend();
+    refetchGoals();
+    refetchEvents();
+    refetchAccounts();
+    refetchIncomeTxs();
+  };
+
+  // Show one screen-level "couldn't load" banner when *any* query failed
+  // and that query has nothing real to show (still on its stable fallback).
+  // Sections that DID load keep rendering their real/stale data — this is a
+  // top banner, not a full-screen error wall, so it coexists with them and
+  // never hides real data (fallbacks are stable module-level constants, so
+  // the identity check is reliable across renders).
+  const showRetry =
+    (Boolean(overviewError) && overview === EMPTY_OVERVIEW) ||
+    (Boolean(seriesError) && series === EMPTY_SERIES) ||
+    (Boolean(catDataError) && catData === EMPTY_SLICES) ||
+    (Boolean(nwTrendError) && nwTrend === EMPTY_TREND) ||
+    (Boolean(goalsError) && goals === EMPTY_GOALS) ||
+    (Boolean(eventsError) && events === EMPTY_EVENTS) ||
+    (Boolean(accountsError) && accounts === EMPTY_ACCOUNTS) ||
+    (Boolean(incomeTxsError) && incomeTxs === EMPTY_INCOME_TXS);
+
+  const totalCat = catData.reduce((s, d) => s + d.value, 0);
+
+  // Income "By Source" — income transactions grouped by category.
+  const incomeTotal = incomeTxs.reduce((s, tx) => s + tx.amount, 0);
+  const incomeSources = [...incomeTxs.reduce((m, tx) => {
+    const cur = m.get(tx.cat) ?? { src: tx.cat, amt: 0, c: tx.cCol };
+    cur.amt += tx.amount;
+    return m.set(tx.cat, cur);
+  }, new Map<string, { src: string; amt: number; c: string }>()).values()]
+    .sort((a, b) => b.amt - a.amt)
+    .map((s) => ({ ...s, pct: incomeTotal > 0 ? Math.round((s.amt / incomeTotal) * 100) : 0 }));
+
+  // Per-month savings rate for the Savings tab sparkline.
+  const savingsSpark = series.income.map((inc, i) =>
+    inc > 0 ? Math.round(((inc - (series.expense[i] ?? 0)) / inc) * 100) : 0,
+  );
+  const totalSaved = series.income.reduce((s, v, i) => s + v - (series.expense[i] ?? 0), 0);
+
+  // Wealth: asset allocation grouped from accounts (liabilities excluded).
+  const assets = accounts.filter((a) => a.bal > 0);
+  const assetTotal = assets.reduce((s, a) => s + a.bal, 0);
+  const allocationGroups: { n: string; match: (type: string) => boolean; c: string }[] = [
+    { n: 'Cash & Bank', match: (ty) => ['savings', 'checking', 'cash', 'wallet'].includes(ty), c: '#8197c4' },
+    { n: 'Investments', match: (ty) => ty === 'investment', c: '#7faf93' },
+    { n: 'Other', match: (ty) => !['savings', 'checking', 'cash', 'wallet', 'investment'].includes(ty), c: '#c9a86a' },
+  ];
+  const allocation = allocationGroups
+    .map((g) => {
+      const v = assets.filter((a) => g.match(a.type)).reduce((s, a) => s + a.bal, 0);
+      return {
+        n: g.n,
+        v: fmtK(v),
+        pct: assetTotal > 0 ? Math.round((v / assetTotal) * 100) : 0,
+        c: g.c,
+        raw: v,
+      };
+    })
+    .filter((g) => g.raw > 0);
+
+  const incomeDelta = seriesDeltaPct(series.income);
+  const expenseDelta = seriesDeltaPct(series.expense);
+  const netWorthDisplay = fmtK(nwTrend.current);
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrolled(e.nativeEvent.contentOffset.y > 8);
+  };
+
+  const openPeriodSheet = () => {
+    sheet({
+      title: 'Report period',
+      options: [
+        { label: 'This month', icon: '🗓', onPress: () => setPeriod('1m') },
+        { label: 'Last 3 months', icon: '📆', onPress: () => setPeriod('3m') },
+        { label: 'This year', icon: '📅', onPress: () => setPeriod('1y') },
+        {
+          label: 'Export report',
+          icon: '📤',
+          onPress: () => {
+            shareTxCsv('all')
+              .then(() => toast('Report exported', '📤'))
+              .catch(() => toast("Couldn't export report", '📡'));
+          },
+        },
+      ],
+    });
+  };
+
+  return (
+    <View style={styles.page}>
+      <PageBackground />
+
+      <Topbar
+        title="Reports"
+        scrolled={scrolled}
+        left={
+          <IconButton onPress={pop}>
+            <MI.back size={20} color={t.text1} />
+          </IconButton>
+        }
+        right={
+          <TopbarActions>
+            <SearchButton />
+            <IconButton onPress={openPeriodSheet}>
+              <MI.filter size={20} color={t.text1} />
+            </IconButton>
+          </TopbarActions>
+        }
+      />
+
+      {/* Sub-tabs scroller (MobileScreens.jsx:114–123) */}
+      <View style={[styles.tabsWrap, { borderBottomColor: t.border }]}>
+        <HScroll>
+          {TABS.map((tb) => (
+            <Chip key={tb.id} on={tab === tb.id} onPress={() => setTab(tb.id)}>
+              {tb.label}
+            </Chip>
+          ))}
+        </HScroll>
+      </View>
+
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Period selector (MobileScreens.jsx:128–132) */}
+        <SpringIn style={styles.periodWrap}>
+          <MSeg<PeriodValue>
+            options={[
+              { value: '1m', label: '1M' },
+              { value: '3m', label: '3M' },
+              { value: '6m', label: '6M' },
+              { value: '1y', label: '1Y' },
+              { value: 'all', label: 'All' },
+            ]}
+            value={period}
+            onChange={setPeriod}
+          />
+        </SpringIn>
+
+        {/* Read-path error state (nothing real to show yet) */}
+        {showRetry ? (
+          <View style={styles.retryWrap}>
+            <InlineRetry onRetry={refetchAllReports} message="Couldn't load reports — tap to retry" />
+          </View>
+        ) : null}
+
+        {tab === 'overview' && (
+          <>
+            {/* KPI Strip (MobileScreens.jsx:137–156) */}
+            <SpringIn style={styles.kpiGrid}>
+              <GlassCard style={styles.kpiCard}>
+                <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Net Income</Text>
+                <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
+                  {hide ? MASKED_AMOUNT : fmtKpi(overview.netIncome)}
+                </Text>
+              </GlassCard>
+              <GlassCard style={styles.kpiCard}>
+                <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Savings Rate</Text>
+                <Text style={[styles.kpiValue, { color: t.text1, fontFamily: weight(700) }]}>
+                  {Math.round(overview.savingsRate)}%
+                </Text>
+              </GlassCard>
+              <GlassCard style={styles.kpiCard}>
+                <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Income</Text>
+                <Text style={[styles.kpiValue, { color: t.em, fontFamily: weight(700) }]}>
+                  {hide ? MASKED_AMOUNT : fmtKpi(overview.totalIncome)}
+                </Text>
+              </GlassCard>
+              <GlassCard style={styles.kpiCard}>
+                <Text style={[styles.kpiLabel, { color: t.text3, fontFamily: weight(600) }]}>Total Expenses</Text>
+                <Text style={[styles.kpiValue, { color: t.red, fontFamily: weight(700) }]}>
+                  {hide ? MASKED_AMOUNT : fmtKpi(overview.totalExpenses)}
+                </Text>
+              </GlassCard>
+            </SpringIn>
+
+            {/* Income vs Expense (MobileScreens.jsx:158–177), animationDelay: .05s */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCard}>
+                <View style={styles.cardHeaderRow}>
+                  <View>
+                    <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                      Income vs Expenses
+                    </Text>
+                    <Text style={[styles.cardSubtitle, { color: t.text1, fontFamily: weight(700) }]}>
+                      Last {series.labels.length || '—'} month{series.labels.length === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                  <View style={styles.legendRow}>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: t.em }]} />
+                      <Text style={[styles.legendText, { color: t.text3 }]}>Inc</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: t.red }]} />
+                      <Text style={[styles.legendText, { color: t.text3 }]}>Exp</Text>
+                    </View>
+                  </View>
+                </View>
+                <MGroupedBars inc={series.income} exp={series.expense} labels={series.labels} />
+              </GlassCard>
+            </SpringIn>
+
+            {/* Category breakdown (MobileScreens.jsx:179–196), animationDelay: .1s */}
+            <SpringIn delay={100}>
+              <GlassCard style={styles.sectionCard}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Spending by Category
+                </Text>
+                <MDonut data={catData} total={totalCat} />
+                <View style={styles.donutLegend}>
+                  {catData.map((d) => {
+                    const pct = d.pct;
+                    return (
+                      <View key={d.label} style={styles.donutLegendRow}>
+                        <View style={[styles.legendDot10, { backgroundColor: d.color }]} />
+                        <Text style={[styles.donutLegendLabel, { color: t.text1 }]}>{d.label}</Text>
+                        <Text style={[styles.donutLegendValue, { color: t.text1, fontFamily: weight(700) }]}>
+                          {hide ? MASKED_AMOUNT : fmtK(d.value, { kDecimals: 1, withL: false })}
+                        </Text>
+                        <Text style={[styles.donutLegendPct, { color: t.text3 }]}>{pct}%</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </GlassCard>
+            </SpringIn>
+
+            {/* Net worth trend (MobileScreens.jsx:198–210), animationDelay: .15s */}
+            <SpringIn delay={150}>
+              <GlassCard style={events.length > 0 ? styles.sectionCard : styles.sectionCardLast}>
+                <View style={styles.cardHeaderRow}>
+                  <View>
+                    <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                      Net Worth Trend
+                    </Text>
+                    <Text style={[styles.netWorthValue, { color: t.text1, fontFamily: weight(700) }]}>
+                      {hide ? MASKED_AMOUNT : netWorthDisplay}
+                    </Text>
+                  </View>
+                  <View style={[styles.deltaBadge, styles.deltaBadgeRow, { backgroundColor: t.emDim }]}>
+                    <AppIcon
+                      value={nwTrend.deltaPct >= 0 ? 'trendUp' : 'trendDown'}
+                      size={16}
+                      color={nwTrend.deltaPct >= 0 ? t.em : t.red}
+                    />
+                    <Text style={[styles.deltaBadgeText, { color: nwTrend.deltaPct >= 0 ? t.em : t.red, fontFamily: weight(600) }]}>
+                      {Math.abs(nwTrend.deltaPct).toFixed(1)}%
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.sparklineBleed}>
+                  <MSparkline data={sparkable(nwTrend.points)} color="#7faf93" height={68} />
+                </View>
+              </GlassCard>
+            </SpringIn>
+
+            {/* Event Budgets — Task 12; shown only when the user has events
+                (api.events.list, Task 6). Mirrors the "By Source" list
+                pattern below: SectionHead + ListCard/ListRow/ProgressBar,
+                not wrapped in a GlassCard. */}
+            {events.length > 0 && (
+              <SpringIn delay={200}>
+                <SectionHead title="Event Budgets" />
+                <ListCard>
+                  {events.map((ev, i) => {
+                    const pct = ev.budget > 0 ? Math.min(Math.round((ev.paid / ev.budget) * 100), 100) : 0;
+                    const barColor = ev.over ? t.red : ev.color;
+                    return (
+                      <ListRow
+                        key={ev.id}
+                        last={i === events.length - 1}
+                        onPress={() => nav('event-detail', { id: ev.id })}
+                      >
+                        <View style={styles.eventRowLeft}>
+                          <AppIcon value={ev.emoji} size={20} color={ev.color} />
+                          <View style={styles.eventRowText}>
+                            <Text
+                              style={[styles.eventRowName, { color: t.text1, fontFamily: weight(600) }]}
+                              numberOfLines={1}
+                            >
+                              {ev.name}
+                            </Text>
+                            <View style={styles.eventRowBarWrap}>
+                              <ProgressBar pct={pct} color={barColor} />
+                            </View>
+                          </View>
+                        </View>
+                        <View style={styles.eventRowRight}>
+                          <Text style={[styles.eventRowAmt, { color: t.text1, fontFamily: weight(700) }]}>
+                            {hide ? (
+                              MASKED_AMOUNT
+                            ) : (
+                              <>
+                                {fmtKpi(ev.paid)} <Text style={{ color: t.text3 }}>/ {fmtKpi(ev.budget)}</Text>
+                              </>
+                            )}
+                          </Text>
+                          <Text style={[styles.eventRowStatus, { color: ev.over ? t.red : t.text3 }]}>
+                            {ev.over ? 'over' : 'under'}
+                          </Text>
+                        </View>
+                      </ListRow>
+                    );
+                  })}
+                </ListCard>
+              </SpringIn>
+            )}
+          </>
+        )}
+
+        {tab === 'income' && (
+          <>
+            <GlassCard style={styles.sectionCard}>
+              <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                Total Income
+              </Text>
+              <Text style={[styles.totalValue, { color: t.em, fontFamily: weight(700) }]}>
+                {hide ? MASKED_AMOUNT : fmtKpi(overview.totalIncome)}
+              </Text>
+              {incomeDelta !== null && (
+                <View style={styles.deltaRow}>
+                  <AppIcon
+                    value={incomeDelta >= 0 ? 'trendUp' : 'trendDown'}
+                    size={16}
+                    color={incomeDelta >= 0 ? t.em : t.red}
+                  />
+                  <Text style={[styles.totalDelta, { color: incomeDelta >= 0 ? t.em : t.red }]}>
+                    {Math.abs(incomeDelta).toFixed(1)}% over the period
+                  </Text>
+                </View>
+              )}
+              <View style={styles.sparklineBleedTop}>
+                <MSparkline data={sparkable(series.income)} color="#7faf93" height={64} />
+              </View>
+            </GlassCard>
+
+            {/* NOTE: source's "By Source" list has no `m-spring` class
+                (MobileScreens.jsx:224–245) — intentionally not wrapped. */}
+            <SectionHead title="By Source" />
+            <ListCard>
+              {incomeSources.map((d, i) => (
+                <ListRow key={d.src} last={i === incomeSources.length - 1}>
+                  <View style={styles.sourceLeft}>
+                    <Text style={[styles.sourceName, { color: t.text1, fontFamily: weight(600) }]}>{d.src}</Text>
+                    <View style={styles.sourceBarWrap}>
+                      <ProgressBar pct={d.pct} color={d.c} />
+                    </View>
+                  </View>
+                  <View style={styles.sourceRight}>
+                    <Text style={[styles.sourceAmt, { color: t.text1, fontFamily: weight(700) }]}>
+                      {hide ? MASKED_AMOUNT : fmtK(d.amt, { withL: false })}
+                    </Text>
+                    <Text style={[styles.sourcePct, { color: t.text3 }]}>{d.pct}%</Text>
+                  </View>
+                </ListRow>
+              ))}
+            </ListCard>
+          </>
+        )}
+
+        {tab === 'expense' && (
+          <>
+            <GlassCard style={styles.sectionCard}>
+              <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                Total Expenses
+              </Text>
+              <Text style={[styles.totalValue, { color: t.red, fontFamily: weight(700) }]}>
+                {hide ? MASKED_AMOUNT : fmtKpi(overview.totalExpenses)}
+              </Text>
+              {expenseDelta !== null && (
+                <View style={styles.deltaRow}>
+                  <AppIcon
+                    value={expenseDelta >= 0 ? 'trendUp' : 'trendDown'}
+                    size={16}
+                    color={expenseDelta >= 0 ? t.red : t.em}
+                  />
+                  <Text style={[styles.totalDelta, { color: expenseDelta >= 0 ? t.red : t.em }]}>
+                    {Math.abs(expenseDelta).toFixed(1)}% over the period
+                  </Text>
+                </View>
+              )}
+            </GlassCard>
+
+            {/* animationDelay: .05s (MobileScreens.jsx:256) */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCardLast}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Top Categories
+                </Text>
+                {catData.map((d) => {
+                  const pct = d.pct;
+                  return (
+                    <View key={d.label} style={styles.topCatRow}>
+                      <View style={styles.topCatHeaderRow}>
+                        <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>
+                          {d.label}
+                        </Text>
+                        <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
+                          {hide ? MASKED_AMOUNT : `₹${d.value.toLocaleString('en-IN')}`}
+                        </Text>
+                      </View>
+                      <ProgressBar pct={pct} color={d.color} />
+                    </View>
+                  );
+                })}
+              </GlassCard>
+            </SpringIn>
+          </>
+        )}
+
+        {tab === 'savings' && (
+          <>
+            <GlassCard style={styles.sectionCard}>
+              <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>Savings Rate</Text>
+              <Text style={[styles.savingsRateValue, { color: t.em, fontFamily: weight(700) }]}>
+                {overview.savingsRate.toFixed(1)}%
+              </Text>
+              <Text style={[styles.savingsRateSub, { color: t.text2 }]}>
+                {hide
+                  ? `${MASKED_AMOUNT} saved over the period`
+                  : `${fmtKpi(Math.max(0, totalSaved))} saved over the period`}
+              </Text>
+              <View style={styles.sparklineBleedTop}>
+                <MSparkline data={sparkable(savingsSpark)} color="#7faf93" height={56} />
+              </View>
+            </GlassCard>
+
+            {/* animationDelay: .05s (MobileScreens.jsx:284) */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCardLast}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Goal Progress
+                </Text>
+                {goals.map((g) => {
+                  const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
+                  return (
+                    <View key={g.name} style={styles.topCatRow}>
+                      <View style={styles.topCatHeaderRow}>
+                        <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{g.name}</Text>
+                        <Text style={[styles.topCatValue, { color: g.color, fontFamily: weight(700) }]}>{pct}%</Text>
+                      </View>
+                      <ProgressBar pct={pct} color={g.color} />
+                    </View>
+                  );
+                })}
+              </GlassCard>
+            </SpringIn>
+          </>
+        )}
+
+        {tab === 'wealth' && (
+          <>
+            <GlassCard style={styles.sectionCard}>
+              <Text style={[styles.cardEyebrow, { color: t.text3, fontFamily: weight(600) }]}>
+                Total Net Worth
+              </Text>
+              <Text style={[styles.savingsRateValue, { color: t.text1, fontFamily: weight(700) }]}>
+                {hide ? MASKED_AMOUNT : netWorthDisplay}
+              </Text>
+              <View style={styles.deltaRow}>
+                <AppIcon
+                  value={nwTrend.deltaPct >= 0 ? 'trendUp' : 'trendDown'}
+                  size={16}
+                  color={nwTrend.deltaPct >= 0 ? t.em : t.red}
+                />
+                <Text style={[styles.totalDelta, { color: nwTrend.deltaPct >= 0 ? t.em : t.red }]}>
+                  {Math.abs(nwTrend.deltaPct).toFixed(1)}% over the period
+                </Text>
+              </View>
+              <View style={styles.sparklineBleedTop}>
+                <MSparkline data={sparkable(nwTrend.points)} color="#8197c4" height={64} />
+              </View>
+            </GlassCard>
+
+            {/* animationDelay: .05s (MobileScreens.jsx:314) */}
+            <SpringIn delay={50}>
+              <GlassCard style={styles.sectionCardLast}>
+                <Text style={[styles.cardEyebrow, styles.cardEyebrowMb, { color: t.text3, fontFamily: weight(600) }]}>
+                  Asset Allocation
+                </Text>
+                {allocation.map((d) => (
+                  <View key={d.n} style={styles.topCatRow}>
+                    <View style={styles.topCatHeaderRow}>
+                      <Text style={[styles.topCatLabel, { color: t.text1, fontFamily: weight(600) }]}>{d.n}</Text>
+                      <Text style={[styles.topCatValue, { color: t.text1, fontFamily: weight(700) }]}>
+                        {hide ? MASKED_AMOUNT : d.v} <Text style={[styles.topCatValueSub, { color: t.text3 }]}>· {d.pct}%</Text>
+                      </Text>
+                    </View>
+                    <ProgressBar pct={d.pct} color={d.c} />
+                  </View>
+                ))}
+              </GlassCard>
+            </SpringIn>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+  },
+  body: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+
+  // Sub-tabs (MobileScreens.jsx:115–123)
+  tabsWrap: {
+    flexShrink: 0,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+  },
+
+  // Period selector
+  periodWrap: {
+    marginBottom: spacing.md,
+  },
+  retryWrap: {
+    marginBottom: spacing.md,
+  },
+
+  // KPI strip (MobileScreens.jsx:137–156)
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  kpiCard: {
+    width: '48%',
+  },
+  kpiLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8, // 0.08em of 10px
+  },
+  kpiValue: {
+    fontSize: 20,
+    marginTop: spacing.xxs,
+  },
+  kpiDelta: {
+    fontSize: 10.5,
+    marginTop: spacing.xxs,
+  },
+
+  // Generic section card
+  sectionCard: {
+    marginBottom: spacing.md,
+  },
+  sectionCardLast: {},
+
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  cardEyebrow: {
+    fontSize: 10.5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.84, // 0.08em of 10.5px
+  },
+  cardEyebrowMb: {
+    marginBottom: spacing.md,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    marginTop: spacing.xxs,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 99,
+  },
+  legendText: {
+    fontSize: 10,
+  },
+
+  // Donut legend
+  donutLegend: {
+    flexDirection: 'column',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  donutLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  legendDot10: {
+    width: 10,
+    height: 10,
+    borderRadius: 99,
+  },
+  donutLegendLabel: {
+    fontSize: 13,
+    flex: 1,
+  },
+  donutLegendValue: {
+    fontSize: 13,
+  },
+  donutLegendPct: {
+    fontSize: 11,
+    minWidth: 32,
+    textAlign: 'right',
+  },
+
+  // Net worth trend
+  netWorthValue: {
+    fontSize: 22,
+    marginTop: spacing.xxs,
+  },
+  deltaBadge: {
+    fontSize: 11,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+    borderRadius: 99,
+  },
+  deltaBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  deltaBadgeText: {
+    fontSize: 11,
+  },
+  sparklineBleed: {
+    marginHorizontal: -8,
+  },
+  sparklineBleedTop: {
+    marginTop: spacing.sm,
+    marginHorizontal: -8,
+  },
+
+  // Income / Expense / Wealth totals
+  totalValue: {
+    fontSize: 30,
+    marginTop: spacing.xxs,
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    marginTop: spacing.xxs,
+  },
+  totalDelta: {
+    fontSize: 12,
+  },
+
+  // Income by-source list rows
+  sourceLeft: {
+    flex: 1,
+  },
+  sourceName: {
+    fontSize: 14,
+  },
+  sourceBarWrap: {
+    marginTop: spacing.xs,
+  },
+  sourceRight: {
+    alignItems: 'flex-end',
+  },
+  sourceAmt: {
+    fontSize: 14,
+  },
+  sourcePct: {
+    fontSize: 11,
+    marginTop: spacing.xxs,
+  },
+
+  // Event Budgets list rows
+  eventRowLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  eventRowText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  eventRowName: {
+    fontSize: 14,
+  },
+  eventRowBarWrap: {
+    marginTop: spacing.xs,
+  },
+  eventRowRight: {
+    alignItems: 'flex-end',
+    marginLeft: spacing.sm,
+  },
+  eventRowAmt: {
+    fontSize: 13,
+  },
+  eventRowStatus: {
+    fontSize: 11,
+    marginTop: spacing.xxs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+
+  // Top categories / goal progress / asset allocation rows
+  topCatRow: {
+    marginBottom: spacing.sm,
+  },
+  topCatHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xxs,
+  },
+  topCatLabel: {
+    fontSize: 13,
+  },
+  topCatValue: {
+    fontSize: 13,
+  },
+  topCatValueSub: {
+    fontWeight: '500',
+  },
+
+  // Savings rate
+  savingsRateValue: {
+    fontSize: 32,
+    marginTop: spacing.xxs,
+  },
+  savingsRateSub: {
+    fontSize: 12,
+    marginTop: spacing.xxs,
+  },
+});

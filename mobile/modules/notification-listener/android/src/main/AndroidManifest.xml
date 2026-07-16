@@ -1,0 +1,37 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- NOTE: android:exported="false" per spec. Some AGP versions require
+         android:exported="true" for a service declaring an intent-filter and
+         will fail the build with a manifest merger error if so. If that
+         happens, flip this to "true" — binding is still gated by the
+         system-only BIND_NOTIFICATION_LISTENER_SERVICE permission, so this
+         is safe either way. -->
+    <service
+      android:name="expo.modules.notificationlistener.RiddhiNotificationListenerService"
+      android:label="Riddhi notifications"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
+  </application>
+
+  <queries>
+    <package android:name="com.snapwork.hdfc" />
+    <package android:name="com.csam.icici.bank.imobile" />
+    <package android:name="com.sbi.lotusintouch" />
+    <package android:name="com.axis.mobile" />
+    <package android:name="com.msf.kbank.mobile" />
+    <package android:name="com.bankofbaroda.mconnect" />
+    <package android:name="com.google.android.apps.nbu.paisa.user" />
+    <package android:name="com.phonepe.app" />
+    <package android:name="net.one97.paytm" />
+    <package android:name="com.rapido.passenger" />
+    <package android:name="com.ubercab" />
+    <package android:name="in.swiggy.android" />
+    <package android:name="com.application.zomato" />
+    <package android:name="in.amazon.mShop.android.shopping" />
+    <package android:name="com.flipkart.android" />
+  </queries>
+</manifest>

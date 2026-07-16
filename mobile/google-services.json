@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "697520914850",
+    "project_id": "riddhi-b776e",
+    "storage_bucket": "riddhi-b776e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:697520914850:android:ad7130261b623baf8db2fb",
+        "android_client_info": {
+          "package_name": "com.ashutoshgairola.riddhi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPZrnYDAih2z5zo26QYyxGvE66BDQLilU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

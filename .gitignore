@@ -5,3 +5,8 @@ dist/
 build/
 *.log
 .superpowers/
+
+.claude/
+docs/
+project/
+logo/

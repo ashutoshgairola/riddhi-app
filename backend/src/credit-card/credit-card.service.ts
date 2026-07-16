@@ -1,0 +1,200 @@
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AccountsService } from '../accounts/accounts.service';
+import { TransactionsService } from '../transactions/transactions.service';
+import { CategoriesService } from '../categories/categories.service';
+import { Transaction } from '../transactions/transaction.entity';
+import { CreditCard } from './credit-card.entity';
+import { TransactionType, AccountType, PaymentMethod } from '../common/enums';
+import { computeCardSummary, CardTxn, CardLedgerTxn, CategoryMeta } from './card-summary';
+import { buildCardBillsDue, CardBillInput, CardBillDue } from './card-bills-due';
+import { Account } from '../accounts/account.entity';
+import { UpdateCardDto } from './dto/update-card.dto';
+import { PayCardDto } from './dto/pay-card.dto';
+
+@Injectable()
+export class CreditCardService {
+  constructor(
+    private readonly accountsService: AccountsService,
+    private readonly transactionsService: TransactionsService,
+    private readonly categoriesService: CategoriesService,
+    @InjectRepository(Transaction)
+    private readonly txRepo: Repository<Transaction>,
+    @InjectRepository(CreditCard)
+    private readonly cardRepo: Repository<CreditCard>,
+  ) {}
+
+  private async loadCard(accountId: string, userId: string): Promise<CreditCard> {
+    const card = await this.cardRepo.findOne({ where: { accountId, userId } });
+    if (!card) throw new NotFoundException('Credit card not found');
+    return card;
+  }
+
+  private async loadCardCycle(
+    accountId: string,
+    userId: string,
+  ): Promise<{ swipes: Transaction[]; paymentsIn: Transaction[]; txns: CardTxn[] }> {
+    const [swipes, paymentsIn] = await Promise.all([
+      this.txRepo.find({ where: { userId, accountId, type: TransactionType.EXPENSE } }),
+      this.txRepo.find({ where: { userId, destinationAccountId: accountId, type: TransactionType.TRANSFER } }),
+    ]);
+    const toCardTxn = (t: Transaction, isPaymentIn: boolean): CardTxn => ({
+      amount: Math.abs(t.amount),
+      date: new Date(t.date).toISOString(),
+      type: t.type as CardTxn['type'],
+      categoryId: t.categoryId,
+      isPaymentIn,
+    });
+    const txns: CardTxn[] = [
+      ...swipes.map((t) => toCardTxn(t, false)),
+      ...paymentsIn.map((t) => toCardTxn(t, true)),
+    ];
+    return { swipes, paymentsIn, txns };
+  }
+
+  async getSummary(accountId: string, userId: string) {
+    const account = await this.accountsService.findOne(accountId, userId);
+    if (account.type !== AccountType.CREDIT) {
+      throw new BadRequestException('Account is not a credit card');
+    }
+    const card = await this.loadCard(accountId, userId);
+
+    const { swipes, paymentsIn, txns } = await this.loadCardCycle(accountId, userId);
+
+    // Merged ledger for the "Card transactions" list: swipes are signed
+    // negative (a debit against the card), payments-in signed positive (a
+    // credit), newest first — so the mobile client can render both from a
+    // single list without re-querying the shared transactions repo (whose
+    // `accountId` filter can't see a payment, since its accountId is the
+    // *source* bank account, not the card).
+    const ledger: CardLedgerTxn[] = [
+      ...swipes.map((t) => ({
+        id: t.id,
+        description: t.description,
+        amount: -Math.abs(t.amount),
+        date: new Date(t.date).toISOString(),
+        categoryId: t.categoryId,
+        kind: 'swipe' as const,
+      })),
+      ...paymentsIn.map((t) => ({
+        id: t.id,
+        description: t.description,
+        amount: Math.abs(t.amount),
+        date: new Date(t.date).toISOString(),
+        categoryId: t.categoryId,
+        kind: 'payment' as const,
+      })),
+    ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+    const categoryList = await this.categoriesService.findAll(userId);
+    const categories = new Map<string, CategoryMeta>(
+      categoryList.map((c) => [c.id, { id: c.id, name: c.name, color: c.color }]),
+    );
+
+    const summary = computeCardSummary(
+      {
+        creditLimit: card.creditLimit,
+        statementDay: card.statementDay,
+        graceDays: card.graceDays,
+        statementDate: card.statementDate,
+        statementBilled: card.statementBilled,
+        statementMinDue: card.statementMinDue,
+        statementDueDate: card.statementDueDate,
+        statementRewards: card.statementRewards,
+      },
+      account.balance,
+      txns,
+      categories,
+      new Date(),
+    );
+
+    return {
+      creditLimit: card.creditLimit,
+      statementDay: card.statementDay,
+      graceDays: card.graceDays,
+      network: card.network,
+      last4: card.last4,
+      rewardRate: card.rewardRate,
+      ...summary,
+      transactions: ledger,
+      accountId,
+      name: account.name,
+      institutionName: account.institutionName,
+    };
+  }
+
+  /** Home "Bills due" widget: every credit account that still owes a statement
+   * bill, soonest-due first. Reuses the same per-card math as getSummary. */
+  async getBillsDue(userId: string): Promise<CardBillDue<Account>[]> {
+    const accounts = (await this.accountsService.findAll(userId)).filter(
+      (a) => a.type === AccountType.CREDIT,
+    );
+    const cards = await this.cardRepo.find({ where: { userId } });
+    const cardByAccount = new Map(cards.map((c) => [c.accountId, c]));
+
+    const inputs: CardBillInput<Account>[] = [];
+    for (const account of accounts) {
+      const card = cardByAccount.get(account.id);
+      if (!card) continue; // legacy credit account, not yet configured
+      const { txns } = await this.loadCardCycle(account.id, userId);
+      inputs.push({
+        account,
+        config: {
+          creditLimit: card.creditLimit,
+          statementDay: card.statementDay,
+          graceDays: card.graceDays,
+          statementDate: card.statementDate,
+          statementBilled: card.statementBilled,
+          statementMinDue: card.statementMinDue,
+          statementDueDate: card.statementDueDate,
+          statementRewards: card.statementRewards,
+        },
+        balance: account.balance,
+        txns,
+      });
+    }
+    return buildCardBillsDue(inputs, new Date());
+  }
+
+  async updateConfig(accountId: string, userId: string, dto: UpdateCardDto) {
+    let card = await this.cardRepo.findOne({ where: { accountId, userId } });
+    if (!card) {
+      // Legacy credit accounts (created before Slice B) have no credit_card
+      // row. Create one on first config-save (the mobile "Set up this card"
+      // empty state), guarded to the user's own CREDIT accounts. Column
+      // defaults mirror the create-on-account-create seed.
+      const account = await this.accountsService.findOne(accountId, userId);
+      if (account.type !== AccountType.CREDIT) {
+        throw new BadRequestException('Account is not a credit card');
+      }
+      card = this.cardRepo.create({ accountId, userId });
+    }
+    Object.assign(card, dto);
+    await this.cardRepo.save(card);
+    return this.getSummary(accountId, userId);
+  }
+
+  async pay(cardAccountId: string, userId: string, dto: PayCardDto) {
+    const card = await this.accountsService.findOne(cardAccountId, userId);
+    if (card.type !== AccountType.CREDIT) throw new BadRequestException('Not a credit card account');
+    const from = await this.accountsService.findOne(dto.fromAccountId, userId);
+    if (from.type === AccountType.CREDIT) {
+      throw new BadRequestException('Cannot pay a card bill from a credit card');
+    }
+    if (from.balance < dto.amount) throw new BadRequestException('Not enough balance in the source account');
+    const categories = await this.categoriesService.findAll(userId);
+    const category = categories.find((c) => c.name.toLowerCase() === 'other') ?? categories[0];
+    if (!category) throw new BadRequestException('No category available to record the payment');
+    return this.transactionsService.create(userId, {
+      date: new Date().toISOString(),
+      description: `${card.name} — bill paid`,
+      amount: dto.amount,
+      type: TransactionType.TRANSFER,
+      categoryId: category.id,
+      accountId: dto.fromAccountId,
+      destinationAccountId: cardAccountId,
+      paymentMethod: PaymentMethod.NETBANKING,
+    } as any);
+  }
+}

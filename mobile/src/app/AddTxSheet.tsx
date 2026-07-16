@@ -1,0 +1,717 @@
+/**
+ * AddTxSheet — quick-add transaction bottom sheet.
+ *
+ * Source of truth: project/riddhi/MobileApp.jsx:54–204 (`QA_CATS` +
+ * `AddTxSheet`).
+ *
+ * Type segment (expense/income/transfer) drives both the big amount
+ * display's accent color and the category chip set (`QA_CATS`). The
+ * numeric keypad's `press(k)` reducer (MobileApp.jsx:96–103) is ported
+ * verbatim — del trims one char, '.' is inserted at most once (and seeds a
+ * leading '0.' from empty), at most 2 digits after the decimal point, at
+ * most 8 digits total (decimal point excluded from the length count), and
+ * a leading lone '0' is replaced rather than appended to.
+ *
+ * Receipt attach uses `expo-image-picker`'s `launchImageLibraryAsync`
+ * (SDK 56 API) in place of the web's hidden `<input type=file>` +
+ * `URL.createObjectURL` (MobileApp.jsx:153–176) — picking an image stores
+ * its local `uri` and renders the same thumbnail-preview-with-remove-button
+ * card; RN has no object URLs, so the picker's returned `uri` is used
+ * directly as the `<Image source={{ uri }}>` source.
+ */
+import { useEffect, useRef, useState } from "react";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import Svg, { Line, Path } from "react-native-svg";
+import * as ImagePicker from "expo-image-picker";
+
+import { api } from "../api";
+import type { AccountView } from "../api/types";
+import { useApiData } from "../api/useApi";
+import { BottomSheet } from "../components/BottomSheet";
+import { AppIcon } from "../components/contentIcons";
+import { MSeg } from "../components/MSeg";
+import { Btn } from "../components/ui";
+import { MI } from "../components/icons";
+import { useFeedback } from "../feedback/FeedbackProvider";
+import { useTheme } from "../theme/ThemeProvider";
+import { radius, weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
+import { useNav } from "./navContext";
+
+/** No-accounts fallback for `useApiData` (kept as a stable module-level
+ * reference so the hook doesn't see a new array identity every render). */
+const EMPTY_ACCOUNTS: AccountView[] = [];
+
+/** Keypad "del" key icon — verbatim from MobileApp.jsx:192 (a delete-key
+ * glyph: rounded-left rect arrow + diagonal X), not in the shared `MI` set. */
+function DelIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line
+        x1="18"
+        y1="9"
+        x2="12"
+        y2="15"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line
+        x1="12"
+        y1="9"
+        x2="18"
+        y2="15"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+type TxType = "expense" | "income" | "transfer";
+
+interface QaCat {
+  l: string;
+  i: string;
+  c: string;
+}
+
+// QA_CATS (MobileApp.jsx:54–77).
+const QA_CATS: Record<TxType, QaCat[]> = {
+  expense: [
+    { l: "Food", i: "🍽", c: "#c9a86a" },
+    { l: "Transport", i: "🚗", c: "#9d8bd6" },
+    { l: "Shopping", i: "🛍", c: "#c97d8c" },
+    { l: "Groceries", i: "🛒", c: "#7faf93" },
+    { l: "Bills", i: "⚡", c: "#6fb3ad" },
+    { l: "Health", i: "💊", c: "#8197c4" },
+    { l: "Fun", i: "🎬", c: "#bd7ba0" },
+    { l: "Other", i: "•", c: "#8a8299" },
+  ],
+  income: [
+    { l: "Salary", i: "💼", c: "#7faf93" },
+    { l: "Freelance", i: "💻", c: "#8197c4" },
+    { l: "Refund", i: "↩", c: "#6fb3ad" },
+    { l: "Gift", i: "🎁", c: "#bd7ba0" },
+    { l: "Other", i: "•", c: "#8a8299" },
+  ],
+  transfer: [
+    { l: "Self", i: "🔄", c: "#8197c4" },
+    { l: "Savings", i: "🏦", c: "#7faf93" },
+    { l: "Invest", i: "▲", c: "#9d8bd6" },
+  ],
+};
+
+// keys (MobileApp.jsx:109).
+const KEYS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  ".",
+  "0",
+  "del",
+] as const;
+
+/** `press(k)` reducer, ported verbatim from MobileApp.jsx:96–103. */
+function press(a: string, k: string): string {
+  if (k === "del") return a.slice(0, -1);
+  if (k === ".") return a.includes(".") ? a : a === "" ? "0." : a + ".";
+  if (a.includes(".") && a.split(".")[1].length >= 2) return a; // max 2 decimals
+  if (a.replace(".", "").length >= 8) return a; // cap length
+  if (a === "0" && k !== ".") return k;
+  return a + k;
+}
+
+export function AddTxSheet() {
+  const { t } = useTheme();
+  const { addOpen, setAddOpen, addPrefill } = useNav();
+  const { toast } = useFeedback();
+
+  const [type, setType] = useState<TxType>("expense");
+  const [amount, setAmount] = useState("");
+  const [cat, setCat] = useState("Food");
+  const [note, setNote] = useState("");
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  // Account/card the spend was made from — defaults to the opener's prefill
+  // account (e.g. a transfer action) or, once loaded, the primary bank
+  // account. A credit-card selection tags the tx `paymentMethod: 'card'`; a
+  // bank account tags it `'upi'`.
+  const [accountId, setAccountId] = useState<string | undefined>(
+    addPrefill?.accountId,
+  );
+  const { data: accounts } = useApiData(
+    () => api.accounts.list(),
+    EMPTY_ACCOUNTS,
+  );
+  const selectedAccount = accounts.find((a) => String(a.id) === accountId);
+  // Set true right before a programmatic type change (prefill / receipt scan)
+  // so the "reset category on type change" effect doesn't clobber the seeded
+  // category. Only user-driven type switches should reset the category.
+  const skipCatReset = useRef(false);
+
+  // typeColor (MobileApp.jsx:86).
+  const typeColor: Record<TxType, string> = {
+    income: t.em,
+    expense: t.text1,
+    transfer: t.blue,
+  };
+
+  /** Sets type + category together without triggering a category reset. */
+  const applyTypeAndCat = (nextType: TxType, nextCat: string) => {
+    if (nextType !== type) skipCatReset.current = true;
+    setType(nextType);
+    setCat(nextCat);
+  };
+
+  /** Best-effort match of a free-text category to one of the type's chips. */
+  const matchChip = (
+    txType: TxType,
+    label?: string | null,
+  ): string | undefined =>
+    label
+      ? QA_CATS[txType].find((c) => c.l.toLowerCase() === label.toLowerCase())
+          ?.l
+      : undefined;
+
+  // Reset amount/note/receipt on open (MobileApp.jsx:88–90), and seed type /
+  // amount / note / category from any prefill (transfer action, scanned
+  // receipt). Deliberately NOT depending on `accounts`: `useApiData` hands
+  // back a new array reference on every `bumpData()` (i.e. any unrelated
+  // mutation anywhere in the app), and if this effect re-ran on that it
+  // would reset the whole in-progress form — amount, note, receipt, type,
+  // cat — out from under the user while the sheet is open. Account
+  // selection here only ever applies the prefill's account (or clears it);
+  // defaulting to the primary account once `accounts` loads is the sibling
+  // effect below.
+  useEffect(() => {
+    if (!addOpen) return;
+    setReceipt(null);
+    setAmount(addPrefill?.amount ? String(addPrefill.amount) : "");
+    setNote(addPrefill?.desc ?? "");
+    setAccountId(
+      addPrefill?.accountId != null ? String(addPrefill.accountId) : undefined,
+    );
+    const nextType = addPrefill?.type ?? "expense";
+    applyTypeAndCat(
+      nextType,
+      matchChip(nextType, addPrefill?.category) ?? QA_CATS[nextType][0].l,
+    );
+  }, [addOpen, addPrefill]);
+
+  // Default to the primary (non-credit) account once `accounts` has loaded,
+  // but only when nothing else has already claimed `accountId`. The
+  // `addPrefill?.accountId != null` guard is what prevents the original
+  // race: without it, this effect could see a stale (pre-prefill) `accountId`
+  // in the same commit as the open-reset effect above and clobber the
+  // prefilled account, since sibling effects can't observe each other's
+  // setState within a single commit. Once `accountId` is set, this effect
+  // early-returns on every later `accounts` refetch, so it never resets the
+  // form the way the merged effect used to.
+  useEffect(() => {
+    if (
+      !addOpen ||
+      accountId ||
+      addPrefill?.accountId != null ||
+      accounts.length === 0
+    ) {
+      return;
+    }
+    const primary = accounts.find((a) => a.type !== "credit") ?? accounts[0];
+    setAccountId(String(primary.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addOpen, accountId, accounts]);
+
+  // Reset cat to the new type's first category (MobileApp.jsx:92–94), except
+  // when the type change was a programmatic seed.
+  useEffect(() => {
+    if (skipCatReset.current) {
+      skipCatReset.current = false;
+      return;
+    }
+    setCat(QA_CATS[type][0].l);
+  }, [type]);
+
+  const onClose = () => setAddOpen(false);
+  const cats = QA_CATS[type];
+  const accent = typeColor[type];
+
+  const pickReceipt = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: false,
+      quality: 0.7,
+      base64: true,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+    const asset = result.assets[0];
+    setReceipt(asset.uri);
+    if (!asset.base64) return;
+
+    // Read the receipt via the backend vision model and prefill the fields.
+    setScanning(true);
+    try {
+      const allowed = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ] as const;
+      const mime = (allowed as readonly string[]).includes(asset.mimeType ?? "")
+        ? (asset.mimeType as (typeof allowed)[number])
+        : "image/jpeg";
+      const scanned = await api.receipts.scan(asset.base64, mime);
+      if (scanned.amount) {
+        const nextType: TxType =
+          scanned.type === "income" ? "income" : "expense";
+        setAmount(String(scanned.amount));
+        if (scanned.merchant) setNote(scanned.merchant);
+        applyTypeAndCat(
+          nextType,
+          matchChip(nextType, scanned.category) ?? QA_CATS[nextType][0].l,
+        );
+        toast("Receipt read — check the details", "🧾");
+      } else {
+        toast("Couldn't read that receipt — enter it manually", "⚠️");
+      }
+    } catch {
+      toast("Couldn't read that receipt — enter it manually", "📡");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const saveLabel =
+    type === "income" ? "income" : type === "transfer" ? "transfer" : "expense";
+
+  const save = async () => {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0 || saving) return;
+    setSaving(true);
+    try {
+      // Transfers are stored as expenses under their transfer category
+      // (Self/Savings/Invest) — the backend's `transfer` type needs a
+      // counter-account picker this quick-add sheet doesn't have.
+      await api.transactions.create({
+        desc: note.trim() || cat,
+        amount: value,
+        type: type === "income" ? "inc" : "exp",
+        categoryName: cat,
+        note: note.trim() || undefined,
+        // Link to the picked account/card; a credit card tags the spend
+        // 'card', a bank account 'upi' (the backend also derives this from
+        // the account, so this just keeps the optimistic view correct).
+        accountId,
+        paymentMethod:
+          selectedAccount?.type === "credit"
+            ? "card"
+            : accountId
+              ? "upi"
+              : undefined,
+      });
+      toast(`Saved ${saveLabel} · ₹${value.toLocaleString("en-IN")}`, "✓");
+      setAddOpen(false);
+    } catch {
+      toast("Couldn't save — try again", "📡");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet open={addOpen} onClose={onClose} title="Add">
+      {/* type segment */}
+      <View style={styles.segWrap}>
+        <MSeg<TxType>
+          options={[
+            { value: "expense", label: "Expense" },
+            { value: "income", label: "Income" },
+            { value: "transfer", label: "Transfer" },
+          ]}
+          value={type}
+          onChange={setType}
+        />
+      </View>
+
+      {/* amount display */}
+      <View style={styles.amountWrap}>
+        <Text
+          style={[
+            styles.amountSymbol,
+            { color: t.text3, fontFamily: weight(600) },
+          ]}
+        >
+          ₹
+        </Text>
+        <Text
+          style={[
+            styles.amountValue,
+            {
+              color: amount === "" ? t.text3 : accent,
+              fontFamily: weight(700),
+            },
+          ]}
+        >
+          {amount === ""
+            ? "0"
+            : Number(amount).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}
+        </Text>
+      </View>
+
+      {/* category chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsRow}
+      >
+        {cats.map((c) => {
+          const on = c.l === cat;
+          return (
+            <Pressable
+              key={c.l}
+              onPress={() => setCat(c.l)}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: on ? `${c.c}22` : t.bg2,
+                  borderColor: on ? c.c : t.border,
+                },
+              ]}
+            >
+              <AppIcon value={c.i} size={16} color={c.c} />
+              <Text
+                style={[
+                  styles.chipLabel,
+                  { color: on ? c.c : t.text2, fontFamily: weight(600) },
+                ]}
+              >
+                {c.l}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* account/card picker */}
+      {accounts.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.acctRow}
+        >
+          {accounts.map((a) => {
+            const on = String(a.id) === accountId;
+            return (
+              <Pressable
+                key={String(a.id)}
+                onPress={() => setAccountId(String(a.id))}
+                style={[
+                  styles.acctChip,
+                  {
+                    backgroundColor: on ? `${t.blue}22` : t.bg2,
+                    borderColor: on ? t.blue : t.border,
+                  },
+                ]}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.acctName,
+                    { color: on ? t.blue : t.text1, fontFamily: weight(600) },
+                  ]}
+                >
+                  {a.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.acctType,
+                    { color: on ? t.blue : t.text3, fontFamily: weight(500) },
+                  ]}
+                >
+                  {a.sub}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      {/* note */}
+      <TextInput
+        value={note}
+        onChangeText={setNote}
+        placeholder="Add a note (optional)"
+        placeholderTextColor={t.text3}
+        style={[
+          styles.noteInput,
+          {
+            backgroundColor: t.bg2,
+            borderColor: t.border,
+            color: t.text1,
+            fontFamily: weight(500),
+          },
+        ]}
+      />
+
+      {/* receipt attachment */}
+      {receipt ? (
+        <View
+          style={[
+            styles.receiptCard,
+            { backgroundColor: t.bg2, borderColor: t.border },
+          ]}
+        >
+          <Image source={{ uri: receipt }} style={styles.receiptThumb} />
+          <View style={styles.receiptText}>
+            <Text
+              style={[
+                styles.receiptTitle,
+                { color: t.text1, fontFamily: weight(600) },
+              ]}
+            >
+              Receipt attached
+            </Text>
+            <Text
+              style={[
+                styles.receiptSubtitle,
+                { color: t.em, fontFamily: weight(500) },
+              ]}
+            >
+              {scanning
+                ? "Reading the amount & merchant…"
+                : "Munshi ji read the amount & merchant"}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setReceipt(null)}
+            style={[
+              styles.receiptRemove,
+              { backgroundColor: t.glassBg, borderColor: t.glassBrd },
+            ]}
+          >
+            <MI.close size={16} color={t.text1} />
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={pickReceipt}
+          style={[styles.attachBtn, { borderColor: t.borderStr }]}
+        >
+          <MI.camera size={16} color={t.text2} />
+          <Text
+            style={[
+              styles.attachLabel,
+              { color: t.text2, fontFamily: weight(600) },
+            ]}
+          >
+            Attach bill or screenshot
+          </Text>
+        </Pressable>
+      )}
+
+      {/* keypad */}
+      <View style={styles.keypad}>
+        {KEYS.map((k) => (
+          <Pressable
+            key={k}
+            onPress={() => setAmount((a) => press(a, k))}
+            style={({ pressed }) => [
+              styles.key,
+              { backgroundColor: pressed ? t.bg3 : t.bg2 },
+            ]}
+          >
+            {k === "del" ? (
+              <DelIcon color={t.text1} />
+            ) : (
+              <Text
+                style={[
+                  styles.keyLabel,
+                  { color: t.text1, fontFamily: weight(600) },
+                ]}
+              >
+                {k}
+              </Text>
+            )}
+          </Pressable>
+        ))}
+      </View>
+
+      {/* save */}
+      <Btn
+        variant="em"
+        onPress={() => void save()}
+        disabled={amount === "" || saving}
+        style={styles.saveBtn}
+      >
+        {saving ? "Saving…" : `Save ${saveLabel}`}
+      </Btn>
+    </BottomSheet>
+  );
+}
+
+const styles = StyleSheet.create({
+  segWrap: {
+    marginBottom: spacing.lg,
+  },
+  amountWrap: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: spacing.xxs,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.md,
+  },
+  amountSymbol: {
+    fontSize: 26,
+  },
+  amountValue: {
+    fontSize: 52,
+    letterSpacing: -1.56, // -0.03em of 52px
+    lineHeight: 56,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 99,
+    borderWidth: 1,
+  },
+  chipLabel: {
+    fontSize: 13,
+  },
+  acctRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
+    marginTop: spacing.md,
+  },
+  acctChip: {
+    minWidth: 96,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  acctName: {
+    fontSize: 13,
+  },
+  acctType: {
+    fontSize: 11,
+    marginTop: spacing.xxs,
+  },
+  noteInput: {
+    marginTop: spacing.md,
+    height: 46,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    fontSize: 14,
+  },
+  receiptCard: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 13,
+  },
+  receiptThumb: {
+    width: 42,
+    height: 42,
+    borderRadius: 9,
+  },
+  receiptText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  receiptTitle: {
+    fontSize: 13,
+  },
+  receiptSubtitle: {
+    fontSize: 11,
+    marginTop: spacing.xxs,
+  },
+  receiptRemove: {
+    width: 30,
+    height: 30,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachBtn: {
+    marginTop: spacing.md,
+    width: "100%",
+    paddingVertical: spacing.sm,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  attachLabel: {
+    fontSize: 13,
+  },
+  keypad: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xxs,
+    marginTop: spacing.md,
+  },
+  key: {
+    width: "32%",
+    height: 54,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  keyLabel: {
+    fontSize: 22,
+  },
+  saveBtn: {
+    marginTop: spacing.md,
+    height: 54,
+  },
+});

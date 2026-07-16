@@ -1,0 +1,856 @@
+/**
+ * Settings — RN port of `project/riddhi/MobileScreens.jsx` (the
+ * `MobileSettings` component, lines 540–665).
+ *
+ * Building blocks reused rather than reimplemented:
+ *  - `MPageShell` for the `.m-page`/`.m-topbar`(back+title)/`.m-body`
+ *    scaffold.
+ *  - `GlassCard` for the profile card (`.m-card`, MobileScreens.jsx:587).
+ *  - `IconButton` for the profile edit button.
+ *  - `MSeg` for the Theme row's light/dark segmented control
+ *    (MobileScreens.jsx:599).
+ *  - `Toggle` (src/components/ui.tsx — already a 1:1 port of the source's
+ *    inline `Toggle`, MobileScreens.jsx:552–563) for Hide balances /
+ *    Biometric login / Push notifications.
+ *  - `ListCard`/`ListRow` for each `.m-list-card` section
+ *    (MobileScreens.jsx:565–581's local `Section`/`Row` helpers).
+ *  - `SectionHead` for each section title.
+ *  - `MI.arrow` for the row chevron (source's `Row`'s default `right`,
+ *    MobileScreens.jsx:579).
+ *  - `useTheme()` for the **live** theme switch: the Theme row's `MSeg`
+ *    `onChange` calls `setMode` directly — `ThemeProvider` (src/theme/
+ *    ThemeProvider.tsx) re-themes the whole app and persists to
+ *    AsyncStorage on every `setMode` call, mirroring the source's
+ *    `document.documentElement.setAttribute` + `localStorage.setItem`
+ *    (MobileScreens.jsx:545–549). No local theme state is kept here.
+ *  - `useNav().pop`/`.nav` for the back button and "Sync accounts" row
+ *    (MobileScreens.jsx:642 — `window.RiddhiApp?.nav('sync')`).
+ *  - `useFeedback().toast`/`.sheet` for every action (Language/Currency/
+ *    Date format/Active sessions/Export data/Delete account/Sign out
+ *    sheets; all other rows toast directly).
+ *
+ * Source values transcribed verbatim:
+ *  - Profile: "Riddhi Desai" / "riddhi@example.com" / "PRO MEMBER" badge,
+ *    "RD" gradient avatar — MobileScreens.jsx:588–594.
+ *  - All row icons/colors/titles/subs and sheet option labels —
+ *    MobileScreens.jsx:597–661.
+ *  - Local toggle state (`hideBalances` off, `biometric` on, `notifsAll`
+ *    on) — MobileScreens.jsx:541–543.
+ */
+import { useEffect, useState } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import * as WebBrowser from "expo-web-browser";
+import * as LocalAuthentication from "expo-local-authentication";
+
+import { api } from "../api";
+import { useAuth } from "../auth/AuthProvider";
+import { useBiometricLabel } from "../auth/biometricLabel";
+import {
+  getBiometricEnabled,
+  hasPin,
+  isValidPinLength,
+  PIN_MAX_LENGTH,
+  PIN_MIN_LENGTH,
+  savePin,
+  setBiometricEnabled,
+  verifyPin,
+} from "../auth/tokenStore";
+import { AppIcon } from "../components/contentIcons";
+import { GlassCard } from "../components/Glass";
+import { MI } from "../components/icons";
+import { MSeg } from "../components/MSeg";
+import {
+  IconButton,
+  ListCard,
+  ListRow,
+  SearchButton,
+  SectionHead,
+  Toggle,
+} from "../components/ui";
+import { useFeedback } from "../feedback/FeedbackProvider";
+import { shareTxCsv } from "../lib/exportCsv";
+import { usePrefs } from "../prefs/PrefsProvider";
+import { useNav, type ScreenEntry } from "../app/navContext";
+import { useTheme } from "../theme/ThemeProvider";
+import { weight } from "../theme/tokens";
+import { spacing } from "../theme/spacing";
+import { BackendUrlCard } from "./BackendUrlCard";
+import { MPageShell } from "./_MPageShell";
+
+// ── Preference option sets ──────────────────────────────────────────
+const LANGUAGES = [
+  { code: "en", label: "English (India)" },
+  { code: "hi", label: "हिन्दी Hindi" },
+  { code: "gu", label: "ગુજરાતી Gujarati" },
+  { code: "kn", label: "ಕನ್ನಡ Kannada" },
+] as const;
+
+const CURRENCIES = [
+  { code: "INR", label: "₹ Indian Rupee (INR)", sub: "INR · Indian Rupee" },
+  { code: "USD", label: "$ US Dollar (USD)", sub: "USD · US Dollar" },
+  { code: "EUR", label: "€ Euro (EUR)", sub: "EUR · Euro" },
+  { code: "GBP", label: "£ Pound (GBP)", sub: "GBP · British Pound" },
+] as const;
+
+const DATE_FORMATS = ["DD MMM YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] as const;
+
+// Product/legal pages opened in the in-app browser.
+const HELP_URL = "https://riddhi.app/help";
+const PRIVACY_URL = "https://riddhi.app/privacy";
+const TERMS_URL = "https://riddhi.app/terms";
+
+// App version from app.json (single source of truth for the About row).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const appVersion: string = (
+  require("../../app.json") as { expo: { version: string } }
+).expo.version;
+
+// ── Row ─────────────────────────────────────────────────────────────
+// MobileScreens.jsx:572–581 (local `Row` helper) — icon box + title/sub +
+// right slot (defaulting to the `MI.arrow` chevron).
+interface RowProps {
+  icon: string | number;
+  color: string;
+  title: string;
+  sub?: string;
+  right?: React.ReactNode;
+  onPress?: () => void;
+  last?: boolean;
+}
+
+function Row({ icon, color, title, sub, right, onPress, last }: RowProps) {
+  const { t } = useTheme();
+
+  return (
+    <ListRow onPress={onPress} last={last}>
+      <View style={[styles.iconBox, { backgroundColor: color + "22" }]}>
+        {typeof icon === "number" ? (
+          <Image source={icon} style={styles.iconImage} />
+        ) : (
+          <AppIcon value={icon} size={20} color={color} />
+        )}
+      </View>
+      <View style={styles.textBlock}>
+        <Text
+          style={[styles.title, { color: t.text1, fontFamily: weight(600) }]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+        {sub ? (
+          <Text style={[styles.sub, { color: t.text3 }]} numberOfLines={1}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      {right !== undefined ? right : <MI.arrow size={18} color={t.text3} />}
+    </ListRow>
+  );
+}
+
+export function Settings({ entry: _entry }: { entry: ScreenEntry }) {
+  const { t, mode, setMode } = useTheme();
+  const { pop, nav } = useNav();
+  const { toast, sheet, form } = useFeedback();
+  const { user, updateProfile, logout } = useAuth();
+  const { prefs, set: setPrefs } = usePrefs();
+  const bioLabel = useBiometricLabel();
+  // Show the biometric row whenever the device has the hardware. Enrollment
+  // is checked at enable time (below) so a user who hasn't set up their face/
+  // fingerprint still sees the setting and gets told how to fix it, rather
+  // than the toggle silently vanishing.
+  const [bioAvailable, setBioAvailable] = useState(false);
+  // Reflect the *device-local* lock state (what actually enforces the lock),
+  // not the synced `biometricEnabled` account preference — the two diverge on
+  // a fresh install, and showing the pref would falsely claim the lock is on.
+  const [bioOn, setBioOn] = useState(false);
+  const [pinSet, setPinSet] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [hw, bio, pin] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        getBiometricEnabled(),
+        hasPin(),
+      ]);
+      if (cancelled) return;
+      setBioAvailable(hw);
+      setBioOn(bio);
+      setPinSet(pin);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const displayName = user?.name ?? "Riddhi Desai";
+  const email = user?.email ?? "riddhi@example.com";
+  const initials = displayName
+    .split(/\s+/)
+    .map((w) => w.charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  // Theme row — live app-wide switch (MobileScreens.jsx:545–549's setTheme,
+  // minus the DOM/localStorage calls which ThemeProvider.setMode already
+  // performs via AsyncStorage on every call).
+  const handleThemeChange = (v: "light" | "dark") => {
+    setMode(v);
+    toast(
+      v === "light" ? "Light mode on" : "Dark mode on",
+      v === "light" ? "☀️" : "🌙",
+    );
+  };
+
+  const setPref = (
+    patch: Parameters<typeof setPrefs>[0],
+    msg: string,
+    icon?: string,
+  ) => {
+    setPrefs(patch)
+      .then(() => toast(msg, icon))
+      .catch(() => toast("Couldn't save that setting", "📡"));
+  };
+
+  const editProfile = () => {
+    form({
+      title: "Edit profile",
+      fields: [{ key: "name", label: "Name", initial: displayName }],
+      submitLabel: "Save",
+      onSubmit: async (v) => {
+        await updateProfile(v["name"]!);
+        toast("Profile updated", "✏️");
+      },
+    });
+  };
+
+  // Enable biometric only once a PIN exists — biometric may never be the sole
+  // unlock factor (spec: PIN Required With Biometric).
+  const enableBiometric = () => {
+    void setBiometricEnabled(true).then(() => {
+      setBioOn(true);
+      setPref({ biometricEnabled: true }, `${bioLabel} unlock on`, "🔒");
+    });
+  };
+
+  const promptSetPinThenEnable = () => {
+    form({
+      title: "Set a backup PIN",
+      fields: [
+        {
+          key: "pin",
+          label: "New PIN (4–6 digits)",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
+        {
+          key: "confirm",
+          label: "Confirm new PIN",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
+      ],
+      submitLabel: "Set PIN & enable",
+      onSubmit: async (v) => {
+        if (!isValidPinLength(v["pin"] ?? ""))
+          throw new Error(`PIN must be ${PIN_MIN_LENGTH}–${PIN_MAX_LENGTH} digits`);
+        if (v["pin"] !== v["confirm"]) throw new Error("PINs don't match");
+        await savePin(v["pin"]!);
+        setPinSet(true);
+        enableBiometric();
+        toast("Backup PIN set — app lock is on", "🔒");
+      },
+    });
+  };
+
+  const toggleBiometric = async (v: boolean) => {
+    if (!v) {
+      await setBiometricEnabled(false);
+      setBioOn(false);
+      setPref({ biometricEnabled: false }, `${bioLabel} unlock off`, "🔒");
+      return;
+    }
+    // Needs an enrolled face/fingerprint before it can be an unlock method.
+    if (!(await LocalAuthentication.isEnrolledAsync())) {
+      toast(`Set up ${bioLabel} in your device settings first`, "🔒");
+      return;
+    }
+    // Prove the biometric works before trusting it as an unlock method,
+    // mirroring the onboarding Secure step.
+    const auth = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Confirm to enable app lock",
+    });
+    if (!auth.success) {
+      toast(`${bioLabel} check failed`, "⚠️");
+      return;
+    }
+    // Biometric can't stand alone — require a backup PIN first if none exists.
+    if (!(await hasPin())) {
+      promptSetPinThenEnable();
+      return;
+    }
+    enableBiometric();
+  };
+
+  const changePin = async () => {
+    const exists = await hasPin();
+    const currentField = {
+      key: "current",
+      label: "Current PIN",
+      secureTextEntry: true,
+      keyboardType: "number-pad",
+      maxLength: PIN_MAX_LENGTH,
+    } as const;
+    form({
+      title: exists ? "Change PIN" : "Set PIN",
+      fields: [
+        ...(exists ? [currentField] : []),
+        {
+          key: "pin",
+          label: "New PIN (4–6 digits)",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
+        {
+          key: "confirm",
+          label: "Confirm new PIN",
+          secureTextEntry: true,
+          keyboardType: "number-pad",
+          maxLength: PIN_MAX_LENGTH,
+        },
+      ],
+      submitLabel: exists ? "Change PIN" : "Set PIN",
+      onSubmit: async (v) => {
+        if (exists && !(await verifyPin(v["current"] ?? ""))) {
+          throw new Error("Current PIN is incorrect");
+        }
+        if (!isValidPinLength(v["pin"] ?? ""))
+          throw new Error(`PIN must be ${PIN_MIN_LENGTH}–${PIN_MAX_LENGTH} digits`);
+        if (v["pin"] !== v["confirm"]) throw new Error("PINs don't match");
+        await savePin(v["pin"]!);
+        setPinSet(true);
+        toast(exists ? "PIN updated" : "App lock is on for this device", "🔑");
+      },
+    });
+  };
+
+  const exportCsv = async () => {
+    try {
+      await shareTxCsv("all");
+    } catch {
+      toast("Couldn't export data", "📡");
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      await api.users.deleteAccount();
+    } catch {
+      toast("Couldn't delete the account — try again", "📡");
+      return;
+    }
+    toast("Account deleted");
+    await logout();
+  };
+
+  const currencySub =
+    CURRENCIES.find((c) => c.code === prefs.currency)?.sub ?? prefs.currency;
+  const languageSub =
+    LANGUAGES.find((l) => l.code === prefs.language)?.label ?? prefs.language;
+
+  return (
+    <MPageShell title="Settings" onBack={pop} right={<SearchButton />}>
+      {/* Profile card (MobileScreens.jsx:587–595) */}
+      <GlassCard
+        style={styles.profileCard}
+        contentStyle={styles.profileCardContent}
+      >
+        <LinearGradient
+          colors={[t.em, "#9d8bd6"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.avatar}
+        >
+          <Text style={styles.avatarText}>{initials}</Text>
+        </LinearGradient>
+        <View style={styles.profileInfo}>
+          <Text
+            style={[
+              styles.profileName,
+              { color: t.text1, fontFamily: weight(700) },
+            ]}
+          >
+            {displayName}
+          </Text>
+          <Text style={[styles.profileEmail, { color: t.text3 }]}>{email}</Text>
+        </View>
+        <IconButton onPress={editProfile}>
+          <MI.arrow size={18} color={t.text1} />
+        </IconButton>
+      </GlassCard>
+
+      {/* Preferences (MobileScreens.jsx:597–618) */}
+      <View style={styles.section}>
+        <SectionHead title="Preferences" />
+        <ListCard>
+          <Row
+            icon="🌙"
+            color={t.violet}
+            title="Theme"
+            sub={mode === "light" ? "Light mode" : "Dark mode"}
+            right={
+              <MSeg<"light" | "dark">
+                options={[
+                  { value: "light", label: "☀" },
+                  { value: "dark", label: "☾" },
+                ]}
+                value={mode}
+                onChange={handleThemeChange}
+                // Inline in a list row — stretching would balloon the
+                // control across the row and crush the "Theme" label.
+                stretch={false}
+              />
+            }
+          />
+          <Row
+            icon="🌐"
+            color={t.blue}
+            title="Language"
+            sub={languageSub}
+            onPress={() =>
+              sheet({
+                title: "Language",
+                options: LANGUAGES.map((l) => ({
+                  label: l.label,
+                  onPress: () =>
+                    setPref({ language: l.code }, `Language: ${l.label}`, "🌐"),
+                })),
+              })
+            }
+          />
+          <Row
+            icon="coins"
+            color={t.em}
+            title="Currency"
+            sub={currencySub}
+            onPress={() =>
+              sheet({
+                title: "Currency",
+                options: CURRENCIES.map((c) => ({
+                  label: c.label,
+                  onPress: () =>
+                    setPref({ currency: c.code }, `Currency: ${c.code}`, "💱"),
+                })),
+              })
+            }
+          />
+          <Row
+            icon="📅"
+            color={t.amber}
+            title="Date format"
+            sub={prefs.dateFormat}
+            last
+            onPress={() =>
+              sheet({
+                title: "Date format",
+                options: DATE_FORMATS.map((f) => ({
+                  label: f,
+                  onPress: () =>
+                    setPref({ dateFormat: f }, `Date format: ${f}`, "📅"),
+                })),
+              })
+            }
+          />
+        </ListCard>
+      </View>
+
+      {/* Privacy & Security (MobileScreens.jsx:620–628) */}
+      <View style={styles.section}>
+        <SectionHead title="Privacy & Security" />
+        <ListCard>
+          <Row
+            icon="👁"
+            color={t.blue}
+            title="Hide balances"
+            sub="Mask amounts across the app"
+            right={
+              <Toggle
+                on={prefs.hideBalances}
+                onChange={(v) =>
+                  setPref(
+                    { hideBalances: v },
+                    v ? "Balances hidden" : "Balances visible",
+                    "👁",
+                  )
+                }
+              />
+            }
+          />
+          {bioAvailable ? (
+            <Row
+              icon="🔒"
+              color={t.red}
+              title="Biometric login"
+              sub={bioOn ? `${bioLabel} enabled` : `${bioLabel} off`}
+              right={
+                <Toggle on={bioOn} onChange={(v) => void toggleBiometric(v)} />
+              }
+            />
+          ) : null}
+          <Row
+            icon="🔑"
+            color={t.amber}
+            title={pinSet ? "Change PIN" : "Set PIN"}
+            sub={
+              pinSet
+                ? undefined
+                : bioOn
+                  ? "Required — biometric needs a backup PIN"
+                  : "No PIN set on this device"
+            }
+            last
+            onPress={() => void changePin()}
+          />
+        </ListCard>
+      </View>
+
+      {/* Notifications (MobileScreens.jsx:630–635) */}
+      <View style={styles.section}>
+        <SectionHead title="Notifications" />
+        <ListCard>
+          <Row
+            icon="🔔"
+            color={t.em}
+            title="Push notifications"
+            right={
+              <Toggle
+                on={prefs.notificationsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { notificationsEnabled: v },
+                    v ? "Notifications on" : "Notifications off",
+                    "🔔",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon="📊"
+            color={t.blue}
+            title="Budget alerts"
+            sub="At 75% & 100%"
+            right={
+              <Toggle
+                on={prefs.budgetAlertsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { budgetAlertsEnabled: v },
+                    v ? "Budget alerts on" : "Budget alerts off",
+                    "📊",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon="🎯"
+            color={t.violet}
+            title="Goal milestones"
+            right={
+              <Toggle
+                on={prefs.goalMilestonesEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { goalMilestonesEnabled: v },
+                    v ? "Milestone alerts on" : "Milestone alerts off",
+                    "🎯",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon="💰"
+            color={t.amber}
+            title="Large transactions"
+            sub="> ₹10,000"
+            right={
+              <Toggle
+                on={prefs.largeTxAlertsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { largeTxAlertsEnabled: v },
+                    v
+                      ? "Large-transaction alerts on"
+                      : "Large-transaction alerts off",
+                    "💰",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon={require("../../assets/munshi.png")}
+            color={t.em}
+            title="Munshi ji suggestions"
+            sub="Daily AI nudge when noteworthy"
+            right={
+              <Toggle
+                on={prefs.munshiSuggestionsEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { munshiSuggestionsEnabled: v },
+                    v
+                      ? "Munshi ji suggestions on"
+                      : "Munshi ji suggestions off",
+                    "🧮",
+                  )
+                }
+              />
+            }
+          />
+          <Row
+            icon="📅"
+            color={t.blue}
+            title="Monthly report"
+            sub="On the 1st of each month"
+            last
+            right={
+              <Toggle
+                on={prefs.monthlyReportEnabled}
+                onChange={(v) =>
+                  setPref(
+                    { monthlyReportEnabled: v },
+                    v ? "Monthly report on" : "Monthly report off",
+                    "📅",
+                  )
+                }
+              />
+            }
+          />
+        </ListCard>
+      </View>
+
+      {/* Data (MobileScreens.jsx:637–647) */}
+      <View style={styles.section}>
+        <SectionHead title="Data" />
+        <ListCard>
+          <Row
+            icon="📤"
+            color={t.blue}
+            title="Export data"
+            sub="Share as CSV"
+            onPress={() =>
+              sheet({
+                title: "Export data",
+                options: [
+                  {
+                    label: "Export as CSV",
+                    icon: "📄",
+                    onPress: () => void exportCsv(),
+                  },
+                ],
+              })
+            }
+          />
+          <Row
+            icon="🔄"
+            color={t.em}
+            title="Sync accounts"
+            sub="Last sync 2m ago"
+            onPress={() => nav("sync")}
+          />
+          <Row
+            icon="🗑"
+            color={t.red}
+            title="Delete account"
+            last
+            onPress={() =>
+              sheet({
+                title: "Delete account? This permanently erases all your data.",
+                options: [
+                  {
+                    label: "Yes, delete everything",
+                    icon: "🗑",
+                    danger: true,
+                    onPress: () => void deleteAccount(),
+                  },
+                  { label: "Cancel", onPress: () => {} },
+                ],
+              })
+            }
+          />
+        </ListCard>
+      </View>
+
+      {/* About (MobileScreens.jsx:649–654) */}
+      <View style={styles.section}>
+        <SectionHead title="About" />
+        <ListCard>
+          <Row
+            icon="❓"
+            color={t.blue}
+            title="Help center"
+            onPress={() => void WebBrowser.openBrowserAsync(HELP_URL)}
+          />
+          <Row
+            icon="📜"
+            color={t.text3}
+            title="Privacy policy"
+            onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)}
+          />
+          <Row
+            icon="📋"
+            color={t.text3}
+            title="Terms of service"
+            onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)}
+          />
+          <Row
+            icon="✨"
+            color={t.em}
+            title="Version"
+            sub={`v${appVersion}`}
+            right={null}
+            last
+          />
+        </ListCard>
+      </View>
+
+      {process.env["EXPO_PUBLIC_SHOW_DEV_SETTINGS"] === "1" && (
+        <BackendUrlCard />
+      )}
+
+      {/* Sign out (MobileScreens.jsx:656–661) */}
+      <Pressable
+        onPress={() =>
+          sheet({
+            title: "Sign out?",
+            options: [
+              {
+                label: "Sign out",
+                icon: "🚪",
+                danger: true,
+                onPress: () => void logout(),
+              },
+              { label: "Cancel", onPress: () => {} },
+            ],
+          })
+        }
+        style={({ pressed }) => [
+          styles.signOutBtn,
+          {
+            backgroundColor: t.bg2,
+            borderColor: t.border,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.signOutText,
+            { color: t.red, fontFamily: weight(600) },
+          ]}
+        >
+          Sign out
+        </Text>
+      </Pressable>
+    </MPageShell>
+  );
+}
+
+const styles = StyleSheet.create({
+  // Profile card (MobileScreens.jsx:587–595)
+  profileCard: {
+    marginBottom: spacing.md,
+  },
+  // Content layout must target GlassCard's inner overlay (contentStyle) —
+  // on `style` it lands on the outer wrapper and the card stacks vertically.
+  profileCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontFamily: weight(700),
+    fontSize: 22,
+    color: "#060810",
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 17,
+  },
+  profileEmail: {
+    fontSize: 12,
+    marginTop: spacing.xxs,
+  },
+  proBadge: {
+    alignSelf: "flex-start",
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 99,
+    marginTop: spacing.xxs,
+  },
+  proBadgeText: {
+    fontSize: 10.5,
+  },
+
+  // Section
+  section: {
+    marginBottom: spacing.md,
+  },
+
+  // Row
+  iconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconImage: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
+  textBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontSize: 14,
+  },
+  sub: {
+    fontSize: 11.5,
+    marginTop: spacing.xxs,
+  },
+
+  // Sign out (.m-btn .m-btn-ghost, mobile.css:601–619)
+  signOutBtn: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: spacing.xs,
+  },
+  signOutText: {
+    fontSize: 15,
+  },
+});

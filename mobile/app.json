@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Riddhi",
+    "slug": "riddhi",
+    "scheme": "riddhi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ashutoshgairola.riddhi"
+    },
+    "android": {
+      "package": "com.ashutoshgairola.riddhi",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.READ_SMS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#14101f",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-sharing",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default",
+          "color": "#E6F4FE"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#14101f",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d0df618e-bf09-41b5-9d00-257c53759f77"
+      }
+    },
+    "owner": "ashutoshgairola26"
+  }
+}
