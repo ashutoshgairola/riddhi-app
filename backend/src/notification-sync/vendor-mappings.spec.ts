@@ -12,7 +12,7 @@ import { TransactionCategory } from '../categories/category.entity';
 import { Account } from '../accounts/account.entity';
 import { CreditCard } from '../credit-card/credit-card.entity';
 
-function build(mappingsRepo: any) {
+function build(mappingsRepo: any, categoriesRepo: any = {}) {
   return Test.createTestingModule({
     providers: [
       NotificationSyncService,
@@ -21,7 +21,7 @@ function build(mappingsRepo: any) {
       { provide: getRepositoryToken(Account), useValue: {} },
       { provide: getRepositoryToken(CreditCard), useValue: {} },
       { provide: getRepositoryToken(VendorMapping), useValue: mappingsRepo },
-      { provide: getRepositoryToken(TransactionCategory), useValue: {} },
+      { provide: getRepositoryToken(TransactionCategory), useValue: categoriesRepo },
       { provide: NotificationAnalysisService, useValue: {} },
       { provide: NotificationsService, useValue: {} },
       { provide: TransactionsService, useValue: {} },
@@ -44,10 +44,23 @@ describe('vendor mapping CRUD', () => {
       findOne: jest.fn(async () => row),
       save: jest.fn(async (x: any) => x),
     };
-    const svc = (await build(repo)).get(NotificationSyncService);
+    const catRepo = { findOne: jest.fn(async () => ({ id: 'c2', userId: 'u1' })) };
+    const svc = (await build(repo, catRepo)).get(NotificationSyncService);
     const res = await svc.updateMapping('u1', 'm1', { displayName: 'Truecaller', categoryId: 'c2' });
     expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 'm1', userId: 'u1' } });
+    expect(catRepo.findOne).toHaveBeenCalledWith({ where: { id: 'c2', userId: 'u1' } });
     expect(res).toMatchObject({ displayName: 'Truecaller', categoryId: 'c2' });
+  });
+
+  it('updateMapping rejects a categoryId the user does not own', async () => {
+    const row: any = { id: 'm1', userId: 'u1', displayName: 'Old', categoryId: 'c1' };
+    const repo = { findOne: jest.fn(async () => row), save: jest.fn() };
+    const catRepo = { findOne: jest.fn(async () => null) };
+    const svc = (await build(repo, catRepo)).get(NotificationSyncService);
+    await expect(svc.updateMapping('u1', 'm1', { categoryId: 'foreign' })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('updateMapping on a foreign/missing row throws NotFound', async () => {

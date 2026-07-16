@@ -324,7 +324,15 @@ export class NotificationSyncService {
     const m = await this.mappings.findOne({ where: { id, userId } });
     if (!m) throw new NotFoundException('Vendor mapping not found');
     if (dto.displayName !== undefined) m.displayName = dto.displayName;
-    if (dto.categoryId !== undefined) m.categoryId = dto.categoryId;
+    if (dto.categoryId !== undefined) {
+      // Ownership check: TransactionCategory is user-scoped; without this a
+      // user could point their mapping at another user's category.
+      const cat = await this.categories.findOne({
+        where: { id: dto.categoryId, userId },
+      });
+      if (!cat) throw new NotFoundException('Category not found');
+      m.categoryId = dto.categoryId;
+    }
     return this.mappings.save(m);
   }
 
