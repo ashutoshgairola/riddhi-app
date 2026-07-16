@@ -219,9 +219,18 @@ interface PasswordSheetProps {
 function PasswordSheet({ open, error, submitting, onClose, onSubmit }: PasswordSheetProps) {
   const { t } = useTheme();
   const [value, setValue] = useState('');
+  const inputRef = useRef<TextInput>(null);
 
+  // `BottomSheet` keeps its children mounted even while closed (it just
+  // slides the surface offscreen), so a bare `autoFocus` here would grab the
+  // keyboard the moment this sheet's host screen mounts — before the user has
+  // opened anything. Instead, focus imperatively only when `open` flips true.
+  // The short delay lets the open-slide start so the keyboard rises with it.
   useEffect(() => {
-    if (open) setValue('');
+    if (!open) return;
+    setValue('');
+    const id = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(id);
   }, [open]);
 
   return (
@@ -232,12 +241,12 @@ function PasswordSheet({ open, error, submitting, onClose, onSubmit }: PasswordS
           device only and is never sent anywhere.
         </Text>
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={setValue}
           placeholder="Password"
           placeholderTextColor={t.text3}
           secureTextEntry
-          autoFocus
           autoCapitalize="none"
           autoCorrect={false}
           onSubmitEditing={() => value && onSubmit(value)}

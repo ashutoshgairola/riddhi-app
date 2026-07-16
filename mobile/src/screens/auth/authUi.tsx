@@ -75,7 +75,7 @@ export function Wordmark({ size = 40 }: { size?: number }) {
   return <BrandWordmark size={size} />;
 }
 
-// ── Google / Apple glyphs (MobileAuth.jsx:14-19) ────────────────────
+// ── Google glyph (MobileAuth.jsx:14-19) ─────────────────────────────
 export function GoogleG({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48">
@@ -83,15 +83,6 @@ export function GoogleG({ size = 18 }: { size?: number }) {
       <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
       <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
       <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-    </Svg>
-  );
-}
-
-export function AppleG({ size = 17, color }: { size?: number; color?: string }) {
-  const { t } = useTheme();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color ?? t.text1}>
-      <Path d="M17.05 12.53c-.02-2.02 1.65-2.99 1.72-3.04-.94-1.37-2.4-1.56-2.92-1.58-1.24-.13-2.42.73-3.05.73-.63 0-1.6-.71-2.63-.69-1.35.02-2.6.79-3.29 2-1.4 2.43-.36 6.03 1.01 8 .67.96 1.47 2.04 2.51 2 1.01-.04 1.39-.65 2.61-.65 1.22 0 1.56.65 2.63.63 1.09-.02 1.77-.98 2.44-1.95.77-1.12 1.09-2.2 1.1-2.26-.02-.01-2.11-.81-2.13-3.2zM15.05 6.3c.56-.68.94-1.62.84-2.56-.81.03-1.79.54-2.37 1.21-.52.6-.97 1.56-.85 2.48.9.07 1.82-.46 2.38-1.13z" />
     </Svg>
   );
 }
@@ -106,8 +97,8 @@ export function FaceIdGlyph({ color }: { color: string }) {
   );
 }
 
-// ── SocialRow (MobileAuth.jsx:21-32): two 50px glass buttons ────────
-export function SocialRow({ onGoogle, onApple }: { onGoogle: () => void; onApple: () => void }) {
+// ── SocialRow (MobileAuth.jsx:21-32): 50px glass button ─────────────
+export function SocialRow({ onGoogle }: { onGoogle: () => void }) {
   const { t } = useTheme();
   const btn = [styles.socialBtn, { backgroundColor: t.glassBg, borderColor: t.glassBrd }];
   return (
@@ -116,12 +107,6 @@ export function SocialRow({ onGoogle, onApple }: { onGoogle: () => void; onApple
         <View style={btn}>
           <GoogleG />
           <Text style={[styles.socialLabel, { color: t.text1, fontFamily: weight(600) }]}>Google</Text>
-        </View>
-      </PressableScale>
-      <PressableScale onPress={onApple} style={{ flex: 1 }}>
-        <View style={btn}>
-          <AppleG />
-          <Text style={[styles.socialLabel, { color: t.text1, fontFamily: weight(600) }]}>Apple</Text>
         </View>
       </PressableScale>
     </View>

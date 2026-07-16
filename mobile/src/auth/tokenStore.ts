@@ -16,6 +16,10 @@ const PIN_LEN_KEY = 'riddhi.pinLength';
 // Set once the user declines the on-device app-lock setup prompt, so a
 // returning user whose account "remembers" a lock isn't nagged every launch.
 const LOCK_SETUP_DISMISSED_KEY = 'riddhi.lockSetupDismissed';
+// The account id that owns the device app-lock. The PIN/biometric are
+// device-local but belong to one account; this lets us keep the lock across a
+// logout/login by the same user, while wiping it if a *different* user signs in.
+const PIN_OWNER_KEY = 'riddhi.pinOwner';
 
 /** App-lock PIN length policy — the single source of truth shared by
  * onboarding (OBSecure), Settings → Change PIN, and the lock screen (which
@@ -102,4 +106,22 @@ export async function getPinLength(): Promise<number | null> {
 export async function clearPin(): Promise<void> {
   await SecureStore.deleteItemAsync(PIN_KEY);
   await AsyncStorage.removeItem(PIN_LEN_KEY);
+}
+
+/**
+ * Reconcile this device's app-lock with the account signing in. The lock is
+ * kept across logout so a returning user isn't forced to re-create a PIN — but
+ * it belongs to exactly one account, so a *different* user signing in clears the
+ * previous owner's PIN, biometric flag, and any prior "not now" dismissal
+ * before it can gate them. An untagged pre-existing lock (from before ownership
+ * tracking) is adopted by the first account to sign in. Call on every sign-in
+ * (login, session restore, biometric login) before deciding the lock state.
+ */
+export async function reconcileDeviceLockOwner(userId: string): Promise<void> {
+  const owner = await AsyncStorage.getItem(PIN_OWNER_KEY);
+  if (owner && owner !== userId) {
+    await clearPin();
+    await AsyncStorage.multiRemove([BIOMETRIC_KEY, LOCK_SETUP_DISMISSED_KEY]);
+  }
+  await AsyncStorage.setItem(PIN_OWNER_KEY, userId);
 }

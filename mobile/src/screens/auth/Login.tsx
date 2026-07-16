@@ -129,7 +129,7 @@ export function Login({
         ) : null}
 
         <AuthDivider label="or" />
-        <SocialRow onGoogle={promptGoogle} onApple={() => toast('Apple sign-in coming soon', '🍎')} />
+        <SocialRow onGoogle={promptGoogle} />
       </SpringIn>
 
       <View style={{ alignItems: 'center', marginTop: spacing.lg, flexDirection: 'row', justifyContent: 'center' }}>

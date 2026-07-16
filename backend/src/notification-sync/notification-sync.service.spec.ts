@@ -68,3 +68,56 @@ describe('NotificationSyncService.ingest', () => {
     expect(saved.length).toBe(3);
   });
 });
+
+describe('NotificationSyncService.listPending', () => {
+  /** Builds a service whose detected-repo `find` records the options it was
+   * called with, so we can assert the `take` (page size) that gets applied. */
+  async function makeService() {
+    const calls: Array<{ take?: number }> = [];
+    const detectedRepo = {
+      find: async (opts: { take?: number }) => {
+        calls.push(opts);
+        return [];
+      },
+    };
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        NotificationSyncService,
+        { provide: getRepositoryToken(CapturedNotification), useValue: {} },
+        { provide: getRepositoryToken(DetectedTransaction), useValue: detectedRepo },
+        { provide: getRepositoryToken(Account), useValue: {} },
+        { provide: getRepositoryToken(CreditCard), useValue: {} },
+        { provide: NotificationAnalysisService, useValue: {} },
+        { provide: NotificationsService, useValue: {} },
+        { provide: TransactionsService, useValue: {} },
+      ],
+    }).compile();
+    return { svc: moduleRef.get(NotificationSyncService), calls };
+  }
+
+  it('applies the default page size when no limit is given', async () => {
+    const { svc, calls } = await makeService();
+    await svc.listPending('u1');
+    expect(calls[0].take).toBe(50);
+  });
+
+  it('honors a valid limit from the query string', async () => {
+    const { svc, calls } = await makeService();
+    await svc.listPending('u1', '10');
+    expect(calls[0].take).toBe(10);
+  });
+
+  it('clamps an over-large limit to the hard maximum', async () => {
+    const { svc, calls } = await makeService();
+    await svc.listPending('u1', '9999');
+    expect(calls[0].take).toBe(100);
+  });
+
+  it('falls back to the default for a non-numeric or non-positive limit', async () => {
+    const { svc, calls } = await makeService();
+    await svc.listPending('u1', 'abc');
+    await svc.listPending('u1', '0');
+    await svc.listPending('u1', '-5');
+    expect(calls.map((c) => c.take)).toEqual([50, 50, 50]);
+  });
+});

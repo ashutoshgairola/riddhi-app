@@ -6,11 +6,11 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { api, authApi, setAuthToken, setSessionHandlers } from '../api';
 import type { ApiUser, AuthResponse, OnboardingPayload } from '../api';
 import {
-  clearPin,
   clearTokens,
   getBiometricEnabled,
   hasPin,
   loadTokens,
+  reconcileDeviceLockOwner,
   saveTokens,
   verifyPin,
 } from './tokenStore';
@@ -55,6 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const enterSession = useCallback(async (res: AuthResponse) => {
     await saveTokens(res.accessToken, res.refreshToken);
+    // Wipe any prior owner's device lock before this account can be gated by it.
+    await reconcileDeviceLockOwner(res.user.id);
     setAuthToken(res.accessToken);
     setUser(res.user);
     setStatus(res.user.isFirstLogin ? 'onboarding' : 'signedIn');
@@ -102,6 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await saveTokens(tokens.accessToken, tokens.refreshToken);
         setAuthToken(tokens.accessToken);
         const me = await authApi.me();
+        // Clear a different user's stale lock before deciding whether to lock.
+        await reconcileDeviceLockOwner(me.id);
         const locked = !me.isFirstLogin && (await lockConfigured());
         if (cancelled) return;
         setUser(me);
@@ -189,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await saveTokens(tokens.accessToken, tokens.refreshToken);
       setAuthToken(tokens.accessToken);
       const me = await authApi.me();
+      await reconcileDeviceLockOwner(me.id);
       setUser(me);
       setStatus(me.isFirstLogin ? 'onboarding' : 'signedIn');
       return true;
@@ -240,7 +245,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await clearTokens();
-    await clearPin();
+    // Keep the on-device PIN/biometric: a returning user shouldn't have to
+    // re-create it. If a *different* account signs in next,
+    // `reconcileDeviceLockOwner` wipes this lock before it can gate them.
     setAuthToken(null);
     setUser(null);
     setStatus('signedOut');

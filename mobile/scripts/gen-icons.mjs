@@ -1,8 +1,9 @@
 // Rasterizes the Riddhi brand marks into the PNGs Expo needs.
-// Icon/adaptive/favicon SVGs are composed here from a single shared mark
-// path; the splash image reuses assets/brand/logomark.svg. Run: npm run gen:icons
+// Icon/adaptive/favicon/splash SVGs are all composed here from a single shared
+// mark path (kept independent of the in-app assets/brand/logomark.svg so its
+// padding can differ from the on-screen logomark). Run: npm run gen:icons
 import { Resvg } from '@resvg/resvg-js';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,11 +45,26 @@ const adaptiveBackground = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
   <rect width="512" height="512" fill="url(#rg)"/>
 </svg>`;
 
-// Mark centered at ~60% of the canvas on transparent — the Android adaptive
-// safe zone. translate(-100 -313) moves the mark bbox to the origin first.
+// Mark centered at ~50% of the canvas on transparent, leaving clear padding so
+// the tail stays inside the Android adaptive safe zone under a circular mask.
+// translate(-100 -313) moves the mark bbox to the origin first; the outer
+// translate re-centers the scaled 366×447 bbox on the 512 canvas.
 const centeredMark = (fill) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <path fill-rule="evenodd" fill="${fill}"
-        transform="translate(130.25 102.4) scale(0.6873) translate(-100 -313)" d="${MARK}"/>
+        transform="translate(151.69 128.61) scale(0.57) translate(-100 -313)" d="${MARK}"/>
+</svg>`;
+
+// Splash mark: the same glow-backed mark, scaled down for extra padding around
+// the sign. Kept separate from the in-app logomark so brand.tsx is unaffected.
+const splashSquare = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <path id="sm" fill-rule="evenodd" d="${MARK}"/>
+    <filter id="sg" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="34"/></filter>
+  </defs>
+  <g transform="translate(114.5 -12.25) scale(0.5)">
+    <use href="#sm" fill="#9678f0" opacity="0.5" filter="url(#sg)"/>
+    <use href="#sm" fill="#b6a4f3"/>
+  </g>
 </svg>`;
 
 function render(svg, width, background) {
@@ -57,15 +73,13 @@ function render(svg, width, background) {
   return new Resvg(svg, opts).render().asPng();
 }
 
-const logomarkSvg = readFileSync(join(assets, 'brand', 'logomark.svg'), 'utf8');
-
 const jobs = [
   ['icon.png', render(iconSquare, 1024, '#14101f')],
   ['android-icon-background.png', render(adaptiveBackground, 1024, '#14101f')],
   ['android-icon-foreground.png', render(centeredMark('#b6a4f3'), 1024)],
   ['android-icon-monochrome.png', render(centeredMark('#ffffff'), 1024)],
   ['favicon.png', render(iconSquare, 48, '#14101f')],
-  ['splash-icon.png', render(logomarkSvg, 512)],
+  ['splash-icon.png', render(splashSquare, 512)],
 ];
 
 for (const [name, png] of jobs) {
