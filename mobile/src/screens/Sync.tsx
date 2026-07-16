@@ -608,6 +608,23 @@ export function Sync({ entry: _entry }: { entry: ScreenEntry }) {
         </SpringIn>
       ) : null}
 
+      <SpringIn style={styles.block}>
+        <ListCard>
+          <ListRow last onPress={() => push({ kind: 'vendor-rules' })}>
+            <AppIconBox value="🏷️" color={t.em} />
+            <View style={styles.statusText}>
+              <Text style={[styles.statusTitle, { color: t.text1, fontFamily: weight(700) }]}>
+                Vendor rules
+              </Text>
+              <Text style={[styles.statusSubtitle, { color: t.text3 }]}>
+                Vendors you've mapped are added automatically without review
+              </Text>
+            </View>
+            <MI.arrow size={18} color={t.text3} />
+          </ListRow>
+        </ListCard>
+      </SpringIn>
+
       {/* needs review (MobileSync.jsx:152–156) — backend detected queue,
           fed by both notification and SMS capture channels */}
       <View style={styles.sectionHeadRow}>

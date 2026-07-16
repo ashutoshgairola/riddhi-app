@@ -32,6 +32,7 @@ import { Sync } from '../screens/Sync';
 import { TxCategories } from '../screens/TxCategories';
 import { TxDetail } from '../screens/TxDetail';
 import { Txns } from '../screens/Txns';
+import { VendorRules } from '../screens/VendorRules';
 import type { ScreenEntry, ScreenKind } from './navContext';
 
 type ScreenComponent = React.ComponentType<{ entry: ScreenEntry }>;
@@ -59,6 +60,7 @@ export const SCREEN_REGISTRY: Partial<Record<ScreenKind, ScreenComponent>> = {
   'subscriptions-review': SubscriptionsReview,
   'statement-review': StatementReview,
   'monitored-apps': MonitoredApps,
+  'vendor-rules': VendorRules,
   'tx-cats': TxCategories,
   'cat-detail': CategoryDetail,
   settings: Settings,
