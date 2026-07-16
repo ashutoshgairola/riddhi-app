@@ -6,6 +6,8 @@ import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
 import { CreditCard } from '../credit-card/credit-card.entity';
+import { VendorMapping } from './vendor-mapping.entity';
+import { TransactionCategory } from '../categories/category.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import {
@@ -92,6 +94,11 @@ describe('runAnalysisForUser', () => {
         { provide: getRepositoryToken(DetectedTransaction), useValue: detRepo },
         { provide: getRepositoryToken(Account), useValue: accRepo },
         { provide: getRepositoryToken(CreditCard), useValue: cardRepo },
+        {
+          provide: getRepositoryToken(VendorMapping),
+          useValue: { find: jest.fn(async () => []) },
+        },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
         { provide: TransactionsService, useValue: transactions },
@@ -136,6 +143,8 @@ describe('runAnalysisForUser', () => {
           provide: getRepositoryToken(CreditCard),
           useValue: { find: jest.fn() },
         },
+        { provide: getRepositoryToken(VendorMapping), useValue: {} },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
         { provide: TransactionsService, useValue: {} },
@@ -232,6 +241,11 @@ describe('runAnalysisForUser', () => {
         { provide: getRepositoryToken(DetectedTransaction), useValue: detRepo },
         { provide: getRepositoryToken(Account), useValue: accRepo },
         { provide: getRepositoryToken(CreditCard), useValue: cardRepo },
+        {
+          provide: getRepositoryToken(VendorMapping),
+          useValue: { find: jest.fn(async () => []) },
+        },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
         { provide: TransactionsService, useValue: transactions },
@@ -333,6 +347,11 @@ describe('runAnalysisForUser', () => {
         { provide: getRepositoryToken(DetectedTransaction), useValue: detRepo },
         { provide: getRepositoryToken(Account), useValue: accRepo },
         { provide: getRepositoryToken(CreditCard), useValue: cardRepo },
+        {
+          provide: getRepositoryToken(VendorMapping),
+          useValue: { find: jest.fn(async () => []) },
+        },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
         { provide: TransactionsService, useValue: transactions },
@@ -389,6 +408,11 @@ describe('runAnalysisForUser', () => {
           provide: getRepositoryToken(CreditCard),
           useValue: { find: jest.fn(async () => []) },
         },
+        {
+          provide: getRepositoryToken(VendorMapping),
+          useValue: { find: jest.fn(async () => []) },
+        },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
         {
@@ -458,6 +482,11 @@ describe('runAnalysisForUser', () => {
           provide: getRepositoryToken(CreditCard),
           useValue: { find: jest.fn(async () => []) },
         },
+        {
+          provide: getRepositoryToken(VendorMapping),
+          useValue: { find: jest.fn(async () => []) },
+        },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: analysis },
         { provide: NotificationsService, useValue: notifications },
         {

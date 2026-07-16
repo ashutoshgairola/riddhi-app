@@ -39,6 +39,7 @@ export interface DetectedView {
   paymentMethod: string;
   confidence: number;
   postedAt: string | null;
+  remember?: boolean;
 }
 
 export interface ConfirmPayload {
@@ -50,6 +51,7 @@ export interface ConfirmPayload {
   accountId?: string;
   paymentMethod?: string;
   notes?: string;
+  remember?: boolean;
 }
 
 /** Merges FormSheet edit values (Sync's "Edit detection" form — keys `desc`,
@@ -67,6 +69,7 @@ export function applyDetectedEdit(d: DetectedView, v: Record<string, string>): D
     suggestedCategory: v['cat']!,
     accountId: v['account'] ? v['account'] : null,
     postedAt: d.postedAt ? date + d.postedAt.slice(10) : `${date}T00:00:00.000Z`,
+    remember: v['remember'] === '1',
   };
 }
 
@@ -141,4 +144,28 @@ export async function dismissDetected(id: string): Promise<void> {
  * there are no unanalyzed captures. */
 export async function analyzeNow(): Promise<{ detected: number }> {
   return apiClient.post<{ detected: number }>(`/notification-sync/analyze`, {});
+}
+
+// ── Vendor mappings (set-once merchant rules) ────────────────────────────
+
+export interface VendorMappingView {
+  id: string;
+  matchKey: string;
+  displayName: string;
+  categoryId: string;
+}
+
+export async function fetchVendorMappings(): Promise<VendorMappingView[]> {
+  return apiClient.get<VendorMappingView[]>('/notification-sync/vendor-mappings');
+}
+
+export async function updateVendorMapping(
+  id: string,
+  patch: { displayName?: string; categoryId?: string },
+): Promise<void> {
+  await apiClient.patch(`/notification-sync/vendor-mappings/${id}`, patch);
+}
+
+export async function deleteVendorMapping(id: string): Promise<void> {
+  await apiClient.delete(`/notification-sync/vendor-mappings/${id}`);
 }

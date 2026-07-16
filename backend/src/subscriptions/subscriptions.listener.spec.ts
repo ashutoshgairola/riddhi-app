@@ -17,7 +17,7 @@ describe('SubscriptionsListener', () => {
   it('attaches an autopay expense (mapping fields)', async () => {
     const { listener, subscriptions } = build();
     await listener.onTransactionCreated({ userId: 'u1', transaction: tx() } as any);
-    expect(subscriptions.attachTransaction).toHaveBeenCalledWith('u1', expect.objectContaining({ id: 't1', description: 'NETFLIX.COM', amount: 649, accountId: 'a1' }));
+    expect(subscriptions.attachTransaction).toHaveBeenCalledWith('u1', expect.objectContaining({ id: 't1', description: 'NETFLIX.COM', amount: 649, accountId: 'a1', paymentMethod: PaymentMethod.AUTOPAY }));
   });
 
   it('attaches an isRecurring expense even without autopay', async () => {

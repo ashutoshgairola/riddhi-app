@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CapturedNotification } from './captured-notification.entity';
@@ -12,7 +12,11 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Account } from '../accounts/account.entity';
 import { CreditCard } from '../credit-card/credit-card.entity';
+import { VendorMapping } from './vendor-mapping.entity';
+import { TransactionCategory } from '../categories/category.entity';
+import { UpdateVendorMappingDto } from './dto/update-vendor-mapping.dto';
 import { resolvePaymentSource } from './payment-source-resolver';
+import { normalizeDescriptor } from '../subscriptions/detect-subscriptions';
 import { isLikelyDuplicateOfExisting } from '../statements/reverse-dedup';
 import { ExistingTxn } from '../statements/statement-dedup';
 import {
@@ -24,6 +28,8 @@ import { NOTIFICATION_CATALOG, CatalogEntry } from './catalog.constant';
 
 @Injectable()
 export class NotificationSyncService {
+  private readonly logger = new Logger(NotificationSyncService.name);
+
   /** Default page size for `listPending` when the client sends no `limit`. */
   private static readonly PENDING_LIMIT_DEFAULT = 50;
   /** Hard ceiling on `listPending` so a client can't request an unbounded page. */
@@ -45,6 +51,10 @@ export class NotificationSyncService {
     private readonly accounts: Repository<Account>,
     @InjectRepository(CreditCard)
     private readonly cards: Repository<CreditCard>,
+    @InjectRepository(VendorMapping)
+    private readonly mappings: Repository<VendorMapping>,
+    @InjectRepository(TransactionCategory)
+    private readonly categories: Repository<TransactionCategory>,
     private readonly analysis: NotificationAnalysisService,
     private readonly notifications: NotificationsService,
     private readonly transactions: TransactionsService,
@@ -95,8 +105,8 @@ export class NotificationSyncService {
   async runAnalysisForUser(
     userId: string,
     opts: { interactive?: boolean } = {},
-  ): Promise<{ detected: number }> {
-    if (this.inFlight.has(userId)) return { detected: 0 };
+  ): Promise<{ detected: number; autoAdded: number }> {
+    if (this.inFlight.has(userId)) return { detected: 0, autoAdded: 0 };
     this.inFlight.add(userId);
     try {
       const captures = await this.captures.find({
@@ -104,7 +114,7 @@ export class NotificationSyncService {
         order: { postedAt: 'ASC' },
         take: 150, // ponytail: batch ceiling; an OTP-heavy first backlog drains over successive syncs
       });
-      if (captures.length === 0) return { detected: 0 };
+      if (captures.length === 0) return { detected: 0, autoAdded: 0 };
 
       // Cheap gate: drop OTP/promo/balance-only (no priceable amount) before the
       // LLM. Gated captures are still marked analyzed at the end so they don't loop.
@@ -141,7 +151,20 @@ export class NotificationSyncService {
         captures.map((c) => [c.dedupKey, c.postedAt]),
       );
 
+      const rules = await this.mappings.find({ where: { userId } });
+      const ruleByKey = new Map(rules.map((m) => [m.matchKey, m]));
+      // Rules rename the suggested category too — resolve mapped category
+      // names in one query up front.
+      const categoryNameById = new Map<string, string>();
+      if (rules.length > 0) {
+        const cats = await this.categories.find({
+          where: { id: In(rules.map((m) => m.categoryId)) },
+        });
+        for (const c of cats) categoryNameById.set(c.id, c.name);
+      }
+
       let detected = 0;
+      let autoAdded = 0;
       for (const g of groups) {
         const { accountId, paymentMethod } = resolvePaymentSource(
           g.institution,
@@ -192,16 +215,22 @@ export class NotificationSyncService {
           if (isLikelyDuplicateOfExisting(candidate, existing)) continue;
         }
 
-        await this.detected.save(
+        const rule = g.merchant
+          ? ruleByKey.get(normalizeDescriptor(g.merchant))
+          : undefined;
+
+        const det = await this.detected.save(
           this.detected.create({
             userId,
-            merchant: g.merchant,
+            merchant: rule ? rule.displayName : g.merchant,
             amount: g.amount,
             type:
               g.type === 'income'
                 ? TransactionType.INCOME
                 : TransactionType.EXPENSE,
-            suggestedCategory: g.category,
+            suggestedCategory: rule
+              ? (categoryNameById.get(rule.categoryId) ?? g.category)
+              : g.category,
             accountId,
             paymentMethod,
             confidence: g.confidence,
@@ -211,7 +240,13 @@ export class NotificationSyncService {
             postedAt,
           }),
         );
-        detected += 1;
+        // A matched rule with a resolved payment source skips review entirely.
+        if (rule && accountId && g.amount != null) {
+          await this.autoConfirm(det, rule);
+          autoAdded += 1;
+        } else {
+          detected += 1;
+        }
       }
 
       await this.captures.update(
@@ -227,7 +262,7 @@ export class NotificationSyncService {
           data: { screen: 'sync' },
         });
       }
-      return { detected };
+      return { detected, autoAdded };
     } finally {
       this.inFlight.delete(userId);
     }
@@ -293,13 +328,125 @@ export class NotificationSyncService {
     det.status = DetectedStatus.CONFIRMED;
     det.transactionId = tx.id;
     await this.detected.save(det);
+    if (dto.remember) await this.rememberVendor(det, dto);
     return { transactionId: tx.id };
+  }
+
+  /** Upserts the vendor rule this confirmation defines, then auto-confirms
+   * every other pending same-vendor detection whose account resolved. */
+  private async rememberVendor(
+    det: DetectedTransaction,
+    dto: ConfirmDetectedDto,
+  ): Promise<void> {
+    const matchKey = normalizeDescriptor(det.merchant ?? '');
+    if (!matchKey) return;
+    // Ownership check: TransactionCategory is user-scoped; without this a
+    // crafted confirm could plant a mapping pointing at another user's
+    // category (mirrors the same guard in updateMapping).
+    const cat = await this.categories.findOne({
+      where: { id: dto.categoryId, userId: det.userId },
+    });
+    if (!cat) throw new NotFoundException('Category not found');
+    await this.mappings.upsert(
+      {
+        userId: det.userId,
+        matchKey,
+        displayName: dto.description,
+        categoryId: dto.categoryId,
+      },
+      ['userId', 'matchKey'],
+    );
+    const mapping = await this.mappings.findOne({
+      where: { userId: det.userId, matchKey },
+    });
+    if (!mapping) return;
+    const pending = await this.detected.find({
+      where: { userId: det.userId, status: DetectedStatus.PENDING },
+    });
+    for (const p of pending) {
+      if (p.id === det.id || !p.merchant || !p.accountId || p.amount == null)
+        continue;
+      if (normalizeDescriptor(p.merchant) !== mapping.matchKey) continue;
+      // Best-effort: a sweep failure (e.g. this detection's account was
+      // deleted since it was captured) shouldn't fail the confirm whose
+      // primary transaction already committed.
+      try {
+        await this.autoConfirm(p, mapping);
+      } catch (err) {
+        this.logger.warn(
+          `sweep autoConfirm failed for detection ${p.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
+
+  /** Creates the real transaction a mapped detection describes and marks the
+   * detection CONFIRMED. Caller guarantees accountId and amount are set. */
+  private async autoConfirm(
+    det: DetectedTransaction,
+    mapping: VendorMapping,
+  ): Promise<void> {
+    const caps = det.sourceKeys.length
+      ? await this.captures.find({
+          where: { userId: det.userId, dedupKey: In(det.sourceKeys) },
+        })
+      : [];
+    const notes = caps.map((c) => c.text).join('\n') || undefined;
+    const tx = await this.transactions.create(det.userId, {
+      date: (det.postedAt ?? new Date()).toISOString().slice(0, 10),
+      description: mapping.displayName,
+      amount: det.amount!,
+      type: det.type,
+      categoryId: mapping.categoryId,
+      accountId: det.accountId!,
+      paymentMethod: det.paymentMethod,
+      notes,
+    });
+    det.merchant = mapping.displayName;
+    det.status = DetectedStatus.CONFIRMED;
+    det.transactionId = tx.id;
+    await this.detected.save(det);
   }
 
   async dismiss(userId: string, id: string): Promise<{ ok: true }> {
     const det = await this.loadPending(userId, id);
     det.status = DetectedStatus.DISMISSED;
     await this.detected.save(det);
+    return { ok: true };
+  }
+
+  // ── Vendor mappings ─────────────────────────────────────────────────────
+
+  listMappings(userId: string): Promise<VendorMapping[]> {
+    return this.mappings.find({
+      where: { userId },
+      order: { displayName: 'ASC' },
+    });
+  }
+
+  async updateMapping(
+    userId: string,
+    id: string,
+    dto: UpdateVendorMappingDto,
+  ): Promise<VendorMapping> {
+    const m = await this.mappings.findOne({ where: { id, userId } });
+    if (!m) throw new NotFoundException('Vendor mapping not found');
+    if (dto.displayName !== undefined) m.displayName = dto.displayName;
+    if (dto.categoryId !== undefined) {
+      // Ownership check: TransactionCategory is user-scoped; without this a
+      // user could point their mapping at another user's category.
+      const cat = await this.categories.findOne({
+        where: { id: dto.categoryId, userId },
+      });
+      if (!cat) throw new NotFoundException('Category not found');
+      m.categoryId = dto.categoryId;
+    }
+    return this.mappings.save(m);
+  }
+
+  async deleteMapping(userId: string, id: string): Promise<{ ok: true }> {
+    const res = await this.mappings.delete({ id, userId });
+    if (!res.affected) throw new NotFoundException('Vendor mapping not found');
     return { ok: true };
   }
 }

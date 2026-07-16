@@ -38,6 +38,7 @@ export type ScreenKind =
   | 'subscriptions-review'
   | 'statement-review'
   | 'monitored-apps'
+  | 'vendor-rules'
   | 'tx-cats'
   | 'cat-detail'
   | 'settings'

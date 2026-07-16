@@ -90,6 +90,50 @@ describe('SubscriptionsService', () => {
     expect(ignoreRepo.save).toHaveBeenCalled();
   });
 
+  it('attachTransaction auto-creates a subscription from a first autopay charge', async () => {
+    const { svc, subRepo, txRepo } = build();
+    await svc.attachTransaction('u1', {
+      id: 't1', description: 'Google Play', amount: 249, date: '2026-07-16',
+      accountId: 'a1', paymentMethod: 'autopay', categoryId: 'cat-ent', isRecurring: false,
+    });
+    const sub = subRepo.rows[0];
+    expect(sub).toMatchObject({ merchantDescriptor: 'google play', cycle: 'monthly', amount: 249, status: 'active' });
+    expect(txRepo.update).toHaveBeenCalledWith({ id: 't1', userId: 'u1' }, expect.objectContaining({ subscriptionId: sub.id }));
+  });
+
+  it('attachTransaction does not auto-create from a non-autopay charge', async () => {
+    const { svc, subRepo } = build();
+    await svc.attachTransaction('u1', {
+      id: 't1', description: 'Google Play', amount: 249, date: '2026-07-16',
+      accountId: 'a1', paymentMethod: 'upi', categoryId: 'cat-ent', isRecurring: true,
+    });
+    expect(subRepo.rows).toHaveLength(0);
+  });
+
+  it('attachTransaction does not auto-create for an ignored descriptor', async () => {
+    const { svc, subRepo, ignoreRepo } = build();
+    ignoreRepo.rows.push({ userId: 'u1', merchantDescriptor: 'google play' });
+    await svc.attachTransaction('u1', {
+      id: 't1', description: 'Google Play', amount: 249, date: '2026-07-16',
+      accountId: 'a1', paymentMethod: 'autopay', categoryId: 'cat-ent', isRecurring: false,
+    });
+    expect(subRepo.rows).toHaveLength(0);
+  });
+
+  it('attachTransaction does not auto-create from an excluded category (SIP/investment mandate)', async () => {
+    const investCats = { findAll: jest.fn(async () => [{ id: 'cat-inv', name: 'Investments', color: null }]) };
+    const subRepo = makeRepo<any>();
+    const ignoreRepo = makeRepo<any>();
+    const txRepo = { ...makeRepo<any>(), find: jest.fn(async () => []) } as any;
+    const capturedRepo = { ...makeRepo<any>(), find: jest.fn(async () => []) } as any;
+    const svc = new SubscriptionsService(subRepo as any, ignoreRepo as any, txRepo as any, capturedRepo as any, investCats as any);
+    await svc.attachTransaction('u1', {
+      id: 't1', description: 'GROWW SIP', amount: 5000, date: '2026-07-16',
+      accountId: 'a1', paymentMethod: 'autopay', categoryId: 'cat-inv', isRecurring: false,
+    });
+    expect(subRepo.rows).toHaveLength(0);
+  });
+
   it('detect excludes descriptors already persisted or ignored', async () => {
     const txns = [
       { id: 't1', date: '2026-03-02', description: 'NETFLIX.COM', amount: 649, categoryId: 'cat-ent', category: { name: 'Entertainment' }, accountId: 'a1', paymentMethod: 'card', isRecurring: false },
