@@ -16,6 +16,7 @@ import { VendorMapping } from './vendor-mapping.entity';
 import { TransactionCategory } from '../categories/category.entity';
 import { UpdateVendorMappingDto } from './dto/update-vendor-mapping.dto';
 import { resolvePaymentSource } from './payment-source-resolver';
+import { normalizeDescriptor } from '../subscriptions/detect-subscriptions';
 import { isLikelyDuplicateOfExisting } from '../statements/reverse-dedup';
 import { ExistingTxn } from '../statements/statement-dedup';
 import {
@@ -300,7 +301,68 @@ export class NotificationSyncService {
     det.status = DetectedStatus.CONFIRMED;
     det.transactionId = tx.id;
     await this.detected.save(det);
+    if (dto.remember) await this.rememberVendor(det, dto);
     return { transactionId: tx.id };
+  }
+
+  /** Upserts the vendor rule this confirmation defines, then auto-confirms
+   * every other pending same-vendor detection whose account resolved. */
+  private async rememberVendor(
+    det: DetectedTransaction,
+    dto: ConfirmDetectedDto,
+  ): Promise<void> {
+    const matchKey = normalizeDescriptor(det.merchant ?? '');
+    if (!matchKey) return;
+    await this.mappings.upsert(
+      {
+        userId: det.userId,
+        matchKey,
+        displayName: dto.description,
+        categoryId: dto.categoryId,
+      },
+      ['userId', 'matchKey'],
+    );
+    const mapping = await this.mappings.findOne({
+      where: { userId: det.userId, matchKey },
+    });
+    if (!mapping) return;
+    const pending = await this.detected.find({
+      where: { userId: det.userId, status: DetectedStatus.PENDING },
+    });
+    for (const p of pending) {
+      if (p.id === det.id || !p.merchant || !p.accountId || p.amount == null)
+        continue;
+      if (normalizeDescriptor(p.merchant) !== mapping.matchKey) continue;
+      await this.autoConfirm(p, mapping);
+    }
+  }
+
+  /** Creates the real transaction a mapped detection describes and marks the
+   * detection CONFIRMED. Caller guarantees accountId and amount are set. */
+  private async autoConfirm(
+    det: DetectedTransaction,
+    mapping: VendorMapping,
+  ): Promise<void> {
+    const caps = det.sourceKeys.length
+      ? await this.captures.find({
+          where: { userId: det.userId, dedupKey: In(det.sourceKeys) },
+        })
+      : [];
+    const notes = caps.map((c) => c.text).join('\n') || undefined;
+    const tx = await this.transactions.create(det.userId, {
+      date: (det.postedAt ?? new Date()).toISOString().slice(0, 10),
+      description: mapping.displayName,
+      amount: det.amount!,
+      type: det.type,
+      categoryId: mapping.categoryId,
+      accountId: det.accountId!,
+      paymentMethod: det.paymentMethod,
+      notes,
+    });
+    det.merchant = mapping.displayName;
+    det.status = DetectedStatus.CONFIRMED;
+    det.transactionId = tx.id;
+    await this.detected.save(det);
   }
 
   async dismiss(userId: string, id: string): Promise<{ ok: true }> {
@@ -313,7 +375,10 @@ export class NotificationSyncService {
   // ── Vendor mappings ─────────────────────────────────────────────────────
 
   listMappings(userId: string): Promise<VendorMapping[]> {
-    return this.mappings.find({ where: { userId }, order: { displayName: 'ASC' } });
+    return this.mappings.find({
+      where: { userId },
+      order: { displayName: 'ASC' },
+    });
   }
 
   async updateMapping(
