@@ -1,9 +1,20 @@
-import { Controller, Post, Get, Param, Query, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { NotificationSyncService } from './notification-sync.service';
 import { IngestNotificationsDto } from './dto/ingest.dto';
 import { ConfirmDetectedDto } from './dto/confirm.dto';
+import { UpdateVendorMappingDto } from './dto/update-vendor-mapping.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('notification-sync')
@@ -29,6 +40,25 @@ export class NotificationSyncController {
     @Query('limit') limit?: string,
   ) {
     return this.service.listPending(user.userId, limit);
+  }
+
+  @Get('vendor-mappings')
+  listVendorMappings(@CurrentUser() user: { userId: string }) {
+    return this.service.listMappings(user.userId);
+  }
+
+  @Patch('vendor-mappings/:id')
+  updateVendorMapping(
+    @CurrentUser() user: { userId: string },
+    @Param('id') id: string,
+    @Body() dto: UpdateVendorMappingDto,
+  ) {
+    return this.service.updateMapping(user.userId, id, dto);
+  }
+
+  @Delete('vendor-mappings/:id')
+  deleteVendorMapping(@CurrentUser() user: { userId: string }, @Param('id') id: string) {
+    return this.service.deleteMapping(user.userId, id);
   }
 
   @Post(':id/confirm')

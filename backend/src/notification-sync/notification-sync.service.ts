@@ -12,6 +12,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Account } from '../accounts/account.entity';
 import { CreditCard } from '../credit-card/credit-card.entity';
+import { VendorMapping } from './vendor-mapping.entity';
+import { TransactionCategory } from '../categories/category.entity';
+import { UpdateVendorMappingDto } from './dto/update-vendor-mapping.dto';
 import { resolvePaymentSource } from './payment-source-resolver';
 import { isLikelyDuplicateOfExisting } from '../statements/reverse-dedup';
 import { ExistingTxn } from '../statements/statement-dedup';
@@ -45,6 +48,10 @@ export class NotificationSyncService {
     private readonly accounts: Repository<Account>,
     @InjectRepository(CreditCard)
     private readonly cards: Repository<CreditCard>,
+    @InjectRepository(VendorMapping)
+    private readonly mappings: Repository<VendorMapping>,
+    @InjectRepository(TransactionCategory)
+    private readonly categories: Repository<TransactionCategory>,
     private readonly analysis: NotificationAnalysisService,
     private readonly notifications: NotificationsService,
     private readonly transactions: TransactionsService,
@@ -300,6 +307,30 @@ export class NotificationSyncService {
     const det = await this.loadPending(userId, id);
     det.status = DetectedStatus.DISMISSED;
     await this.detected.save(det);
+    return { ok: true };
+  }
+
+  // ── Vendor mappings ─────────────────────────────────────────────────────
+
+  listMappings(userId: string): Promise<VendorMapping[]> {
+    return this.mappings.find({ where: { userId }, order: { displayName: 'ASC' } });
+  }
+
+  async updateMapping(
+    userId: string,
+    id: string,
+    dto: UpdateVendorMappingDto,
+  ): Promise<VendorMapping> {
+    const m = await this.mappings.findOne({ where: { id, userId } });
+    if (!m) throw new NotFoundException('Vendor mapping not found');
+    if (dto.displayName !== undefined) m.displayName = dto.displayName;
+    if (dto.categoryId !== undefined) m.categoryId = dto.categoryId;
+    return this.mappings.save(m);
+  }
+
+  async deleteMapping(userId: string, id: string): Promise<{ ok: true }> {
+    const res = await this.mappings.delete({ id, userId });
+    if (!res.affected) throw new NotFoundException('Vendor mapping not found');
     return { ok: true };
   }
 }

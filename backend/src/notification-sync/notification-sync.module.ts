@@ -7,6 +7,8 @@ import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
 import { CreditCard } from '../credit-card/credit-card.entity';
 import { UserPreferences } from '../users/user-preferences.entity';
+import { VendorMapping } from './vendor-mapping.entity';
+import { TransactionCategory } from '../categories/category.entity';
 import { NotificationSyncController } from './notification-sync.controller';
 import { NotificationSyncService } from './notification-sync.service';
 import { NotificationSyncScheduler } from './notification-sync.scheduler';
@@ -25,6 +27,8 @@ import {
       Account,
       CreditCard,
       UserPreferences,
+      VendorMapping,
+      TransactionCategory,
     ]),
     NotificationsModule,
     TransactionsModule,

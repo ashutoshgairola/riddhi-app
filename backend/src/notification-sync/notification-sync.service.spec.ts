@@ -5,6 +5,8 @@ import { CapturedNotification } from './captured-notification.entity';
 import { DetectedTransaction } from './detected-transaction.entity';
 import { Account } from '../accounts/account.entity';
 import { CreditCard } from '../credit-card/credit-card.entity';
+import { VendorMapping } from './vendor-mapping.entity';
+import { TransactionCategory } from '../categories/category.entity';
 import { NotificationAnalysisService } from './notification-analysis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TransactionsService } from '../transactions/transactions.service';
@@ -46,6 +48,8 @@ describe('NotificationSyncService.ingest', () => {
         { provide: getRepositoryToken(DetectedTransaction), useValue: {} },
         { provide: getRepositoryToken(Account), useValue: {} },
         { provide: getRepositoryToken(CreditCard), useValue: {} },
+        { provide: getRepositoryToken(VendorMapping), useValue: {} },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: {} },
         { provide: NotificationsService, useValue: {} },
         { provide: TransactionsService, useValue: {} },
@@ -87,6 +91,8 @@ describe('NotificationSyncService.listPending', () => {
         { provide: getRepositoryToken(DetectedTransaction), useValue: detectedRepo },
         { provide: getRepositoryToken(Account), useValue: {} },
         { provide: getRepositoryToken(CreditCard), useValue: {} },
+        { provide: getRepositoryToken(VendorMapping), useValue: {} },
+        { provide: getRepositoryToken(TransactionCategory), useValue: {} },
         { provide: NotificationAnalysisService, useValue: {} },
         { provide: NotificationsService, useValue: {} },
         { provide: TransactionsService, useValue: {} },
